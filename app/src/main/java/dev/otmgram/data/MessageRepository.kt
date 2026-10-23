@@ -1,5 +1,6 @@
 package dev.otmgram.data
 
+import dev.otmgram.core.media.VoiceRecording
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
 import kotlinx.coroutines.CoroutineScope
@@ -109,6 +110,11 @@ class ChatSession internal constructor(
     suspend fun sendSticker(sticker: TdApi.Sticker) {
         val input = TdApi.InputSticker(TdApi.InputFileId(sticker.sticker.id), null, sticker.width, sticker.height)
         send(TdApi.InputMessageSticker(input, sticker.emoji))
+    }
+
+    suspend fun sendVoice(recording: VoiceRecording) {
+        val voice = TdApi.InputVoiceNote(TdApi.InputFileLocal(recording.file.path), recording.duration, recording.waveform)
+        send(TdApi.InputMessageVoiceNote(voice, null, null))
     }
 
     /** Sends media; several items go as one album (up to 10, Telegram's limit). */

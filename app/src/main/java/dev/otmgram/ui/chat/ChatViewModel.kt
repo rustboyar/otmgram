@@ -10,6 +10,8 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.otmgram.core.media.AudioPlayer
 import dev.otmgram.core.media.AudioState
+import dev.otmgram.core.media.RecorderState
+import dev.otmgram.core.media.VoiceRecorder
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
 import dev.otmgram.data.ChatHistory
@@ -100,6 +102,7 @@ class ChatViewModel @Inject constructor(
     private val folders: FolderRepository,
     private val stickerRepository: StickerRepository,
     private val outgoingMedia: OutgoingMedia,
+    private val voiceRecorder: VoiceRecorder,
     private val td: TdClient,
     private val audioPlayer: AudioPlayer,
 ) : ViewModel() {
@@ -114,6 +117,9 @@ class ChatViewModel @Inject constructor(
     val messages: StateFlow<List<MessageItem>> = combine(session.history, _header) { history, header ->
         history.toItems(isGroup = header?.isGroup == true)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Voice message being recorded, or null. */
+    val recording: StateFlow<RecorderState?> = voiceRecorder.state
 
     /** Voice message being played, anywhere in the app. */
     val audio: StateFlow<AudioState?> = audioPlayer.state
@@ -286,6 +292,27 @@ class ChatViewModel @Inject constructor(
     fun sendSticker(sticker: TdApi.Sticker) {
         stickerTabs = null
         action { session.sendSticker(sticker) }
+    }
+
+    /** Starts recording a voice message; the microphone permission must be granted. */
+    fun startVoice() {
+        try {
+            voiceRecorder.start()
+        } catch (e: Exception) {
+            voiceRecorder.cancel()
+            notice = "Can't record: ${e.message}"
+        }
+    }
+
+    fun sendVoice() {
+        val recording = voiceRecorder.stop() ?: return
+        action { session.sendVoice(recording) }
+    }
+
+    fun cancelVoice() = voiceRecorder.cancel()
+
+    override fun onCleared() {
+        if (voiceRecorder.state.value != null) voiceRecorder.cancel()
     }
 
     /** Sends photos and videos picked from the gallery. */

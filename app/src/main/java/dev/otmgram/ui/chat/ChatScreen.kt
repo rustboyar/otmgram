@@ -1,5 +1,7 @@
 package dev.otmgram.ui.chat
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -41,10 +44,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import dev.otmgram.core.media.RecorderState
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.otmgram.ui.auth.LoadingScreen
@@ -65,6 +71,7 @@ fun ChatScreen(
     val header by viewModel.header.collectAsStateWithLifecycle()
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val audio by viewModel.audio.collectAsStateWithLifecycle()
+    val recording by viewModel.recording.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val snackbar = remember { SnackbarHostState() }
     val rows = remember(messages) { buildRows(messages) }
@@ -166,18 +173,32 @@ fun ChatScreen(
                 ActivityResultContracts.PickMultipleVisualMedia(MAX_PICKED_MEDIA),
                 viewModel::sendFromGallery,
             )
-            InputBar(
-                composer = viewModel.composer,
-                onCancel = viewModel::cancelComposer,
-                onSend = viewModel::send,
-                onStickers = {
-                    keyboard?.hide()
-                    viewModel.toggleStickers()
-                },
-                onAttach = {
-                    pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
-                },
-            )
+            val context = LocalContext.current
+            val requestMicrophone = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+                if (granted) viewModel.startVoice()
+            }
+            val current = recording
+            if (current != null) {
+                RecordingBar(current, onCancel = viewModel::cancelVoice, onSend = viewModel::sendVoice)
+            } else {
+                InputBar(
+                    composer = viewModel.composer,
+                    onCancel = viewModel::cancelComposer,
+                    onSend = viewModel::send,
+                    onStickers = {
+                        keyboard?.hide()
+                        viewModel.toggleStickers()
+                    },
+                    onAttach = {
+                        pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
+                    },
+                    onRecord = {
+                        val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                            PackageManager.PERMISSION_GRANTED
+                        if (granted) viewModel.startVoice() else requestMicrophone.launch(Manifest.permission.RECORD_AUDIO)
+                    },
+                )
+            }
             viewModel.stickerTabs?.let { tabs ->
                 StickerPicker(
                     tabs = tabs,
@@ -294,6 +315,7 @@ private fun InputBar(
     onSend: (String) -> Unit,
     onStickers: () -> Unit,
     onAttach: () -> Unit,
+    onRecord: () -> Unit,
 ) {
     var text by rememberSaveable { mutableStateOf("") }
     // Editing starts from the message text.
@@ -341,17 +363,40 @@ private fun InputBar(
                 maxLines = 5,
                 modifier = Modifier.weight(1f).testTag("input"),
             )
-            TextButton(
-                onClick = {
-                    onSend(text)
-                    text = ""
-                },
-                enabled = text.isNotBlank(),
-                modifier = Modifier.testTag("send"),
-            ) {
-                Text(if (composer is Composer.Edit) "Save" else "Send")
+            if (text.isBlank() && composer !is Composer.Edit) {
+                TextButton(onClick = onRecord, modifier = Modifier.testTag("record")) {
+                    Text("🎤", style = MaterialTheme.typography.titleLarge)
+                }
+            } else {
+                TextButton(
+                    onClick = {
+                        onSend(text)
+                        text = ""
+                    },
+                    enabled = text.isNotBlank(),
+                    modifier = Modifier.testTag("send"),
+                ) {
+                    Text(if (composer is Composer.Edit) "Save" else "Send")
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun RecordingBar(state: RecorderState, onCancel: () -> Unit, onSend: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(8.dp).testTag("recording"),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("● ", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.titleLarge)
+        Text(formatDuration((state.elapsedMs / 1000).toInt()), style = MaterialTheme.typography.titleMedium)
+        LinearProgressIndicator(
+            progress = { state.level },
+            modifier = Modifier.weight(1f).padding(horizontal = 16.dp),
+        )
+        TextButton(onClick = onCancel, modifier = Modifier.testTag("cancelRecording")) { Text("Cancel") }
+        TextButton(onClick = onSend, modifier = Modifier.testTag("sendRecording")) { Text("Send") }
     }
 }
 

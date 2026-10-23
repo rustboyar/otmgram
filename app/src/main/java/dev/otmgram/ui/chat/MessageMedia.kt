@@ -1,5 +1,6 @@
 package dev.otmgram.ui.chat
 
+import dev.otmgram.core.media.Waveform
 import org.drinkless.tdlib.TdApi
 
 /** Media of a message that Otmgram can show. Sizes are in pixels, durations in seconds. */
@@ -73,7 +74,7 @@ fun TdApi.MessageContent.toMedia(): MessageMedia? = when (this) {
         animation.animation.id, animation.width, animation.height, animation.minithumbnail,
     )
     is TdApi.MessageVoiceNote -> MessageMedia.VoiceNote(
-        voiceNote.voice.id, voiceNote.duration, decodeWaveform(voiceNote.waveform),
+        voiceNote.voice.id, voiceNote.duration, Waveform.decode(voiceNote.waveform),
     )
     is TdApi.MessageVideoNote -> MessageMedia.VideoNote(
         videoNote.video.id, videoNote.thumbnail?.file?.id, videoNote.duration, videoNote.minithumbnail,
@@ -101,18 +102,6 @@ fun TdApi.MessageContent.caption(): String = when (this) {
     is TdApi.MessageAnimation -> caption.text
     is TdApi.MessageVoiceNote -> caption.text
     else -> ""
-}
-
-/** TDLib packs waveforms as 5-bit values. */
-private fun decodeWaveform(data: ByteArray?): List<Int> {
-    if (data == null) return emptyList()
-    val count = data.size * 8 / 5
-    return List(count) { i ->
-        val bit = i * 5
-        val low = data[bit / 8].toInt() and 0xFF
-        val high = (data.getOrNull(bit / 8 + 1)?.toInt() ?: 0) and 0xFF
-        ((low or (high shl 8)) ushr (bit % 8)) and 0x1F
-    }
 }
 
 private const val BUBBLE_PHOTO_MAX = 1280
