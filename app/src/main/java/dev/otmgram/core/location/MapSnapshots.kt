@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.LruCache
 import kotlinx.coroutines.suspendCancellableCoroutine
+import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.Style
@@ -21,7 +22,18 @@ const val MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
  * spot; detailed tiles load only when the user opens the full map.
  */
 object MapSnapshots {
-    private val cache = LruCache<String, Bitmap>(CACHE_SIZE)
+    /** Bounded by memory, not count: a preview is about 1 MB at phone densities. */
+    private val cache = object : LruCache<String, Bitmap>(CACHE_BYTES) {
+        override fun sizeOf(key: String, value: Bitmap) = value.byteCount
+    }
+
+    /**
+     * Loads the map engine on first use, not at app start; most starts never show a map.
+     * Must be called on the main thread before creating a map view or snapshotter.
+     */
+    fun ensureMapEngine(context: Context) {
+        MapLibre.getInstance(context.applicationContext)
+    }
 
     /**
      * Map centered on the point; size in dp, rendered at [density]. Null if rendering
@@ -41,6 +53,7 @@ object MapSnapshots {
             .withStyleBuilder(Style.Builder().fromUri(MAP_STYLE_URL))
             .withPixelRatio(density)
             .withCameraPosition(CameraPosition.Builder().target(LatLng(latitude, longitude)).zoom(ZOOM).build())
+        ensureMapEngine(context)
         val snapshotter = MapSnapshotter(context, options)
         val bitmap = suspendCancellableCoroutine { continuation ->
             snapshotter.start({ continuation.resume(it.bitmap) }, { continuation.resume(null) })
@@ -50,6 +63,6 @@ object MapSnapshots {
         return bitmap
     }
 
-    private const val CACHE_SIZE = 30
+    private const val CACHE_BYTES = 12 * 1024 * 1024
     private const val ZOOM = 10.0
 }

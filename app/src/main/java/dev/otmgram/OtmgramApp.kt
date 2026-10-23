@@ -12,7 +12,6 @@ import dagger.hilt.android.HiltAndroidApp
 import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.sync.CheckScheduler
-import org.maplibre.android.MapLibre
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -38,7 +37,6 @@ class OtmgramApp : Application(), SingletonImageLoader.Factory, Configuration.Pr
             "Started ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}${if (BuildConfig.DEBUG) ", debug" else ""}) " +
                 "on ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})",
         )
-        MapLibre.getInstance(this)
         td.start()
         checkScheduler.start()
     }

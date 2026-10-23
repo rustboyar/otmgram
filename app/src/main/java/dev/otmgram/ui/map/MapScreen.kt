@@ -48,6 +48,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.otmgram.core.location.MAP_STYLE_URL
+import dev.otmgram.core.location.MapSnapshots
 import dev.otmgram.ui.chat.liveStatus
 import dev.otmgram.ui.chat.rememberNow
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -168,7 +169,10 @@ private fun openInMaps(context: Context, latitude: Double, longitude: Double, la
 @Composable
 private fun rememberMapViewWithLifecycle(): MapView {
     val context = LocalContext.current
-    val mapView = remember { MapView(context).apply { onCreate(null) } }
+    val mapView = remember {
+        MapSnapshots.ensureMapEngine(context)
+        MapView(context).apply { onCreate(null) }
+    }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle, mapView) {
         val observer = LifecycleEventObserver { _, event ->
