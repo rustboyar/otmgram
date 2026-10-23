@@ -7,6 +7,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.otmgram.core.media.AudioPlayer
+import dev.otmgram.core.media.AudioState
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
 import dev.otmgram.data.ChatHistory
@@ -51,8 +53,10 @@ data class MessageItem(
     val senderName: String?,
     val forwardedFrom: String?,
     val replyTo: ReplyPreview?,
+    /** Message text, or the caption of [media]. */
     val text: String,
-    /** True if [text] describes media that can't be shown yet. */
+    val media: MessageMedia?,
+    /** True if [text] describes content that can't be shown, like a document. */
     val isMediaPlaceholder: Boolean,
     /** Unix time. */
     val date: Int,
@@ -90,9 +94,10 @@ class ChatViewModel @Inject constructor(
     private val chats: ChatRepository,
     private val folders: FolderRepository,
     private val td: TdClient,
+    private val audioPlayer: AudioPlayer,
 ) : ViewModel() {
 
-    private val chatId: Long = checkNotNull(savedState["chatId"])
+    val chatId: Long = checkNotNull(savedState["chatId"])
     private val session = messages.openChat(chatId, viewModelScope)
 
     private val _header = MutableStateFlow<ChatHeader?>(null)
@@ -102,6 +107,9 @@ class ChatViewModel @Inject constructor(
     val messages: StateFlow<List<MessageItem>> = combine(session.history, _header) { history, header ->
         history.toItems(isGroup = header?.isGroup == true)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Voice message being played, anywhere in the app. */
+    val audio: StateFlow<AudioState?> = audioPlayer.state
 
     var composer by mutableStateOf<Composer>(Composer.New)
         private set
@@ -203,6 +211,16 @@ class ChatViewModel @Inject constructor(
                 canDeleteForEveryone = properties.canBeDeletedForAllUsers,
             )
         }
+    }
+
+    fun playVoice(message: MessageItem, fileId: Int, path: String) {
+        audioPlayer.toggle(fileId, path)
+        markContentOpened(message)
+    }
+
+    /** Marks voice and video messages as listened/viewed. */
+    fun markContentOpened(message: MessageItem) {
+        action { td.send(TdApi.OpenMessageContent(chatId, message.id)) }
     }
 
     fun closeMenu() {
@@ -319,6 +337,7 @@ private const val SEARCH_DELAY_MS = 300L
 private fun ChatHistory.toItems(isGroup: Boolean): List<MessageItem> {
     val byId = messages.associateBy { it.id }
     return messages.mapIndexed { index, message ->
+        val media = message.content.toMedia()
         val older = messages.getOrNull(index + 1)
         val showSender = isGroup && !message.isOutgoing && !message.isService &&
             (older == null || older.isOutgoing || older.isService || older.senderKey() != message.senderKey())
@@ -336,8 +355,9 @@ private fun ChatHistory.toItems(isGroup: Boolean): List<MessageItem> {
                     else -> ReplyPreview(null, "Deleted message")
                 }
             },
-            text = message.summary(),
-            isMediaPlaceholder = message.content !is TdApi.MessageText && !message.isService,
+            text = if (media != null) message.content.caption() else message.summary(),
+            media = media,
+            isMediaPlaceholder = media == null && message.content !is TdApi.MessageText && !message.isService,
             date = message.date,
             isEdited = message.editDate > 0,
             status = if (!message.isOutgoing) null else when {

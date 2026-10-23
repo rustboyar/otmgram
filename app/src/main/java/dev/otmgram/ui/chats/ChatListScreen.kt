@@ -34,6 +34,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -46,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.otmgram.ui.auth.LoadingScreen
+import dev.otmgram.ui.media.TdImage
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -166,7 +168,7 @@ private fun ChatRow(chat: ChatItem, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Avatar(chat.title, chat.id)
+        Avatar(chat)
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -197,13 +199,17 @@ private fun ChatRow(chat: ChatItem, onClick: () -> Unit) {
 }
 
 @Composable
-private fun Avatar(title: String, id: Long) {
-    val initials = title.split(' ').filter { it.isNotEmpty() }.take(2)
+private fun Avatar(chat: ChatItem) {
+    if (chat.photoFileId != null) {
+        TdImage(chat.photoFileId, chat.photoMinithumbnail, Modifier.size(48.dp).clip(CircleShape))
+        return
+    }
+    val initials = chat.title.split(' ').filter { it.isNotEmpty() }.take(2)
         .joinToString("") { it.first().uppercase() }
     Box(
         modifier = Modifier
             .size(48.dp)
-            .background(AVATAR_COLORS[Math.floorMod(id, AVATAR_COLORS.size)], CircleShape),
+            .background(AVATAR_COLORS[Math.floorMod(chat.id, AVATAR_COLORS.size)], CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Text(initials, color = Color.White, style = MaterialTheme.typography.titleMedium)

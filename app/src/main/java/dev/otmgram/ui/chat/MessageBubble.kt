@@ -23,16 +23,27 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.otmgram.core.media.AudioState
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
-fun MessageBubble(message: MessageItem, onLongClick: () -> Unit, onReactionClick: (ReactionChip) -> Unit) {
+fun MessageBubble(
+    message: MessageItem,
+    audio: AudioState?,
+    onLongClick: () -> Unit,
+    onReactionClick: (ReactionChip) -> Unit,
+    onOpenMedia: () -> Unit,
+    onPlayVoice: (fileId: Int, path: String) -> Unit,
+    onVideoNoteSound: () -> Unit,
+) {
     val outgoing = message.isOutgoing
+    val bare = message.media?.isBare == true && message.text.isEmpty()
     Box(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
         contentAlignment = if (outgoing) Alignment.CenterEnd else Alignment.CenterStart,
@@ -41,7 +52,11 @@ fun MessageBubble(message: MessageItem, onLongClick: () -> Unit, onReactionClick
             modifier = Modifier
                 .widthIn(max = 300.dp)
                 .background(
-                    if (outgoing) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                    when {
+                        bare -> Color.Transparent
+                        outgoing -> MaterialTheme.colorScheme.primaryContainer
+                        else -> MaterialTheme.colorScheme.surfaceVariant
+                    },
                     RoundedCornerShape(16.dp),
                 )
                 .combinedClickable(onClick = {}, onLongClick = onLongClick)
@@ -65,11 +80,17 @@ fun MessageBubble(message: MessageItem, onLongClick: () -> Unit, onReactionClick
                 )
             }
             message.replyTo?.let { ReplyQuote(it, Modifier.padding(vertical = 4.dp)) }
-            Text(
-                message.text,
-                style = MaterialTheme.typography.bodyLarge,
-                fontStyle = if (message.isMediaPlaceholder) FontStyle.Italic else FontStyle.Normal,
-            )
+            message.media?.let {
+                MediaContent(it, audio, onOpen = onOpenMedia, onPlayVoice = onPlayVoice, onVideoNoteSound = onVideoNoteSound)
+            }
+            if (message.text.isNotEmpty()) {
+                Text(
+                    message.text,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontStyle = if (message.isMediaPlaceholder) FontStyle.Italic else FontStyle.Normal,
+                    modifier = if (message.media != null) Modifier.padding(top = 4.dp) else Modifier,
+                )
+            }
             if (message.reactions.isNotEmpty()) {
                 FlowRow(
                     modifier = Modifier.padding(top = 4.dp),

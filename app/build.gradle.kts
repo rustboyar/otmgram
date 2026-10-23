@@ -80,6 +80,12 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
 
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui)
+    implementation(libs.media3.ui.compose)
+    implementation(libs.coil.compose)
+    implementation(libs.lottie.compose)
+
     implementation(libs.hilt.android)
     implementation(libs.hilt.lifecycle.viewmodel.compose)
     ksp(libs.hilt.compiler)

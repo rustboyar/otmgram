@@ -53,9 +53,14 @@ import java.time.format.FormatStyle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatScreen(onBack: () -> Unit, viewModel: ChatViewModel = hiltViewModel()) {
+fun ChatScreen(
+    onBack: () -> Unit,
+    onOpenMedia: (chatId: Long, messageId: Long) -> Unit,
+    viewModel: ChatViewModel = hiltViewModel(),
+) {
     val header by viewModel.header.collectAsStateWithLifecycle()
     val messages by viewModel.messages.collectAsStateWithLifecycle()
+    val audio by viewModel.audio.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val snackbar = remember { SnackbarHostState() }
     val rows = remember(messages) { buildRows(messages) }
@@ -135,8 +140,12 @@ fun ChatScreen(onBack: () -> Unit, viewModel: ChatViewModel = hiltViewModel()) {
                         } else {
                             MessageBubble(
                                 row.message,
+                                audio = audio,
                                 onLongClick = { viewModel.openMenu(row.message) },
                                 onReactionClick = { viewModel.toggleReaction(row.message, it) },
+                                onOpenMedia = { onOpenMedia(viewModel.chatId, row.message.id) },
+                                onPlayVoice = { fileId, path -> viewModel.playVoice(row.message, fileId, path) },
+                                onVideoNoteSound = { viewModel.markContentOpened(row.message) },
                             )
                         }
                     }

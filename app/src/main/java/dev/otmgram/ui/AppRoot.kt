@@ -21,6 +21,7 @@ import dev.otmgram.ui.auth.LoadingScreen
 import dev.otmgram.ui.chat.ChatScreen
 import dev.otmgram.ui.chats.ChatListScreen
 import dev.otmgram.ui.folder.FolderPickerScreen
+import dev.otmgram.ui.media.MediaViewerScreen
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -55,7 +56,19 @@ private fun MainNavHost() {
             ChatListScreen(onOpenChat = { navController.navigate("chat/$it") })
         }
         composable("chat/{chatId}", arguments = listOf(navArgument("chatId") { type = NavType.LongType })) {
-            ChatScreen(onBack = navController::popBackStack)
+            ChatScreen(
+                onBack = navController::popBackStack,
+                onOpenMedia = { chatId, messageId -> navController.navigate("media/$chatId/$messageId") },
+            )
+        }
+        composable(
+            "media/{chatId}/{messageId}",
+            arguments = listOf(
+                navArgument("chatId") { type = NavType.LongType },
+                navArgument("messageId") { type = NavType.LongType },
+            ),
+        ) {
+            MediaViewerScreen(onBack = navController::popBackStack)
         }
     }
 }

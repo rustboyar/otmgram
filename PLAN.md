@@ -63,11 +63,14 @@ app/
 
 ### M4 — Media viewing
 - Photos: fullscreen + zoom
-- Videos: ExoPlayer
-- Voice: waveform + seek
+- Videos: thumbnail in the bubble, fullscreen ExoPlayer once downloaded (no streaming yet); hardware decoders with software fallback
+- Voice: waveform with playback progress, one shared player (no seeking yet)
 - Circles: inline muted autoplay clipped to a circle, tap for sound
-- Stickers: WEBP, TGS (Lottie), WEBM (risk: alpha video, may need libvpx extension)
-- Auto-download everything, with progress; cache bounded via `optimizeStorage`
+- GIFs: inline muted loop
+- Inline videos use software decoders first (few hardware decoder instances; the emulator's fails)
+- Stickers: WEBP, TGS (Lottie, merge paths enabled); WEBM shows its still thumbnail (alpha video unsupported by Android decoders)
+- Chat photos as avatars in the chat list
+- Auto-download everything, with progress; cache limit is M7 (`optimizeStorage`)
 
 ### M5 — Media sending
 - Photos/videos via the system photo picker
