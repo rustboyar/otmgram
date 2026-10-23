@@ -13,8 +13,10 @@ val TdApi.Message.isService: Boolean
     }
 
 /** One-line description of a message: its text, or the kind of media with caption. */
-fun TdApi.Message.summary(): String =
-    when (val content = content) {
+fun TdApi.Message.summary(): String = content.summary()
+
+fun TdApi.MessageContent.summary(): String =
+    when (val content = this) {
         is TdApi.MessageText -> content.text.text
         is TdApi.MessagePhoto -> withCaption("Photo", content.caption)
         is TdApi.MessageVideo -> withCaption("Video", content.caption)

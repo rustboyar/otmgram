@@ -1,6 +1,7 @@
 package dev.otmgram.data
 
 import dev.otmgram.core.td.TdClient
+import dev.otmgram.core.td.TdException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
@@ -24,8 +25,10 @@ class MessageRepository @Inject constructor(
 /** Loaded history of a chat, newest message first. */
 data class ChatHistory(
     val messages: List<TdApi.Message> = emptyList(),
-    /** Display names of message senders, by user or chat id. */
+    /** Display names of message senders and forward origins, by user or chat id. */
     val senderNames: Map<Long, String> = emptyMap(),
+    /** Messages replied to by loaded messages, by id. */
+    val repliedMessages: Map<Long, TdApi.Message> = emptyMap(),
     /** Outgoing messages up to this id have been read by the other side. */
     val lastReadOutboxMessageId: Long = 0,
     /** True once the beginning of the chat is loaded. */
@@ -45,6 +48,7 @@ class ChatSession internal constructor(
 ) {
     private val messages = TreeMap<Long, TdApi.Message>(reverseOrder())
     private val senderNames = mutableMapOf<Long, String>()
+    private val repliedMessages = mutableMapOf<Long, TdApi.Message>()
     private var lastReadOutboxMessageId = 0L
     private var reachedStart = false
     private var loading = false
@@ -85,17 +89,33 @@ class ChatSession internal constructor(
                 batch.forEach { messages[it.id] = it }
                 received += batch.size
             }
-            resolveSenderNames()
+            resolveReferences()
         } finally {
             loading = false
             publish()
         }
     }
 
-    suspend fun sendText(text: String) {
-        val content = TdApi.InputMessageText(TdApi.FormattedText(text, emptyArray()), null, true)
-        td.send(TdApi.SendMessage(chatId, null, null, null, null, content))
+    suspend fun sendText(text: String, replyToMessageId: Long? = null) {
+        val replyTo = replyToMessageId?.let { TdApi.InputMessageReplyToMessage(it, null, 0, "") }
+        td.send(TdApi.SendMessage(chatId, null, replyTo, null, null, textContent(text)))
     }
+
+    suspend fun editText(messageId: Long, text: String) {
+        td.send(TdApi.EditMessageText(chatId, messageId, null, textContent(text)))
+    }
+
+    /** [forEveryone] deletes the message for all chat members, not just for you. */
+    suspend fun delete(messageId: Long, forEveryone: Boolean) {
+        td.send(TdApi.DeleteMessages(chatId, longArrayOf(messageId), forEveryone))
+    }
+
+    suspend fun forward(messageId: Long, toChatId: Long) {
+        td.send(TdApi.ForwardMessages(toChatId, null, chatId, longArrayOf(messageId), null, false, false))
+    }
+
+    suspend fun properties(messageId: Long): TdApi.MessageProperties =
+        td.send(TdApi.GetMessageProperties(chatId, messageId))
 
     /** Marks messages shown on screen as read. */
     suspend fun markViewed(messageIds: List<Long>) {
@@ -107,7 +127,7 @@ class ChatSession internal constructor(
             is TdApi.UpdateNewMessage -> {
                 if (update.message.chatId != chatId) return
                 messages[update.message.id] = update.message
-                resolveSenderNames()
+                resolveReferences()
             }
             is TdApi.UpdateMessageSendSucceeded -> {
                 if (update.message.chatId != chatId) return
@@ -145,28 +165,55 @@ class ChatSession internal constructor(
         publish()
     }
 
-    private suspend fun resolveSenderNames() {
-        for (message in messages.values) {
+    /** Loads what loaded messages refer to: sender and forward origin names, replied messages. */
+    private suspend fun resolveReferences() {
+        for (message in messages.values.toList()) {
             when (val sender = message.senderId) {
-                is TdApi.MessageSenderUser -> if (sender.userId !in senderNames) {
-                    val user = td.send(TdApi.GetUser(sender.userId))
-                    senderNames[sender.userId] = "${user.firstName} ${user.lastName}".trim()
+                is TdApi.MessageSenderUser -> resolveUserName(sender.userId)
+                is TdApi.MessageSenderChat -> resolveChatName(sender.chatId)
+            }
+            when (val origin = message.forwardInfo?.origin) {
+                is TdApi.MessageOriginUser -> resolveUserName(origin.senderUserId)
+                is TdApi.MessageOriginChat -> resolveChatName(origin.senderChatId)
+                is TdApi.MessageOriginChannel -> resolveChatName(origin.chatId)
+            }
+            val replyTo = message.replyTo as? TdApi.MessageReplyToMessage ?: continue
+            val known = replyTo.messageId in messages || replyTo.messageId in repliedMessages
+            if (replyTo.chatId == chatId && !known) {
+                val replied = try {
+                    td.send(TdApi.GetRepliedMessage(chatId, message.id))
+                } catch (e: TdException) {
+                    continue // Deleted, or not accessible.
                 }
-                is TdApi.MessageSenderChat -> if (sender.chatId !in senderNames) {
-                    senderNames[sender.chatId] = td.send(TdApi.GetChat(sender.chatId)).title
-                }
+                repliedMessages[replied.id] = replied
+                (replied.senderId as? TdApi.MessageSenderUser)?.let { resolveUserName(it.userId) }
             }
         }
+    }
+
+    private suspend fun resolveUserName(userId: Long) {
+        if (userId in senderNames) return
+        val user = td.send(TdApi.GetUser(userId))
+        senderNames[userId] = "${user.firstName} ${user.lastName}".trim()
+    }
+
+    private suspend fun resolveChatName(chatId: Long) {
+        if (chatId in senderNames) return
+        senderNames[chatId] = td.send(TdApi.GetChat(chatId)).title
     }
 
     private fun publish() {
         _history.value = ChatHistory(
             messages = messages.values.toList(),
             senderNames = senderNames.toMap(),
+            repliedMessages = repliedMessages.toMap(),
             lastReadOutboxMessageId = lastReadOutboxMessageId,
             reachedStart = reachedStart,
         )
     }
+
+    private fun textContent(text: String) =
+        TdApi.InputMessageText(TdApi.FormattedText(text, emptyArray()), null, true)
 
     private companion object {
         const val PAGE_SIZE = 50

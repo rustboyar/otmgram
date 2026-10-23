@@ -1,6 +1,5 @@
 package dev.otmgram.ui.chat
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,10 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -34,8 +31,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -72,10 +67,10 @@ fun ChatScreen(onBack: () -> Unit, viewModel: ChatViewModel = hiltViewModel()) {
     LaunchedEffect(newestId) {
         if (listState.firstVisibleItemIndex <= 1) listState.animateScrollToItem(0)
     }
-    viewModel.error?.let { error ->
-        LaunchedEffect(error) {
-            snackbar.showSnackbar(error)
-            viewModel.errorShown()
+    viewModel.notice?.let { notice ->
+        LaunchedEffect(notice) {
+            snackbar.showSnackbar(notice)
+            viewModel.noticeShown()
         }
     }
 
@@ -100,7 +95,11 @@ fun ChatScreen(onBack: () -> Unit, viewModel: ChatViewModel = hiltViewModel()) {
             ) {
                 messages.forEachIndexed { index, message ->
                     item(key = message.id) {
-                        if (message.isService) ServiceNote(message.text) else MessageBubble(message)
+                        if (message.isService) {
+                            ServiceNote(message.text)
+                        } else {
+                            MessageBubble(message, onLongClick = { viewModel.openMenu(message) })
+                        }
                     }
                     // reverseLayout: the item after a message is shown above it.
                     val older = messages.getOrNull(index + 1)
@@ -109,51 +108,29 @@ fun ChatScreen(onBack: () -> Unit, viewModel: ChatViewModel = hiltViewModel()) {
                     }
                 }
             }
-            InputBar(onSend = viewModel::send)
+            InputBar(
+                composer = viewModel.composer,
+                onCancel = viewModel::cancelComposer,
+                onSend = viewModel::send,
+            )
         }
     }
-}
 
-@Composable
-private fun MessageBubble(message: MessageItem) {
-    val outgoing = message.isOutgoing
-    Box(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-        contentAlignment = if (outgoing) Alignment.CenterEnd else Alignment.CenterStart,
-    ) {
-        Column(
-            modifier = Modifier
-                .widthIn(max = 300.dp)
-                .background(
-                    if (outgoing) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                    RoundedCornerShape(16.dp),
-                )
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-        ) {
-            message.senderName?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-            Text(
-                message.text,
-                style = MaterialTheme.typography.bodyLarge,
-                fontStyle = if (message.isMediaPlaceholder) FontStyle.Italic else FontStyle.Normal,
-            )
-            Text(
-                listOfNotNull(
-                    "edited".takeIf { message.isEdited },
-                    time(message.date),
-                    message.status?.let(::statusMark),
-                ).joinToString(" "),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.align(Alignment.End),
-            )
-        }
+    viewModel.menu?.let { menu ->
+        MessageMenuDialog(
+            menu = menu,
+            onReply = { viewModel.reply(menu.message) },
+            onForward = { viewModel.startForward(menu.message) },
+            onEdit = { viewModel.edit(menu.message) },
+            onDelete = { viewModel.askDelete(menu) },
+            onDismiss = viewModel::closeMenu,
+        )
+    }
+    viewModel.deleting?.let { menu ->
+        DeleteDialog(menu, onDelete = viewModel::delete, onDismiss = viewModel::cancelDelete)
+    }
+    viewModel.forwarding?.let { (_, targets) ->
+        ForwardDialog(targets, onForward = viewModel::forward, onDismiss = viewModel::cancelForward)
     }
 }
 
@@ -170,43 +147,65 @@ private fun ServiceNote(text: String) {
 }
 
 @Composable
-private fun InputBar(onSend: (String) -> Unit) {
+private fun InputBar(composer: Composer, onCancel: () -> Unit, onSend: (String) -> Unit) {
     var text by rememberSaveable { mutableStateOf("") }
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        OutlinedTextField(
-            value = text,
-            onValueChange = { text = it },
-            placeholder = { Text("Message") },
-            maxLines = 5,
-            modifier = Modifier.weight(1f).testTag("input"),
-        )
-        TextButton(
-            onClick = {
-                onSend(text)
-                text = ""
-            },
-            enabled = text.isNotBlank(),
-            modifier = Modifier.testTag("send"),
+    // Editing starts from the message text.
+    LaunchedEffect(composer) {
+        if (composer is Composer.Edit) text = composer.message.text
+    }
+    Column(Modifier.fillMaxWidth()) {
+        val banner = when (composer) {
+            Composer.New -> null
+            is Composer.Reply -> ReplyPreview(
+                composer.message.senderName ?: if (composer.message.isOutgoing) "You" else null,
+                composer.message.text,
+            )
+            is Composer.Edit -> ReplyPreview("Edit message", composer.message.text)
+        }
+        banner?.let {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ReplyQuote(it, Modifier.weight(1f))
+                TextButton(
+                    onClick = {
+                        if (composer is Composer.Edit) text = ""
+                        onCancel()
+                    },
+                    modifier = Modifier.testTag("cancelComposer"),
+                ) { Text("✕") }
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Send")
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                placeholder = { Text("Message") },
+                maxLines = 5,
+                modifier = Modifier.weight(1f).testTag("input"),
+            )
+            TextButton(
+                onClick = {
+                    onSend(text)
+                    text = ""
+                },
+                enabled = text.isNotBlank(),
+                modifier = Modifier.testTag("send"),
+            ) {
+                Text(if (composer is Composer.Edit) "Save" else "Send")
+            }
         }
     }
-}
-
-private fun statusMark(status: MessageStatus) = when (status) {
-    MessageStatus.Sending -> "🕓"
-    MessageStatus.Sent -> "✓"
-    MessageStatus.Read -> "✓✓"
-    MessageStatus.Failed -> "⚠"
 }
 
 private fun day(unixTime: Int): LocalDate =
     Instant.ofEpochSecond(unixTime.toLong()).atZone(ZoneId.systemDefault()).toLocalDate()
 
-private fun time(unixTime: Int): String =
+fun formatTime(unixTime: Int): String =
     Instant.ofEpochSecond(unixTime.toLong()).atZone(ZoneId.systemDefault())
         .format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
 
