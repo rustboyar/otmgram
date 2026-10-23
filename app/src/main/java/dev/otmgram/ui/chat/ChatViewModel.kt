@@ -9,6 +9,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.otmgram.core.location.LiveLocationSharing
+import dev.otmgram.core.location.LiveShare
 import dev.otmgram.core.location.LocationSource
 import dev.otmgram.core.media.AudioPlayer
 import dev.otmgram.core.media.AudioState
@@ -106,6 +108,7 @@ class ChatViewModel @Inject constructor(
     private val outgoingMedia: OutgoingMedia,
     private val voiceRecorder: VoiceRecorder,
     private val locationSource: LocationSource,
+    private val liveLocation: LiveLocationSharing,
     private val td: TdClient,
     private val audioPlayer: AudioPlayer,
 ) : ViewModel() {
@@ -120,6 +123,9 @@ class ChatViewModel @Inject constructor(
     val messages: StateFlow<List<MessageItem>> = combine(session.history, _header) { history, header ->
         history.toItems(isGroup = header?.isGroup == true)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Live location being shared from this device, in any chat. */
+    val liveShare: StateFlow<LiveShare?> = liveLocation.share
 
     /** Voice message being recorded, or null. */
     val recording: StateFlow<RecorderState?> = voiceRecorder.state
@@ -330,6 +336,13 @@ class ChatViewModel @Inject constructor(
             }
         }
     }
+
+    /** Shares live location here; the location permission must be granted. */
+    fun startLiveLocation(periodSeconds: Int) {
+        liveLocation.start(chatId, header.value?.title.orEmpty(), periodSeconds)
+    }
+
+    fun stopLiveLocation() = liveLocation.stop()
 
     /** Sends photos and videos picked from the gallery. */
     fun sendFromGallery(uris: List<Uri>) {

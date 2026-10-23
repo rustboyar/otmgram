@@ -80,14 +80,14 @@ app/
 - Sticker picker: recent stickers + installed sets
 
 ### M6 — Location
-- Map: MapLibre with OpenFreeMap vector tiles (no API key, no Google services); adds roughly 5–10 MB per ABI
+- Map: MapLibre with OpenFreeMap vector tiles (no API key, no Google services); bubbles use static snapshots, the full map is interactive
 - View: map preview in the bubble (static or live, live ones move with each update and show "updated X min ago"); tap opens a full map
 - Send current location: one-time pin from Android's `LocationManager` (no Play services), fine location permission
 - Share live location for 15 min / 1 h / 8 h (`inputMessageLocation` with `live_period`):
   - foreground service of type `location` with a permanent notification and a stop action; started while the app is open, so "while using the app" location permission is enough (no background location); notification permission for the notification
   - sends `editMessageLiveLocation` when the position changes noticeably, at most every ~30 s; stops on expiry, on "stop sharing" or on logout
   - must not set the account online (see "always offline")
-- Open questions: proximity alerts and heading (probably skip); behaviour if the service is killed (resume or stop sharing)
+- Not done: proximity alerts and heading. If the service is killed, sharing is ended in the chat (no resume)
 
 ### M7 — Notifications (periodic check)
 - `PeriodicWorkRequest` every X minutes (setting, minimum 15 — WorkManager limit), requires network

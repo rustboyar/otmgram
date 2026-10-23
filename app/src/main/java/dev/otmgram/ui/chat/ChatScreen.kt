@@ -1,10 +1,13 @@
 package dev.otmgram.ui.chat
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -54,6 +58,8 @@ import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import dev.otmgram.core.location.LiveLocationSharing
+import dev.otmgram.core.location.LiveShare
 import dev.otmgram.core.media.RecorderState
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -78,6 +84,8 @@ fun ChatScreen(
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val audio by viewModel.audio.collectAsStateWithLifecycle()
     val recording by viewModel.recording.collectAsStateWithLifecycle()
+    val liveShare by viewModel.liveShare.collectAsStateWithLifecycle()
+    var choosingLivePeriod by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val snackbar = remember { SnackbarHostState() }
     val rows = remember(messages) { buildRows(messages) }
@@ -189,6 +197,45 @@ fun ChatScreen(
             val requestLocation = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestMultiplePermissions(),
             ) { result -> if (result.values.any { it }) viewModel.sendCurrentLocation() }
+            var pendingLivePeriod by rememberSaveable { mutableStateOf<Int?>(null) }
+            val requestLiveLocation = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestMultiplePermissions(),
+            ) { result ->
+                val period = pendingLivePeriod
+                val located = result.filterKeys { it != Manifest.permission.POST_NOTIFICATIONS }.values.any { it } ||
+                    hasLocationPermission(context)
+                if (period != null && located) viewModel.startLiveLocation(period)
+                pendingLivePeriod = null
+            }
+            liveShare?.takeIf { it.chatId == viewModel.chatId }?.let { share ->
+                LiveShareBanner(share, onStop = viewModel::stopLiveLocation)
+            }
+            if (choosingLivePeriod) {
+                LivePeriodDialog(
+                    onChoose = { period ->
+                        choosingLivePeriod = false
+                        val needed = buildList {
+                            if (!hasLocationPermission(context)) {
+                                add(Manifest.permission.ACCESS_FINE_LOCATION)
+                                add(Manifest.permission.ACCESS_COARSE_LOCATION)
+                            }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                                PackageManager.PERMISSION_GRANTED
+                            ) {
+                                add(Manifest.permission.POST_NOTIFICATIONS)
+                            }
+                        }
+                        if (needed.isEmpty()) {
+                            viewModel.startLiveLocation(period)
+                        } else {
+                            pendingLivePeriod = period
+                            requestLiveLocation.launch(needed.toTypedArray())
+                        }
+                    },
+                    onDismiss = { choosingLivePeriod = false },
+                )
+            }
             val requestMicrophone = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
                 if (granted) viewModel.startVoice()
             }
@@ -207,10 +254,9 @@ fun ChatScreen(
                     onPickMedia = {
                         pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
                     },
+                    onShareLiveLocation = { choosingLivePeriod = true },
                     onSendLocation = {
-                        val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
-                            PackageManager.PERMISSION_GRANTED
-                        if (granted) {
+                        if (hasLocationPermission(context)) {
                             viewModel.sendCurrentLocation()
                         } else {
                             requestLocation.launch(
@@ -343,6 +389,7 @@ private fun InputBar(
     onStickers: () -> Unit,
     onPickMedia: () -> Unit,
     onSendLocation: () -> Unit,
+    onShareLiveLocation: () -> Unit,
     onRecordVideoNote: () -> Unit,
     onRecord: () -> Unit,
 ) {
@@ -379,7 +426,7 @@ private fun InputBar(
             modifier = Modifier.fillMaxWidth().padding(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AttachMenu(onPickMedia = onPickMedia, onSendLocation = onSendLocation)
+            AttachMenu(onPickMedia = onPickMedia, onSendLocation = onSendLocation, onShareLiveLocation = onShareLiveLocation)
             TextButton(onClick = onStickers, modifier = Modifier.testTag("stickers")) {
                 Text("☺", style = MaterialTheme.typography.titleLarge)
             }
@@ -414,7 +461,7 @@ private fun InputBar(
 }
 
 @Composable
-private fun AttachMenu(onPickMedia: () -> Unit, onSendLocation: () -> Unit) {
+private fun AttachMenu(onPickMedia: () -> Unit, onSendLocation: () -> Unit, onShareLiveLocation: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         TextButton(onClick = { open = true }, modifier = Modifier.testTag("attach")) {
@@ -442,9 +489,61 @@ private fun AttachMenu(onPickMedia: () -> Unit, onSendLocation: () -> Unit) {
                 },
                 modifier = Modifier.testTag("attachLocation"),
             )
+            DropdownMenuItem(
+                text = { Text("Live location") },
+                onClick = {
+                    open = false
+                    onShareLiveLocation()
+                },
+                modifier = Modifier.testTag("attachLiveLocation"),
+            )
         }
     }
 }
+
+@Composable
+private fun LivePeriodDialog(onChoose: (Int) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.semantics { testTagsAsResourceId = true },
+        title = { Text("Share live location for") },
+        text = {
+            Column {
+                LiveLocationSharing.PERIODS.forEach { (seconds, label) ->
+                    ListItem(
+                        headlineContent = { Text(label) },
+                        modifier = Modifier.clickable { onChoose(seconds) }.testTag("live-$seconds"),
+                    )
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun LiveShareBanner(share: LiveShare, onStop: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.secondaryContainer)
+            .padding(start = 16.dp)
+            .testTag("liveShareBanner"),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "📍 Sharing live location until ${formatTime(share.endsAt)}",
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = onStop, modifier = Modifier.testTag("stopLiveLocation")) { Text("Stop") }
+    }
+}
+
+private fun hasLocationPermission(context: Context) =
+    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
 @Composable
 private fun RecordingBar(state: RecorderState, onCancel: () -> Unit, onSend: () -> Unit) {

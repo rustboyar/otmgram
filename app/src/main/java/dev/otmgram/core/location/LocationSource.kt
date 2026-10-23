@@ -4,11 +4,14 @@ import android.Manifest
 import android.content.Context
 import android.location.Location
 import android.location.LocationManager
+import android.location.LocationRequest
 import android.os.Build
 import android.os.CancellationSignal
 import androidx.annotation.RequiresPermission
 import androidx.core.content.ContextCompat
+import androidx.core.location.LocationListenerCompat
 import androidx.core.location.LocationManagerCompat
+import androidx.core.location.LocationRequestCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
@@ -33,19 +36,42 @@ class LocationSource @Inject constructor(
         return candidates.firstOrNull { it in manager.allProviders && manager.isProviderEnabled(it) }
     }
 
-    /** A fresh fix, or the last known one if none arrives in time; null if location is off. */
+    /**
+     * A fresh, accurate fix, or the last known one if none arrives in time; null if location
+     * is off. High accuracy makes the fused provider use GPS, not just network location.
+     */
     @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     suspend fun current(): Location? {
         val provider = provider() ?: return null
         return withTimeoutOrNull(FIX_TIMEOUT_MS) {
             suspendCancellableCoroutine { continuation ->
                 val signal = CancellationSignal()
-                LocationManagerCompat.getCurrentLocation(
-                    manager, provider, signal, ContextCompat.getMainExecutor(context),
-                ) { continuation.resume(it) }
+                val executor = ContextCompat.getMainExecutor(context)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    val request = LocationRequest.Builder(0).setQuality(LocationRequest.QUALITY_HIGH_ACCURACY).build()
+                    manager.getCurrentLocation(provider, request, signal, executor) { continuation.resume(it) }
+                } else {
+                    LocationManagerCompat.getCurrentLocation(manager, provider, signal, executor) { continuation.resume(it) }
+                }
                 continuation.invokeOnCancellation { signal.cancel() }
             }
         } ?: manager.getLastKnownLocation(provider)
+    }
+
+    /** Accurate position updates, at most every [intervalMs] and after moving [minDistanceMeters]. */
+    @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
+    fun requestUpdates(intervalMs: Long, minDistanceMeters: Float, listener: LocationListenerCompat): Boolean {
+        val provider = provider() ?: return false
+        val request = LocationRequestCompat.Builder(intervalMs)
+            .setMinUpdateDistanceMeters(minDistanceMeters)
+            .setQuality(LocationRequestCompat.QUALITY_HIGH_ACCURACY)
+            .build()
+        LocationManagerCompat.requestLocationUpdates(manager, provider, request, ContextCompat.getMainExecutor(context), listener)
+        return true
+    }
+
+    fun removeUpdates(listener: LocationListenerCompat) {
+        LocationManagerCompat.removeUpdates(manager, listener)
     }
 
     private companion object {

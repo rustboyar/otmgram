@@ -68,7 +68,11 @@ fun TdApi.Message.toMedia(): MessageMedia? = when (val content = content) {
         longitude = content.location.location.longitude,
         live = MessageMedia.LiveInfo(
             updatedAt = editDate.takeIf { it > 0 } ?: date,
-            expiresAt = if (content.location.livePeriod == LIVE_FOREVER) Int.MAX_VALUE else date + content.location.livePeriod,
+            expiresAt = when {
+                content.expiresIn == 0 -> 0 // Stopped or expired.
+                content.location.livePeriod == LIVE_FOREVER -> Int.MAX_VALUE
+                else -> date + content.location.livePeriod
+            },
         ),
     )
     else -> content.toMedia()
