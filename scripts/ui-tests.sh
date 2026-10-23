@@ -2,7 +2,7 @@
 # Runs the UI tests (app/src/androidTest) on the connected device or emulator, keeping the
 # app's data: Gradle's connectedAndroidTest uninstalls the app afterwards, which logs it out.
 #   scripts/ui-tests.sh                 all UI tests
-#   scripts/ui-tests.sh DeleteDialogTest one class (simple name, in dev.otmgram.ui.chat)
+#   scripts/ui-tests.sh ui.chat.DeleteDialogTest   one class (relative to dev.otmgram)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
@@ -14,5 +14,5 @@ ADB="$ANDROID_HOME/platform-tools/adb"
 "$ADB" install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk >/dev/null
 
 args=()
-[ $# -gt 0 ] && args=(-e class "dev.otmgram.ui.chat.$1")
+[ $# -gt 0 ] && args=(-e class "dev.otmgram.$1")
 "$ADB" shell am instrument -w "${args[@]}" dev.otmgram.test/androidx.test.runner.AndroidJUnitRunner

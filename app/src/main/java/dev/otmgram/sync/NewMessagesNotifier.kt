@@ -1,6 +1,7 @@
 package dev.otmgram.sync
 
 import android.Manifest
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -15,6 +16,7 @@ import dev.otmgram.MainActivity
 import dev.otmgram.R
 import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TdClient
+import dev.otmgram.data.AppSettings
 import dev.otmgram.data.ChatRepository
 import dev.otmgram.data.FolderChat
 import dev.otmgram.data.isGroup
@@ -24,8 +26,8 @@ import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** New messages of one chat, newest first. */
-private class ChatNews(val title: String, val lines: List<String>, val newest: Int)
+/** New messages of one chat: its title, message lines newest first, the newest one's time. */
+internal class ChatNews(val title: String, val lines: List<String>, val newest: Int)
 
 /**
  * Notifies about messages in the folder's chats that arrived since the app was last open:
@@ -37,6 +39,7 @@ class NewMessagesNotifier @Inject constructor(
     private val td: TdClient,
     private val chats: ChatRepository,
     private val state: NotificationState,
+    private val settings: AppSettings,
 ) {
     suspend fun check(folderId: Int) {
         val seenUpTo = state.seenUpTo()
@@ -47,7 +50,7 @@ class NewMessagesNotifier @Inject constructor(
         val count = news.sumOf { it.lines.size }
         when {
             news.isEmpty() -> cancel().also { AppLog.i(TAG, "Nothing new") } // Read elsewhere, or nothing new.
-            news.any { it.newest > notifiedUpTo } -> show(news).also { AppLog.i(TAG, "Notified: $count new in ${news.size} chats") }
+            news.any { it.newest > notifiedUpTo } -> show(news, withText = settings.showMessageText.first()).also { AppLog.i(TAG, "Notified: $count new in ${news.size} chats") }
             else -> AppLog.i(TAG, "Already notified about $count new") // Already notified about all of it.
         }
         state.markNotified()
@@ -90,13 +93,22 @@ class NewMessagesNotifier @Inject constructor(
         return unread.take(limit)
     }
 
-    private fun show(news: List<ChatNews>) {
+    /**
+     * Shows [news] as one notification. Without [withText] it says only who wrote, so no
+     * message text can reach the lock screen whatever Android's settings; with it, the
+     * lock screen gets a text-free version when Android hides sensitive content there.
+     */
+    internal fun show(news: List<ChatNews>, withText: Boolean) {
         val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
         if (!granted) return
         val manager = context.getSystemService(NotificationManager::class.java)
+        // A new id: lock screen visibility can only be set when a channel is created.
+        manager.deleteNotificationChannel(OLD_CHANNEL_ID)
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "New messages", NotificationManager.IMPORTANCE_DEFAULT),
+            NotificationChannel(CHANNEL_ID, "New messages", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+            },
         )
         // Always the chat list: a fresh task, whatever screen was open before.
         val open = PendingIntent.getActivity(
@@ -105,12 +117,31 @@ class NewMessagesNotifier @Inject constructor(
             PendingIntent.FLAG_IMMUTABLE,
         )
         val count = news.sumOf { it.lines.size }
+        val countText = if (count == 1) "1 new message" else "$count new messages"
+        // What a locked phone shows instead: no text, no names.
+        val locked = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_message)
+            .setContentTitle("Otmgram")
+            .setContentText(countText)
+            .build()
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_message)
             .setContentIntent(open)
             .setAutoCancel(true)
             .setNumber(count)
-        if (count == 1) {
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(locked)
+        if (!withText) {
+            if (news.size == 1) {
+                builder.setContentTitle(news.single().title).setContentText(countText)
+            } else {
+                val style = NotificationCompat.InboxStyle()
+                news.forEach { chat -> style.addLine("${chat.title} · ${chat.lines.size} new") }
+                builder.setContentTitle(countText)
+                    .setContentText(news.joinToString(", ") { it.title })
+                    .setStyle(style)
+            }
+        } else if (count == 1) {
             val only = news.single()
             builder.setContentTitle(only.title).setContentText(only.lines.single())
         } else {
@@ -126,7 +157,7 @@ class NewMessagesNotifier @Inject constructor(
                     style.addLine("${chat.title}: ${chat.lines.first()}$more")
                 }
             }
-            builder.setContentTitle("$count new messages")
+            builder.setContentTitle(countText)
                 .setContentText(news.joinToString(", ") { it.title })
                 .setStyle(style.setSummaryText(chatsText))
         }
@@ -135,7 +166,8 @@ class NewMessagesNotifier @Inject constructor(
 
     private companion object {
         const val TAG = "Notifier"
-        const val CHANNEL_ID = "new_messages"
+        const val CHANNEL_ID = "messages"
+        const val OLD_CHANNEL_ID = "new_messages"
         const val NOTIFICATION_ID = 2
         const val MAX_MESSAGES_PER_CHAT = 20
 

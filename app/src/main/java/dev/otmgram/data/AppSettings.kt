@@ -30,6 +30,7 @@ enum class CacheLimit(val bytes: Long?, val label: String) {
 private val CHECK_INTERVAL = stringPreferencesKey("check_interval")
 private val COMPRESS = booleanPreferencesKey("compress_by_default")
 private val CACHE_LIMIT = stringPreferencesKey("cache_limit")
+private val MESSAGE_TEXT = booleanPreferencesKey("notification_message_text")
 
 /** Settings of the app on this phone; they stay across logins. */
 @Singleton
@@ -45,6 +46,13 @@ class AppSettings @Inject constructor(
 
     val cacheLimit: Flow<CacheLimit> = context.settings.data.map { prefs ->
         CacheLimit.entries.find { it.name == prefs[CACHE_LIMIT] } ?: CacheLimit.Gb2
+    }
+
+    /** Whether notifications include message text; off keeps it off the lock screen. */
+    val showMessageText: Flow<Boolean> = context.settings.data.map { it[MESSAGE_TEXT] ?: false }
+
+    suspend fun setShowMessageText(show: Boolean) {
+        context.settings.edit { it[MESSAGE_TEXT] = show }
     }
 
     suspend fun setCheckInterval(interval: CheckInterval) {

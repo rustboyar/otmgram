@@ -92,6 +92,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
     val folderName by viewModel.folderName.collectAsStateWithLifecycle()
     val interval by viewModel.checkInterval.collectAsStateWithLifecycle()
     val compress by viewModel.compressByDefault.collectAsStateWithLifecycle()
+    val showText by viewModel.showMessageText.collectAsStateWithLifecycle()
     val cacheLimit by viewModel.cacheLimit.collectAsStateWithLifecycle()
     var confirmLogout by rememberSaveable { mutableStateOf(false) }
     var confirmClear by rememberSaveable { mutableStateOf(false) }
@@ -154,6 +155,26 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                     CheckInterval.entries.forEach { option ->
                         Chip(option.label, option == interval, { viewModel.setCheckInterval(option) }, Modifier.testTag("interval-${option.name}"))
                     }
+                }
+            }
+
+            Card {
+                Row(
+                    modifier = Modifier.toggleable(showText, role = Role.Switch, onValueChange = viewModel::setShowMessageText).testTag("showMessageText"),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Title(
+                            "Show message text",
+                            if (showText) {
+                                "Notifications show what was written. Android shows it on the lock screen too, unless you hide sensitive content there."
+                            } else {
+                                "Notifications only say who wrote, so no text reaches the lock screen."
+                            },
+                        )
+                    }
+                    OtmSwitch(showText, onCheckedChange = null)
                 }
             }
 
@@ -304,6 +325,7 @@ class SettingsViewModel @Inject constructor(
 
     val checkInterval = settings.checkInterval.stateIn(viewModelScope, SharingStarted.Eagerly, CheckInterval.Minutes15)
     val compressByDefault = settings.compressByDefault.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val showMessageText = settings.showMessageText.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val cacheLimit = settings.cacheLimit.stateIn(viewModelScope, SharingStarted.Eagerly, CacheLimit.Gb2)
 
     /** The name on top as being edited; null until loaded. */
@@ -338,6 +360,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setCheckInterval(interval: CheckInterval) {
         viewModelScope.launch { settings.setCheckInterval(interval) }
+    }
+
+    fun setShowMessageText(show: Boolean) {
+        viewModelScope.launch { settings.setShowMessageText(show) }
     }
 
     fun setCompressByDefault(compress: Boolean) {

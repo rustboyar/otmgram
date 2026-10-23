@@ -99,6 +99,7 @@ app/
 - Debug builds: `adb shell am broadcast -n dev.otmgram/.debug.RunCheckReceiver [--ez renotify true]` runs the check now
 - Android Doze may delay checks beyond 15 min while the phone is idle — acceptable for this app
 - Interval setting: M10
+- Message text in notifications is off by default: they say only who wrote ("Anna · 2 new messages"), so nothing readable reaches the lock screen whatever Android's settings. With it on, the lock screen gets a text-free version when Android hides sensitive content
 
 ### M8 — Compression and files
 - Photos: scaled to 2560 px on the long side, JPEG, orientation applied (Telegram's servers recompress photos anyway; this saves the upload)
