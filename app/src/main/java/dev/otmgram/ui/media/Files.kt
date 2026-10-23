@@ -55,6 +55,15 @@ fun rememberFile(fileId: Int?, priority: Int = FileRepository.PRIORITY_VISIBLE):
     return file
 }
 
+/** State of a TDLib file without downloading it; null until known. */
+@Composable
+fun rememberFileState(fileId: Int): TdApi.File? {
+    val files = LocalFileRepository.current
+    val flow = remember(fileId) { files.observe(fileId) }
+    val file by flow.collectAsState(initial = null)
+    return file
+}
+
 /** Local path of a TDLib file once fully downloaded. */
 @Composable
 fun rememberDownloadedPath(fileId: Int?, priority: Int = FileRepository.PRIORITY_VISIBLE): String? =

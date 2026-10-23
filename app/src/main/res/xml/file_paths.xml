@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Files that other apps may open, via FileProvider: downloads, and our own sent files
+     (TDLib keeps the uploaded copy as their local file). -->
+<paths>
+    <files-path name="tdlib" path="tdlib/" />
+    <cache-path name="outgoing" path="outgoing/" />
+</paths>

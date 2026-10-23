@@ -1,6 +1,7 @@
 package dev.otmgram.ui.chat
 
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,17 +22,21 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import dev.otmgram.ui.media.formatSize
 
 // Dialogs are separate windows; each exposes its test tags for UI Automator.
 private val dialogModifier = Modifier.semantics { testTagsAsResourceId = true }
@@ -43,6 +48,7 @@ fun MessageMenuDialog(
     onReply: () -> Unit,
     onForward: () -> Unit,
     onEdit: () -> Unit,
+    onSave: () -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -63,6 +69,7 @@ fun MessageMenuDialog(
                 if (menu.canReply) MenuItem("Reply", "reply", onReply)
                 if (menu.canForward) MenuItem("Forward", "forward", onForward)
                 if (menu.canEdit) MenuItem("Edit", "edit", onEdit)
+                if (menu.canSave) MenuItem("Save to Downloads", "save", onSave)
                 if (menu.canDeleteForSelf || menu.canDeleteForEveryone) MenuItem("Delete", "delete", onDelete)
             }
         },
@@ -160,3 +167,38 @@ fun MediaPreviewDialog(uris: List<Uri>, onSend: (caption: String, compress: Bool
 }
 
 private val PREVIEW_SIZE = 96.dp
+
+/** Picked files (sent as they are) with a caption field, before sending. */
+@Composable
+fun FilesPreviewDialog(uris: List<Uri>, onSend: (caption: String) -> Unit, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    var caption by rememberSaveable { mutableStateOf("") }
+    val names = remember(uris) {
+        uris.map { uri ->
+            context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)
+                ?.use { if (it.moveToFirst()) "${it.getString(0)} · ${formatSize(it.getLong(1))}" else null }
+                ?: uri.lastPathSegment.orEmpty()
+        }
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = dialogModifier,
+        title = { Text(if (uris.size == 1) "Send file" else "Send ${uris.size} files") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                names.forEach { Text("📄 $it", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                OutlinedTextField(
+                    value = caption,
+                    onValueChange = { caption = it },
+                    placeholder = { Text("Caption") },
+                    maxLines = 4,
+                    modifier = Modifier.fillMaxWidth().testTag("fileCaption"),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSend(caption) }, modifier = Modifier.testTag("sendFiles")) { Text("Send") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}

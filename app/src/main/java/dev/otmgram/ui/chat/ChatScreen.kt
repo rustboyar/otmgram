@@ -189,6 +189,10 @@ fun ChatScreen(
                 }
             }
             val keyboard = LocalSoftwareKeyboardController.current
+            val pickFiles = rememberLauncherForActivityResult(
+                ActivityResultContracts.OpenMultipleDocuments(),
+                viewModel::pickedFiles,
+            )
             val pickMedia = rememberLauncherForActivityResult(
                 ActivityResultContracts.PickMultipleVisualMedia(MAX_PICKED_MEDIA),
                 viewModel::pickedMedia,
@@ -261,6 +265,7 @@ fun ChatScreen(
                         pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
                     },
                     onShareLiveLocation = { choosingLivePeriod = true },
+                    onPickFiles = { pickFiles.launch(arrayOf("*/*")) },
                     onSendLocation = {
                         if (hasLocationPermission(context)) {
                             viewModel.sendCurrentLocation()
@@ -290,6 +295,13 @@ fun ChatScreen(
         }
     }
 
+    if (viewModel.pendingFiles.isNotEmpty()) {
+        FilesPreviewDialog(
+            uris = viewModel.pendingFiles,
+            onSend = viewModel::sendPendingFiles,
+            onDismiss = viewModel::cancelPendingFiles,
+        )
+    }
     if (viewModel.pendingMedia.isNotEmpty()) {
         MediaPreviewDialog(
             uris = viewModel.pendingMedia,
@@ -304,6 +316,7 @@ fun ChatScreen(
             onReply = { viewModel.reply(menu.message) },
             onForward = { viewModel.startForward(menu.message) },
             onEdit = { viewModel.edit(menu.message) },
+            onSave = { viewModel.saveToDownloads(menu.message) },
             onDelete = { viewModel.askDelete(menu) },
             onDismiss = viewModel::closeMenu,
         )
@@ -401,6 +414,7 @@ private fun InputBar(
     onSend: (String) -> Unit,
     onStickers: () -> Unit,
     onPickMedia: () -> Unit,
+    onPickFiles: () -> Unit,
     onSendLocation: () -> Unit,
     onShareLiveLocation: () -> Unit,
     onRecordVideoNote: () -> Unit,
@@ -439,7 +453,12 @@ private fun InputBar(
             modifier = Modifier.fillMaxWidth().padding(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AttachMenu(onPickMedia = onPickMedia, onSendLocation = onSendLocation, onShareLiveLocation = onShareLiveLocation)
+            AttachMenu(
+                onPickMedia = onPickMedia,
+                onPickFiles = onPickFiles,
+                onSendLocation = onSendLocation,
+                onShareLiveLocation = onShareLiveLocation,
+            )
             TextButton(onClick = onStickers, modifier = Modifier.testTag("stickers")) {
                 Text("☺", style = MaterialTheme.typography.titleLarge)
             }
@@ -475,7 +494,12 @@ private fun InputBar(
 }
 
 @Composable
-private fun AttachMenu(onPickMedia: () -> Unit, onSendLocation: () -> Unit, onShareLiveLocation: () -> Unit) {
+private fun AttachMenu(
+    onPickMedia: () -> Unit,
+    onPickFiles: () -> Unit,
+    onSendLocation: () -> Unit,
+    onShareLiveLocation: () -> Unit,
+) {
     var open by remember { mutableStateOf(false) }
     Box {
         TextButton(onClick = { open = true }, modifier = Modifier.testTag("attach")) {
@@ -494,6 +518,14 @@ private fun AttachMenu(onPickMedia: () -> Unit, onSendLocation: () -> Unit, onSh
                     onPickMedia()
                 },
                 modifier = Modifier.testTag("attachMedia"),
+            )
+            DropdownMenuItem(
+                text = { Text("File") },
+                onClick = {
+                    open = false
+                    onPickFiles()
+                },
+                modifier = Modifier.testTag("attachFile"),
             )
             DropdownMenuItem(
                 text = { Text("Location") },

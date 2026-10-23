@@ -81,7 +81,14 @@ fun MessageBubble(
             }
             message.replyTo?.let { ReplyQuote(it, Modifier.padding(vertical = 4.dp)) }
             message.media?.let {
-                MediaContent(it, audio, onOpen = onOpenMedia, onPlayVoice = onPlayVoice, onVideoNoteSound = onVideoNoteSound)
+                MediaContent(
+                    it,
+                    audio,
+                    onOpen = onOpenMedia,
+                    onLongClick = onLongClick,
+                    onPlayVoice = onPlayVoice,
+                    onVideoNoteSound = onVideoNoteSound,
+                )
             }
             if (message.text.isNotEmpty()) {
                 Text(

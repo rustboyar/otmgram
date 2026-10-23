@@ -19,6 +19,8 @@ import dev.otmgram.core.media.VoiceRecorder
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
 import dev.otmgram.data.ChatHistory
+import dev.otmgram.data.DownloadsFolder
+import dev.otmgram.data.FileRepository
 import dev.otmgram.data.ChatRepository
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.MessageRepository
@@ -42,6 +44,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
+import java.io.File
 import javax.inject.Inject
 
 data class ChatHeader(val title: String, val isGroup: Boolean)
@@ -94,6 +97,8 @@ data class MessageMenu(
     val canEdit: Boolean,
     val canDeleteForSelf: Boolean,
     val canDeleteForEveryone: Boolean,
+    /** Files can be saved to the device's Downloads folder. */
+    val canSave: Boolean,
 )
 
 data class ForwardTarget(val chatId: Long, val title: String)
@@ -109,6 +114,8 @@ class ChatViewModel @Inject constructor(
     private val voiceRecorder: VoiceRecorder,
     private val locationSource: LocationSource,
     private val liveLocation: LiveLocationSharing,
+    private val files: FileRepository,
+    private val downloads: DownloadsFolder,
     private val td: TdClient,
     private val audioPlayer: AudioPlayer,
 ) : ViewModel() {
@@ -250,6 +257,7 @@ class ChatViewModel @Inject constructor(
                 canEdit = properties.canBeEdited && message.hasEditableText,
                 canDeleteForSelf = properties.canBeDeletedOnlyForSelf,
                 canDeleteForEveryone = properties.canBeDeletedForAllUsers,
+                canSave = message.media is MessageMedia.Document,
             )
         }
     }
@@ -266,6 +274,41 @@ class ChatViewModel @Inject constructor(
 
     fun closeMenu() {
         menu = null
+    }
+
+    fun saveToDownloads(message: MessageItem) {
+        menu = null
+        val document = message.media as? MessageMedia.Document ?: return
+        action {
+            notice = "Downloading ${document.name}…"
+            val file = files.downloadNow(document.fileId)
+            downloads.save(File(file.local.path), document.name, document.mimeType)
+            notice = "Saved to Downloads"
+        }
+    }
+
+    /** Files picked to send, waiting for a caption. */
+    var pendingFiles by mutableStateOf<List<Uri>>(emptyList())
+        private set
+
+    fun pickedFiles(uris: List<Uri>) {
+        pendingFiles = uris
+    }
+
+    /** Sends the picked files as they are; several go as an album, captioned on the first. */
+    fun sendPendingFiles(caption: String) {
+        val uris = pendingFiles
+        pendingFiles = emptyList()
+        action {
+            val contents = uris.mapIndexed { index, uri ->
+                outgoingMedia.document(uri, caption = if (index == 0) caption else "")
+            }
+            session.sendMedia(contents)
+        }
+    }
+
+    fun cancelPendingFiles() {
+        pendingFiles = emptyList()
     }
 
     fun react(message: MessageItem, emoji: String) {
