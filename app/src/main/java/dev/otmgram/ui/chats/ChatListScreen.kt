@@ -96,7 +96,7 @@ fun ChatListScreen(
             SkyBand(
                 folderName,
                 actions = {
-                    IconBtn(OtmIcons.Search, "Find in $folderName", { searching = true }, tag = "search")
+                    IconBtn(OtmIcons.Search, "Find a chat", { searching = true }, tag = "search")
                     IconBtn(OtmIcons.More, "Settings", onOpenSettings, tag = "menu")
                 },
             )

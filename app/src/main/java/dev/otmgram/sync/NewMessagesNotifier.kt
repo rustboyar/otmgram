@@ -17,6 +17,7 @@ import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
 import dev.otmgram.data.ChatRepository
 import dev.otmgram.data.FolderChat
+import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.isGroup
 import dev.otmgram.ui.summary
 import kotlinx.coroutines.flow.first
@@ -36,6 +37,7 @@ class NewMessagesNotifier @Inject constructor(
     @ApplicationContext private val context: Context,
     private val td: TdClient,
     private val chats: ChatRepository,
+    private val folders: FolderRepository,
     private val state: NotificationState,
 ) {
     suspend fun check(folderId: Int) {
@@ -89,10 +91,14 @@ class NewMessagesNotifier @Inject constructor(
         return unread.take(limit)
     }
 
-    private suspend fun folderName(folderId: Int): String? = try {
-        td.send(TdApi.GetChatFolder(folderId)).name.text.text
-    } catch (e: TdException) {
-        null
+    /** The name shown over the chat list; null if it's set to show none. */
+    private suspend fun folderName(folderId: Int): String? {
+        folders.headerName.first()?.let { return it.ifBlank { null } }
+        return try {
+            td.send(TdApi.GetChatFolder(folderId)).name.text.text
+        } catch (e: TdException) {
+            null
+        }
     }
 
     private fun show(news: List<ChatNews>, folderName: String?) {

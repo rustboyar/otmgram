@@ -1,6 +1,7 @@
 package dev.otmgram.sync
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
@@ -11,12 +12,16 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.otmgram.core.td.TdClient
+import dev.otmgram.core.td.TdException
+import dev.otmgram.data.AppSettings
+import dev.otmgram.data.StorageRepository
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.di.ApplicationScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import java.util.concurrent.TimeUnit
@@ -34,19 +39,30 @@ class CheckScheduler @Inject constructor(
     private val folders: FolderRepository,
     private val notifier: NewMessagesNotifier,
     private val state: NotificationState,
+    private val settings: AppSettings,
+    private val storage: StorageRepository,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
     fun start() {
         scope.launch {
-            combine(td.authorizationState, folders.selectedFolderId) { auth, folder ->
+            combine(td.authorizationState, folders.selectedFolderId, settings.checkInterval) { auth, folder, interval ->
                 when (auth) {
-                    is TdApi.AuthorizationStateReady -> folder != null
-                    is TdApi.AuthorizationStateWaitPhoneNumber, is TdApi.AuthorizationStateLoggingOut -> false
+                    is TdApi.AuthorizationStateReady -> interval.minutes.takeIf { folder != null } ?: OFF
+                    is TdApi.AuthorizationStateWaitPhoneNumber, is TdApi.AuthorizationStateLoggingOut -> OFF
                     // Starting up (possibly for a check right now): don't decide yet.
                     else -> null
                 }
-            }.filterNotNull().distinctUntilChanged().collect { active ->
-                if (active) schedule() else unschedule()
+            }.filterNotNull().distinctUntilChanged().collect { minutes ->
+                if (minutes == OFF) unschedule() else schedule(minutes)
+            }
+        }
+        // Keep downloads within the limit: once per start, and after each check.
+        scope.launch {
+            td.authorizationState.first { it is TdApi.AuthorizationStateReady }
+            try {
+                storage.applyLimit()
+            } catch (e: TdException) {
+                Log.w("CheckScheduler", "Storage limit failed", e)
             }
         }
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
@@ -61,8 +77,8 @@ class CheckScheduler @Inject constructor(
         })
     }
 
-    private fun schedule() {
-        val request = PeriodicWorkRequestBuilder<CheckWorker>(INTERVAL_MINUTES, TimeUnit.MINUTES)
+    private fun schedule(minutes: Long) {
+        val request = PeriodicWorkRequestBuilder<CheckWorker>(minutes, TimeUnit.MINUTES)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .build()
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
@@ -76,7 +92,7 @@ class CheckScheduler @Inject constructor(
     private companion object {
         const val WORK_NAME = "check_new_messages"
 
-        /** Android's minimum for periodic work. */
-        const val INTERVAL_MINUTES = 15L
+        /** Not checking: logged out, no folder, or checks turned off. */
+        const val OFF = 0L
     }
 }

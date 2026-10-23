@@ -43,9 +43,8 @@ class ChatListViewModel @Inject constructor(
     td: TdClient,
 ) : ViewModel() {
 
-    val folderName: StateFlow<String> = combine(folders.folders, folders.selectedFolderId) { all, id ->
-        all?.find { it.id == id }?.name.orEmpty()
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, "")
+    /** The name on top: the folder's, or what the user set instead (possibly nothing). */
+    val folderName: StateFlow<String> = folders.displayName.stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
     private val _query = MutableStateFlow("")
 

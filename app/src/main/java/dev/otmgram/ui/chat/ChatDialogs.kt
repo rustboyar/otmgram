@@ -378,10 +378,11 @@ fun OtmSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit)
 fun MediaPreviewScreen(
     uris: List<Uri>,
     chatTitle: String,
+    compressByDefault: Boolean,
     onSend: (caption: String, compress: Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var compress by rememberSaveable { mutableStateOf(true) }
+    var compress by rememberSaveable { mutableStateOf(compressByDefault) }
     var shown by rememberSaveable { mutableIntStateOf(0) }
     SendPreview(
         title = if (uris.size == 1) "1 item" else "${uris.size} items",

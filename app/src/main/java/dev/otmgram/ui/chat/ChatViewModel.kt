@@ -18,6 +18,7 @@ import dev.otmgram.core.media.RecorderState
 import dev.otmgram.core.media.VoiceRecorder
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
+import dev.otmgram.data.AppSettings
 import dev.otmgram.data.ChatHistory
 import dev.otmgram.data.DownloadsFolder
 import dev.otmgram.data.FileRepository
@@ -145,6 +146,7 @@ class ChatViewModel @Inject constructor(
     private val downloads: DownloadsFolder,
     private val td: TdClient,
     private val audioPlayer: AudioPlayer,
+    appSettings: AppSettings,
 ) : ViewModel() {
 
     val chatId: Long = checkNotNull(savedState["chatId"])
@@ -163,6 +165,9 @@ class ChatViewModel @Inject constructor(
 
     /** Voice message being recorded, or null. */
     val recording: StateFlow<RecorderState?> = voiceRecorder.state
+
+    /** Whether "Compress" starts on in the send preview. */
+    val compressByDefault: StateFlow<Boolean> = appSettings.compressByDefault.stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     /** Voice message being played, anywhere in the app. */
     val audio: StateFlow<AudioState?> = audioPlayer.state

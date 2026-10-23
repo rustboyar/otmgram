@@ -349,7 +349,8 @@ fun ChatScreen(
         FilesPreviewScreen(viewModel.pendingFiles, title, onSend = viewModel::sendPendingFiles, onDismiss = viewModel::cancelPendingFiles)
     }
     if (viewModel.pendingMedia.isNotEmpty()) {
-        MediaPreviewScreen(viewModel.pendingMedia, title, onSend = viewModel::sendPendingMedia, onDismiss = viewModel::cancelPendingMedia)
+        val compress by viewModel.compressByDefault.collectAsStateWithLifecycle()
+        MediaPreviewScreen(viewModel.pendingMedia, title, compress, onSend = viewModel::sendPendingMedia, onDismiss = viewModel::cancelPendingMedia)
     }
     viewModel.menu?.let { menu ->
         MessageMenuOverlay(

@@ -12,6 +12,7 @@ import dagger.assisted.AssistedInject
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
 import dev.otmgram.data.FolderRepository
+import dev.otmgram.data.StorageRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -27,6 +28,7 @@ class CheckWorker @AssistedInject constructor(
     private val folders: FolderRepository,
     private val notifier: NewMessagesNotifier,
     private val state: NotificationState,
+    private val storage: StorageRepository,
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
@@ -49,6 +51,7 @@ class CheckWorker @AssistedInject constructor(
             ?: return Result.success()
         return try {
             notifier.check(folderId)
+            storage.applyLimit()
             Result.success()
         } catch (e: TdException) {
             Log.w(TAG, "Check failed", e)
