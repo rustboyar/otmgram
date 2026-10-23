@@ -191,7 +191,7 @@ fun ChatScreen(
             val keyboard = LocalSoftwareKeyboardController.current
             val pickMedia = rememberLauncherForActivityResult(
                 ActivityResultContracts.PickMultipleVisualMedia(MAX_PICKED_MEDIA),
-                viewModel::sendFromGallery,
+                viewModel::pickedMedia,
             )
             val context = LocalContext.current
             val requestLocation = rememberLauncherForActivityResult(
@@ -284,6 +284,13 @@ fun ChatScreen(
         }
     }
 
+    if (viewModel.pendingMedia.isNotEmpty()) {
+        MediaPreviewDialog(
+            uris = viewModel.pendingMedia,
+            onSend = viewModel::sendPendingMedia,
+            onDismiss = viewModel::cancelPendingMedia,
+        )
+    }
     viewModel.menu?.let { menu ->
         MessageMenuDialog(
             menu = menu,
@@ -450,7 +457,8 @@ private fun InputBar(
                         onSend(text)
                         text = ""
                     },
-                    enabled = text.isNotBlank(),
+                    // Editing a caption may leave it empty.
+                    enabled = text.isNotBlank() || (composer is Composer.Edit && composer.message.media != null),
                     modifier = Modifier.testTag("send"),
                 ) {
                     Text(if (composer is Composer.Edit) "Save" else "Send")

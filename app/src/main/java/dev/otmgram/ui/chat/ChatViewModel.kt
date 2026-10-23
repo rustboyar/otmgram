@@ -209,14 +209,20 @@ class ChatViewModel @Inject constructor(
     fun loadOlder() = action { session.loadOlder() }
 
     fun send(text: String) {
-        if (text.isBlank()) return
         val mode = composer
+        // A caption may be removed by saving it empty; text messages can't be empty.
+        val removingCaption = mode is Composer.Edit && mode.message.media != null
+        if (text.isBlank() && !removingCaption) return
         composer = Composer.New
         action {
             when (mode) {
                 Composer.New -> session.sendText(text.trim())
                 is Composer.Reply -> session.sendText(text.trim(), replyToMessageId = mode.message.id)
-                is Composer.Edit -> session.editText(mode.message.id, text.trim())
+                is Composer.Edit -> if (mode.message.media != null) {
+                    session.editCaption(mode.message.id, text.trim())
+                } else {
+                    session.editText(mode.message.id, text.trim())
+                }
             }
         }
     }
@@ -241,7 +247,7 @@ class ChatViewModel @Inject constructor(
                 reactions = reactions,
                 canReply = properties.canBeReplied,
                 canForward = properties.canBeForwarded,
-                canEdit = properties.canBeEdited && !message.isMediaPlaceholder,
+                canEdit = properties.canBeEdited && message.hasEditableText,
                 canDeleteForSelf = properties.canBeDeletedOnlyForSelf,
                 canDeleteForEveryone = properties.canBeDeletedForAllUsers,
             )
@@ -344,13 +350,28 @@ class ChatViewModel @Inject constructor(
 
     fun stopLiveLocation() = liveLocation.stop()
 
-    /** Sends photos and videos picked from the gallery. */
-    fun sendFromGallery(uris: List<Uri>) {
-        if (uris.isEmpty()) return
+    /** Photos and videos picked from the gallery, waiting for a caption before sending. */
+    var pendingMedia by mutableStateOf<List<Uri>>(emptyList())
+        private set
+
+    fun pickedMedia(uris: List<Uri>) {
+        pendingMedia = uris
+    }
+
+    /** Sends the picked media; an album gets the caption on its first item. */
+    fun sendPendingMedia(caption: String) {
+        val uris = pendingMedia
+        pendingMedia = emptyList()
         action {
-            val contents = uris.mapNotNull { outgoingMedia.fromGallery(it) }
+            val contents = uris.mapIndexedNotNull { index, uri ->
+                outgoingMedia.fromGallery(uri, caption = if (index == 0) caption else "")
+            }
             session.sendMedia(contents)
         }
+    }
+
+    fun cancelPendingMedia() {
+        pendingMedia = emptyList()
     }
 
     fun startSearch() {
@@ -448,6 +469,14 @@ class ChatViewModel @Inject constructor(
 }
 
 private const val SEARCH_DELAY_MS = 300L
+
+/** Text messages, and media that can carry a caption. */
+private val MessageItem.hasEditableText: Boolean
+    get() = when (media) {
+        null -> !isMediaPlaceholder && !isService
+        is MessageMedia.Photo, is MessageMedia.Video, is MessageMedia.Animation, is MessageMedia.VoiceNote -> true
+        else -> false
+    }
 
 private fun ChatHistory.toItems(isGroup: Boolean): List<MessageItem> {
     val byId = messages.associateBy { it.id }

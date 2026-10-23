@@ -46,6 +46,7 @@ camerax-video = { module = "androidx.camera:camera-video", version.ref = "camera
 camerax-view = { module = "androidx.camera:camera-view", version.ref = "camerax" }
 maplibre = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+coil-video = { module = "io.coil-kt.coil3:coil-video", version.ref = "coil" }
 lottie-compose = { module = "com.airbnb.android:lottie-compose", version.ref = "lottie" }
 
 [plugins]

@@ -91,6 +91,7 @@ dependencies {
     implementation(libs.camerax.view)
     implementation(libs.maplibre)
     implementation(libs.coil.compose)
+    implementation(libs.coil.video)
     implementation(libs.lottie.compose)
 
     implementation(libs.hilt.android)

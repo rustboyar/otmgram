@@ -56,7 +56,7 @@ app/
 
 ### M3 — Messages
 - Paged history, send text
-- Reply, forward (folder chats only), edit, delete (for me / for everyone)
+- Reply, forward (folder chats only), edit (text, or the caption of photos, videos, GIFs and voice messages), delete (for me / for everyone)
 - Reactions: display + add
 - Mark as read on screen (`viewMessages`)
 - Groups: sender names + avatars
@@ -74,7 +74,7 @@ app/
 - Auto-download everything, with progress; cache limit is M8 (`optimizeStorage`)
 
 ### M5 — Media sending
-- Photos/videos via the system photo picker, copied to the cache for TDLib; several picks go as an album (no captions yet)
+- Photos/videos via the system photo picker, copied to the cache for TDLib; preview with a caption before sending; several picks go as an album (caption on the first item)
 - Voice: tap 🎤 to record OGG/Opus (MediaRecorder), level sampled for the waveform, cancel or send; < 0.7 s discarded
 - Circles: separate recording screen, CameraX front camera (mirrored) → Media3 Transformer crops to 480×480, max 60 s; decoders fall back to software
 - Sticker picker: recent stickers + installed sets

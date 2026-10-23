@@ -148,6 +148,10 @@ class ChatSession internal constructor(
         td.send(TdApi.EditMessageText(chatId, messageId, null, textContent(text)))
     }
 
+    suspend fun editCaption(messageId: Long, caption: String) {
+        td.send(TdApi.EditMessageCaption(chatId, messageId, null, TdApi.FormattedText(caption, emptyArray()), false))
+    }
+
     /** [forEveryone] deletes the message for all chat members, not just for you. */
     suspend fun delete(messageId: Long, forEveryone: Boolean) {
         td.send(TdApi.DeleteMessages(chatId, longArrayOf(messageId), forEveryone))

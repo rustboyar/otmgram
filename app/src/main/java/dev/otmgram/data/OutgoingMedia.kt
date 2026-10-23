@@ -22,30 +22,30 @@ class OutgoingMedia @Inject constructor(
     /** Directory for files waiting to be uploaded; TDLib reads them by path. */
     val directory: File get() = File(context.cacheDir, "outgoing").apply { mkdirs() }
 
-    /** A photo or video picked from the gallery; null for other types. */
-    suspend fun fromGallery(uri: Uri): TdApi.InputMessageContent? = withContext(Dispatchers.IO) {
+    /** A photo or video picked from the gallery, with an optional caption; null for other types. */
+    suspend fun fromGallery(uri: Uri, caption: String = ""): TdApi.InputMessageContent? = withContext(Dispatchers.IO) {
         val type = context.contentResolver.getType(uri).orEmpty()
         val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(type)
         when {
-            type.startsWith("image/") -> photo(copy(uri, extension ?: "jpg"))
-            type.startsWith("video/") -> video(copy(uri, extension ?: "mp4"))
+            type.startsWith("image/") -> photo(copy(uri, extension ?: "jpg"), caption)
+            type.startsWith("video/") -> video(copy(uri, extension ?: "mp4"), caption)
             else -> null
         }
     }
 
-    private fun photo(file: File): TdApi.InputMessageContent {
+    private fun photo(file: File, caption: String): TdApi.InputMessageContent {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(file.path, bounds)
         val photo = TdApi.InputPhoto(local(file), null, null, intArrayOf(), bounds.outWidth, bounds.outHeight)
-        return TdApi.InputMessagePhoto(photo, null, false, null, false)
+        return TdApi.InputMessagePhoto(photo, formatted(caption), false, null, false)
     }
 
-    private fun video(file: File): TdApi.InputMessageContent {
+    private fun video(file: File, caption: String): TdApi.InputMessageContent {
         val info = videoInfo(file)
         val video = TdApi.InputVideo(
             local(file), null, null, 0, intArrayOf(), info.duration, info.width, info.height, true,
         )
-        return TdApi.InputMessageVideo(video, null, false, null, false)
+        return TdApi.InputMessageVideo(video, formatted(caption), false, null, false)
     }
 
     /** Duration in seconds and display size, accounting for rotation. */
@@ -74,6 +74,8 @@ class OutgoingMedia @Inject constructor(
     }
 
     private fun local(file: File) = TdApi.InputFileLocal(file.path)
+
+    private fun formatted(text: String) = TdApi.FormattedText(text.trim(), emptyArray())
 }
 
 data class VideoInfo(val duration: Int, val width: Int, val height: Int)
