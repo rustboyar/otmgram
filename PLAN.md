@@ -9,7 +9,8 @@ A minimal Android Telegram client that only shows chats from one chat folder, to
 - Search only within the folder's chats (no global search, no contacts, no "new chat")
 - Chat types: private 1:1 chats and groups (no channels, no forum topics — forum groups are shown as a flat history)
 - Messages: send/receive text, reply, forward (targets limited to folder chats), edit, delete, reactions
-- Media, view + send: photos, videos, voice messages, video circles, stickers
+- Media, view + send: photos, videos, voice messages, video circles, stickers, files
+- Sending compresses photos and videos by default (toggle per send; files keep the original)
 - Location: view received (static and live) locations, send current location, share live location
 - Media auto-download: always (bounded by a cache size limit)
 - Notifications for folder chats only, via a periodic background check (no push)
@@ -71,7 +72,7 @@ app/
 - Inline videos use software decoders first (few hardware decoder instances; the emulator's fails)
 - Stickers: WEBP, TGS (Lottie, merge paths enabled); WEBM shows its still thumbnail (alpha video unsupported by Android decoders)
 - Chat photos as avatars in the chat list
-- Auto-download everything, with progress; cache limit is M8 (`optimizeStorage`)
+- Auto-download everything, with progress; cache limit is M10 (`optimizeStorage`)
 
 ### M5 — Media sending
 - Photos/videos via the system photo picker, copied to the cache for TDLib; preview with a caption before sending; several picks go as an album (caption on the first item)
@@ -97,9 +98,21 @@ app/
 - Tap opens the chat list (fresh task); opening the app clears it
 - Debug builds: `adb shell am broadcast -n dev.otmgram/.debug.RunCheckReceiver [--ez renotify true]` runs the check now
 - Android Doze may delay checks beyond 15 min while the phone is idle — acceptable for this app
-- Interval setting: M8
+- Interval setting: M10
 
-### M8 — Polish
+### M8 — Compression and files
+- Photos: scaled to 2560 px on the long side, JPEG, orientation applied (Telegram's servers recompress photos anyway; this saves the upload)
+- Videos: re-encoded to 720p H.264 (short side), ~2.5 Mbps, AAC; skipped if already that small; Telegram doesn't recompress videos
+- "Compress" toggle in the send preview, on by default
+- Files: 📎 → File, any type, several at once (album of files), caption; the original is sent
+- Received files: bubble with name, size, progress; download only when tapped; open in another app (FileProvider); "Save to Downloads" in the message menu; audio files are shown as files
+
+### M9 — Design
+- Design artifact in Claude: screen mockups and tokens (colours, type, spacing, shapes), starting from screenshots of the current screens
+- Translated by hand into the Compose theme and components (no code export)
+- Before M10, so the settings screen is built once in the new design
+
+### M10 — Polish
 - Settings: storage usage, cache limit, logout
 - Error and offline states
 
