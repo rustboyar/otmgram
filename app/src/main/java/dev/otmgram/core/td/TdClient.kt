@@ -125,7 +125,8 @@ class TdClient @Inject constructor(
         applicationVersion = BuildConfig.VERSION_NAME
     }
 
-    private fun sendIgnoringResult(function: TdApi.Function<*>) {
+    /** Sends [function] without waiting for the result; errors are only logged. */
+    fun sendIgnoringResult(function: TdApi.Function<*>) {
         // The first updates can arrive before Client.create() returns in start();
         // the lock waits for the client to be assigned.
         val client = synchronized(this) { client }

@@ -8,6 +8,7 @@ import dev.otmgram.core.td.TdException
 import dev.otmgram.data.AuthRepository
 import dev.otmgram.data.ChatRepository
 import dev.otmgram.data.FolderChat
+import dev.otmgram.ui.summary
 import dev.otmgram.data.FolderRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,7 +20,6 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
 
 data class ChatItem(
@@ -75,7 +75,7 @@ private fun FolderChat.toItem() = ChatItem(
     id = chat.id,
     title = if (isSavedMessages) "Saved Messages" else chat.title,
     preview = chat.lastMessage?.let { message ->
-        val text = message.preview()
+        val text = message.summary()
         when {
             isSavedMessages -> text
             message.isOutgoing -> "You: $text"
@@ -86,28 +86,3 @@ private fun FolderChat.toItem() = ChatItem(
     date = chat.lastMessage?.date,
     unreadCount = chat.unreadCount,
 )
-
-private fun TdApi.Message.preview(): String =
-    when (val content = content) {
-        is TdApi.MessageText -> content.text.text
-        is TdApi.MessagePhoto -> withCaption("Photo", content.caption)
-        is TdApi.MessageVideo -> withCaption("Video", content.caption)
-        is TdApi.MessageVoiceNote -> withCaption("Voice message", content.caption)
-        is TdApi.MessageVideoNote -> "Video message"
-        is TdApi.MessageSticker -> "${content.sticker.emoji} Sticker".trim()
-        is TdApi.MessageAnimation -> withCaption("GIF", content.caption)
-        is TdApi.MessageDocument -> withCaption(content.document.fileName.ifEmpty { "File" }, content.caption)
-        is TdApi.MessageAudio -> withCaption("Audio", content.caption)
-        is TdApi.MessageCall -> "Call"
-        is TdApi.MessageBasicGroupChatCreate, is TdApi.MessageSupergroupChatCreate -> "Group created"
-        is TdApi.MessageChatAddMembers, is TdApi.MessageChatJoinByLink -> "Joined the group"
-        is TdApi.MessageChatDeleteMember -> "Left the group"
-        is TdApi.MessageChatChangeTitle -> "Group renamed to \"${content.title}\""
-        is TdApi.MessageChatChangePhoto -> "Group photo changed"
-        is TdApi.MessagePinMessage -> "Pinned a message"
-        is TdApi.MessageContactRegistered -> "Joined Telegram"
-        else -> "Message"
-    }
-
-private fun withCaption(kind: String, caption: TdApi.FormattedText) =
-    if (caption.text.isEmpty()) kind else "$kind, ${caption.text}"

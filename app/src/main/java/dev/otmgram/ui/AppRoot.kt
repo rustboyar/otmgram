@@ -6,6 +6,11 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.otmgram.data.AuthRepository
 import dev.otmgram.data.AuthState
@@ -13,6 +18,7 @@ import dev.otmgram.data.Folder
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.ui.auth.AuthScreen
 import dev.otmgram.ui.auth.LoadingScreen
+import dev.otmgram.ui.chat.ChatScreen
 import dev.otmgram.ui.chats.ChatListScreen
 import dev.otmgram.ui.folder.FolderPickerScreen
 import kotlinx.coroutines.flow.SharingStarted
@@ -37,7 +43,20 @@ fun AppRoot(viewModel: RootViewModel = hiltViewModel()) {
         RootState.Loading -> LoadingScreen()
         is RootState.Auth -> AuthScreen(s.state, hiltViewModel())
         is RootState.PickFolder -> FolderPickerScreen(s.folders, s.previousMissing)
-        RootState.Chats -> ChatListScreen()
+        RootState.Chats -> MainNavHost()
+    }
+}
+
+@Composable
+private fun MainNavHost() {
+    val navController = rememberNavController()
+    NavHost(navController, startDestination = "chats") {
+        composable("chats") {
+            ChatListScreen(onOpenChat = { navController.navigate("chat/$it") })
+        }
+        composable("chat/{chatId}", arguments = listOf(navArgument("chatId") { type = NavType.LongType })) {
+            ChatScreen(onBack = navController::popBackStack)
+        }
     }
 }
 

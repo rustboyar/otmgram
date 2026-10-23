@@ -13,6 +13,17 @@ import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** Basic groups and supergroups, but not channels. */
+val TdApi.Chat.isGroup: Boolean
+    get() = when (val type = type) {
+        is TdApi.ChatTypeBasicGroup -> true
+        is TdApi.ChatTypeSupergroup -> !type.isChannel
+        else -> false
+    }
+
+/** The chat with yourself. */
+fun TdApi.Chat.isSavedMessages(myUserId: Long): Boolean = (type as? TdApi.ChatTypePrivate)?.userId == myUserId
+
 /** A chat of the folder list, with what's needed to display it. */
 data class FolderChat(
     val chat: TdApi.Chat,
@@ -46,7 +57,7 @@ class ChatRepository @Inject constructor(
                 val chat = td.send(TdApi.GetChat(id))
                 FolderChat(
                     chat = chat,
-                    isSavedMessages = (chat.type as? TdApi.ChatTypePrivate)?.userId == myId,
+                    isSavedMessages = chat.isSavedMessages(myId),
                     lastSenderName = lastSenderName(chat),
                 )
             }
@@ -54,12 +65,7 @@ class ChatRepository @Inject constructor(
 
     private suspend fun lastSenderName(chat: TdApi.Chat): String? {
         val message = chat.lastMessage ?: return null
-        val isGroup = when (val type = chat.type) {
-            is TdApi.ChatTypeBasicGroup -> true
-            is TdApi.ChatTypeSupergroup -> !type.isChannel
-            else -> false
-        }
-        if (!isGroup || message.isOutgoing) return null
+        if (!chat.isGroup || message.isOutgoing) return null
         return when (val sender = message.senderId) {
             is TdApi.MessageSenderUser -> td.send(TdApi.GetUser(sender.userId)).firstName
             is TdApi.MessageSenderChat -> td.send(TdApi.GetChat(sender.chatId)).title

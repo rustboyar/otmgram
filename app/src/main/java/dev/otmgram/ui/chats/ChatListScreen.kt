@@ -1,6 +1,7 @@
 package dev.otmgram.ui.chats
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,7 +56,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatListScreen(viewModel: ChatListViewModel = hiltViewModel()) {
+fun ChatListScreen(onOpenChat: (Long) -> Unit, viewModel: ChatListViewModel = hiltViewModel()) {
     val folderName by viewModel.folderName.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
     val chats by viewModel.chats.collectAsStateWithLifecycle()
@@ -108,7 +109,7 @@ fun ChatListScreen(viewModel: ChatListViewModel = hiltViewModel()) {
                 Text(if (query.isBlank()) "No chats in this folder" else "No chats found")
             }
             else -> LazyColumn(Modifier.fillMaxSize().padding(padding).testTag("chats")) {
-                items(list, key = { it.id }) { ChatRow(it) }
+                items(list, key = { it.id }) { chat -> ChatRow(chat, onClick = { onOpenChat(chat.id) }) }
             }
         }
     }
@@ -155,9 +156,13 @@ private fun SearchBar(query: String, onQueryChange: (String) -> Unit, onClose: (
 }
 
 @Composable
-private fun ChatRow(chat: ChatItem) {
+private fun ChatRow(chat: ChatItem, onClick: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .testTag("chat-${chat.title}")
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
