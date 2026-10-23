@@ -11,8 +11,10 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -20,7 +22,11 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
@@ -134,8 +140,9 @@ fun Minithumbnail(minithumbnail: TdApi.Minithumbnail?, modifier: Modifier = Modi
 /**
  * Muted, looping video from a local file, e.g. video messages and GIFs.
  *
- * Uses software decoders first: these videos are small, several can play at once, and
- * devices have few hardware decoder instances (the emulator's fails on them altogether).
+ * Hardware decoders first, which take far less battery; if one fails (devices have few
+ * instances, and the emulator's fails on these videos), software ones take over. Paused
+ * while the app is in the background.
  */
 @OptIn(UnstableApi::class)
 @Composable
@@ -148,7 +155,8 @@ fun LoopingVideo(
     onProgress: ((Float) -> Unit)? = null,
 ) {
     val context = LocalContext.current
-    val player = remember(path) { buildPlayer(context, path, softwareDecoders = true) }
+    var softwareDecoders by remember(path) { mutableStateOf(false) }
+    val player = remember(path, softwareDecoders) { buildPlayer(context, path, softwareDecoders) }
     // Muted: loop silently. With sound: play once from the start, then report the end.
     DisposableEffect(player, muted) {
         player.volume = if (muted) 0f else 1f
@@ -159,11 +167,27 @@ fun LoopingVideo(
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_ENDED) onEnded()
             }
+
+            override fun onPlayerError(error: PlaybackException) {
+                if (!softwareDecoders) softwareDecoders = true
+            }
         }
         player.addListener(listener)
         onDispose { player.removeListener(listener) }
     }
     DisposableEffect(player) { onDispose { player.release() } }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle, player) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_STOP -> player.pause()
+                Lifecycle.Event.ON_START -> player.play()
+                else -> Unit
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
     if (onProgress != null) {
         LaunchedEffect(player) {
             while (true) {
