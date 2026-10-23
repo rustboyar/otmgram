@@ -1,10 +1,12 @@
 package dev.otmgram.ui.chat
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
@@ -28,13 +30,18 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.rememberLottieComposition
+import dev.otmgram.core.location.MapSnapshots
 import dev.otmgram.core.media.AudioState
 import dev.otmgram.data.FileRepository
 import dev.otmgram.ui.media.LoopingVideo
@@ -43,6 +50,7 @@ import dev.otmgram.ui.media.TdImage
 import dev.otmgram.ui.media.rememberDownloadedPath
 import dev.otmgram.ui.media.rememberFile
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.zip.GZIPInputStream
@@ -82,7 +90,58 @@ fun MediaContent(
         is MessageMedia.VoiceNote -> VoiceNote(media, audio, onPlayVoice)
         is MessageMedia.VideoNote -> VideoNote(media, onVideoNoteSound)
         is MessageMedia.Sticker -> StickerView(media, Modifier.size(STICKER_SIZE).testTag("sticker-${media.kind}"))
+        is MessageMedia.Location -> LocationPreview(media, onOpen)
     }
+}
+
+@Composable
+private fun LocationPreview(media: MessageMedia.Location, onOpen: () -> Unit) {
+    val context = LocalContext.current
+    val density = LocalDensity.current.density
+    val map by produceState<ImageBitmap?>(null, media.latitude, media.longitude) {
+        value = MapSnapshots.get(
+            context, media.latitude, media.longitude, MAP_WIDTH_DP, MAP_HEIGHT_DP, density,
+        )?.asImageBitmap()
+    }
+    Column(Modifier.width(MAP_WIDTH_DP.dp).clickable(onClick = onOpen).testTag("location")) {
+        Box(
+            modifier = Modifier
+                .width(MAP_WIDTH_DP.dp)
+                .height(MAP_HEIGHT_DP.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+            contentAlignment = Alignment.Center,
+        ) {
+            map?.let { Image(it, contentDescription = null, modifier = Modifier.matchParentSize()) }
+            Text("📍", style = MaterialTheme.typography.headlineMedium)
+        }
+        media.live?.let { live ->
+            Text(
+                liveStatus(live, rememberNow()),
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.padding(top = 4.dp).testTag("liveStatus"),
+            )
+        }
+    }
+}
+
+/** Current Unix time, refreshed every 30 s. */
+@Composable
+fun rememberNow(): Int {
+    val now by produceState((System.currentTimeMillis() / 1000).toInt()) {
+        while (true) {
+            delay(30_000)
+            value = (System.currentTimeMillis() / 1000).toInt()
+        }
+    }
+    return now
+}
+
+fun liveStatus(live: MessageMedia.LiveInfo, now: Int): String {
+    if (now >= live.expiresAt) return "Live location ended"
+    val minutes = (now - live.updatedAt).coerceAtLeast(0) / 60
+    val updated = if (minutes == 0) "updated just now" else "updated $minutes min ago"
+    return "Live location · $updated"
 }
 
 @Composable
@@ -240,6 +299,8 @@ private fun resample(levels: List<Int>, count: Int): List<Int> =
 fun formatDuration(seconds: Int): String = "%d:%02d".format(seconds / 60, seconds % 60)
 
 private val MEDIA_WIDTH = 260.dp
+private const val MAP_WIDTH_DP = 260
+private const val MAP_HEIGHT_DP = 150
 private val VIDEO_NOTE_SIZE = 200.dp
 private val STICKER_SIZE = 160.dp
 private const val WAVEFORM_BARS = 40

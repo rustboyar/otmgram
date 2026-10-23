@@ -1,5 +1,6 @@
 package dev.otmgram.ui.chat
 
+import android.annotation.SuppressLint
 import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -8,6 +9,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.otmgram.core.location.LocationSource
 import dev.otmgram.core.media.AudioPlayer
 import dev.otmgram.core.media.AudioState
 import dev.otmgram.core.media.RecorderState
@@ -103,6 +105,7 @@ class ChatViewModel @Inject constructor(
     private val stickerRepository: StickerRepository,
     private val outgoingMedia: OutgoingMedia,
     private val voiceRecorder: VoiceRecorder,
+    private val locationSource: LocationSource,
     private val td: TdClient,
     private val audioPlayer: AudioPlayer,
 ) : ViewModel() {
@@ -315,6 +318,19 @@ class ChatViewModel @Inject constructor(
         if (voiceRecorder.state.value != null) voiceRecorder.cancel()
     }
 
+    /** Sends the current position; the location permission must be granted. */
+    @SuppressLint("MissingPermission")
+    fun sendCurrentLocation() {
+        action {
+            val location = locationSource.current()
+            if (location == null) {
+                notice = "Couldn't get your location. Is location turned on?"
+            } else {
+                session.sendLocation(location.latitude, location.longitude, location.accuracy.toDouble())
+            }
+        }
+    }
+
     /** Sends photos and videos picked from the gallery. */
     fun sendFromGallery(uris: List<Uri>) {
         if (uris.isEmpty()) return
@@ -423,7 +439,7 @@ private const val SEARCH_DELAY_MS = 300L
 private fun ChatHistory.toItems(isGroup: Boolean): List<MessageItem> {
     val byId = messages.associateBy { it.id }
     return messages.mapIndexed { index, message ->
-        val media = message.content.toMedia()
+        val media = message.toMedia()
         val older = messages.getOrNull(index + 1)
         val showSender = isGroup && !message.isOutgoing && !message.isService &&
             (older == null || older.isOutgoing || older.isService || older.senderKey() != message.senderKey())

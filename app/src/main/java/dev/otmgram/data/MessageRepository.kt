@@ -119,6 +119,10 @@ class ChatSession internal constructor(
         send(TdApi.InputMessageSticker(input, sticker.emoji))
     }
 
+    suspend fun sendLocation(latitude: Double, longitude: Double, accuracy: Double) {
+        send(TdApi.InputMessageLocation(TdApi.Location(latitude, longitude, accuracy)))
+    }
+
     suspend fun sendVoice(recording: VoiceRecording) {
         val voice = TdApi.InputVoiceNote(TdApi.InputFileLocal(recording.file.path), recording.duration, recording.waveform)
         send(TdApi.InputMessageVoiceNote(voice, null, null))

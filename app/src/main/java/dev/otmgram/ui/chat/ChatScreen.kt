@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
@@ -47,6 +49,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -67,6 +71,7 @@ fun ChatScreen(
     onBack: () -> Unit,
     onOpenMedia: (chatId: Long, messageId: Long) -> Unit,
     onRecordVideoNote: (chatId: Long) -> Unit,
+    onOpenMap: (chatId: Long, messageId: Long) -> Unit,
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
     val header by viewModel.header.collectAsStateWithLifecycle()
@@ -161,7 +166,13 @@ fun ChatScreen(
                                 audio = audio,
                                 onLongClick = { viewModel.openMenu(row.message) },
                                 onReactionClick = { viewModel.toggleReaction(row.message, it) },
-                                onOpenMedia = { onOpenMedia(viewModel.chatId, row.message.id) },
+                                onOpenMedia = {
+                                    if (row.message.media is MessageMedia.Location) {
+                                        onOpenMap(viewModel.chatId, row.message.id)
+                                    } else {
+                                        onOpenMedia(viewModel.chatId, row.message.id)
+                                    }
+                                },
                                 onPlayVoice = { fileId, path -> viewModel.playVoice(row.message, fileId, path) },
                                 onVideoNoteSound = { viewModel.markContentOpened(row.message) },
                             )
@@ -175,6 +186,9 @@ fun ChatScreen(
                 viewModel::sendFromGallery,
             )
             val context = LocalContext.current
+            val requestLocation = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestMultiplePermissions(),
+            ) { result -> if (result.values.any { it }) viewModel.sendCurrentLocation() }
             val requestMicrophone = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
                 if (granted) viewModel.startVoice()
             }
@@ -190,8 +204,19 @@ fun ChatScreen(
                         keyboard?.hide()
                         viewModel.toggleStickers()
                     },
-                    onAttach = {
+                    onPickMedia = {
                         pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
+                    },
+                    onSendLocation = {
+                        val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
+                            PackageManager.PERMISSION_GRANTED
+                        if (granted) {
+                            viewModel.sendCurrentLocation()
+                        } else {
+                            requestLocation.launch(
+                                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
+                            )
+                        }
                     },
                     onRecordVideoNote = { onRecordVideoNote(viewModel.chatId) },
                     onRecord = {
@@ -316,7 +341,8 @@ private fun InputBar(
     onCancel: () -> Unit,
     onSend: (String) -> Unit,
     onStickers: () -> Unit,
-    onAttach: () -> Unit,
+    onPickMedia: () -> Unit,
+    onSendLocation: () -> Unit,
     onRecordVideoNote: () -> Unit,
     onRecord: () -> Unit,
 ) {
@@ -353,9 +379,7 @@ private fun InputBar(
             modifier = Modifier.fillMaxWidth().padding(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = onAttach, modifier = Modifier.testTag("attach")) {
-                Text("📎", style = MaterialTheme.typography.titleLarge)
-            }
+            AttachMenu(onPickMedia = onPickMedia, onSendLocation = onSendLocation)
             TextButton(onClick = onStickers, modifier = Modifier.testTag("stickers")) {
                 Text("☺", style = MaterialTheme.typography.titleLarge)
             }
@@ -385,6 +409,39 @@ private fun InputBar(
                     Text(if (composer is Composer.Edit) "Save" else "Send")
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AttachMenu(onPickMedia: () -> Unit, onSendLocation: () -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { open = true }, modifier = Modifier.testTag("attach")) {
+            Text("📎", style = MaterialTheme.typography.titleLarge)
+        }
+        DropdownMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            // Popups are separate windows; expose their test tags too.
+            modifier = Modifier.semantics { testTagsAsResourceId = true },
+        ) {
+            DropdownMenuItem(
+                text = { Text("Photo or video") },
+                onClick = {
+                    open = false
+                    onPickMedia()
+                },
+                modifier = Modifier.testTag("attachMedia"),
+            )
+            DropdownMenuItem(
+                text = { Text("Location") },
+                onClick = {
+                    open = false
+                    onSendLocation()
+                },
+                modifier = Modifier.testTag("attachLocation"),
+            )
         }
     }
 }

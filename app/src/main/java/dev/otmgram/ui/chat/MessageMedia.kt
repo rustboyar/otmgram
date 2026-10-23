@@ -51,9 +51,28 @@ sealed interface MessageMedia {
         val height: Int,
         val thumbnailFileId: Int?,
     ) : MessageMedia
+
+    /** A point; [live] is set for live locations. */
+    data class Location(val latitude: Double, val longitude: Double, val live: LiveInfo?) : MessageMedia
+
+    /** Unix times; [expiresAt] is [Int.MAX_VALUE] for locations shared until stopped. */
+    data class LiveInfo(val updatedAt: Int, val expiresAt: Int)
 }
 
 enum class StickerKind { Image, Lottie, Video }
+
+/** Media of a message; live locations need the message's dates. */
+fun TdApi.Message.toMedia(): MessageMedia? = when (val content = content) {
+    is TdApi.MessageLiveLocation -> MessageMedia.Location(
+        latitude = content.location.location.latitude,
+        longitude = content.location.location.longitude,
+        live = MessageMedia.LiveInfo(
+            updatedAt = editDate.takeIf { it > 0 } ?: date,
+            expiresAt = if (content.location.livePeriod == LIVE_FOREVER) Int.MAX_VALUE else date + content.location.livePeriod,
+        ),
+    )
+    else -> content.toMedia()
+}
 
 fun TdApi.MessageContent.toMedia(): MessageMedia? = when (this) {
     is TdApi.MessagePhoto -> {
@@ -80,6 +99,7 @@ fun TdApi.MessageContent.toMedia(): MessageMedia? = when (this) {
         videoNote.video.id, videoNote.thumbnail?.file?.id, videoNote.duration, videoNote.minithumbnail,
     )
     is TdApi.MessageSticker -> sticker.toMedia()
+    is TdApi.MessageLocation -> MessageMedia.Location(location.latitude, location.longitude, live = null)
     else -> null
 }
 
@@ -105,3 +125,6 @@ fun TdApi.MessageContent.caption(): String = when (this) {
 }
 
 private const val BUBBLE_PHOTO_MAX = 1280
+
+/** TDLib's live_period for locations shared until stopped. */
+const val LIVE_FOREVER = 0x7FFFFFFF

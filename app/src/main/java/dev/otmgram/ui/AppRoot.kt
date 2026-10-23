@@ -21,6 +21,7 @@ import dev.otmgram.ui.auth.LoadingScreen
 import dev.otmgram.ui.chat.ChatScreen
 import dev.otmgram.ui.chats.ChatListScreen
 import dev.otmgram.ui.folder.FolderPickerScreen
+import dev.otmgram.ui.map.MapScreen
 import dev.otmgram.ui.media.MediaViewerScreen
 import dev.otmgram.ui.videonote.VideoNoteScreen
 import kotlinx.coroutines.flow.SharingStarted
@@ -61,7 +62,17 @@ private fun MainNavHost() {
                 onBack = navController::popBackStack,
                 onOpenMedia = { chatId, messageId -> navController.navigate("media/$chatId/$messageId") },
                 onRecordVideoNote = { chatId -> navController.navigate("videoNote/$chatId") },
+                onOpenMap = { chatId, messageId -> navController.navigate("map/$chatId/$messageId") },
             )
+        }
+        composable(
+            "map/{chatId}/{messageId}",
+            arguments = listOf(
+                navArgument("chatId") { type = NavType.LongType },
+                navArgument("messageId") { type = NavType.LongType },
+            ),
+        ) {
+            MapScreen(onBack = navController::popBackStack)
         }
         composable("videoNote/{chatId}", arguments = listOf(navArgument("chatId") { type = NavType.LongType })) {
             VideoNoteScreen(onDone = navController::popBackStack)

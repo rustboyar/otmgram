@@ -89,6 +89,7 @@ dependencies {
     implementation(libs.camerax.lifecycle)
     implementation(libs.camerax.video)
     implementation(libs.camerax.view)
+    implementation(libs.maplibre)
     implementation(libs.coil.compose)
     implementation(libs.lottie.compose)
 

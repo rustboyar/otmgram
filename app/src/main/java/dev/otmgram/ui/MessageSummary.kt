@@ -26,6 +26,8 @@ fun TdApi.MessageContent.summary(): String =
         is TdApi.MessageAnimation -> withCaption("GIF", content.caption)
         is TdApi.MessageDocument -> withCaption(content.document.fileName.ifEmpty { "File" }, content.caption)
         is TdApi.MessageAudio -> withCaption("Audio", content.caption)
+        is TdApi.MessageLocation -> "Location"
+        is TdApi.MessageLiveLocation -> "Live location"
         is TdApi.MessageCall -> "Call"
         is TdApi.MessageBasicGroupChatCreate, is TdApi.MessageSupergroupChatCreate -> "Group created"
         is TdApi.MessageChatAddMembers, is TdApi.MessageChatJoinByLink -> "Joined the group"
