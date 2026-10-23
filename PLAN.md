@@ -45,12 +45,12 @@ app/
 - TdClient wrapper
 
 ### M1 — Auth
-- TDLib auth states: phone → code → 2FA password; optional QR login
+- TDLib auth states: phone → code → 2FA password; no registration or QR login (other steps: use the official app)
 - Logout: `logOut`, wipe TDLib database, stored folder, media cache
 
 ### M2 — Folder + chat list
 - One-time folder picker after login, stored in DataStore
-- `loadChats(chatListFolder(id))` + `updateChatPosition` / `updateChatFolders` keep the list live
+- `getChats(chatListFolder(id))`, reloaded shortly after any update that affects the list
 - Search: filter the folder's chats by title, locally
 
 ### M3 — Messages

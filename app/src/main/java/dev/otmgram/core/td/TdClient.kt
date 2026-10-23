@@ -48,6 +48,14 @@ class TdClient @Inject constructor(
     /** Current authorization state, or null until TDLib reports the first one. */
     val authorizationState: StateFlow<TdApi.AuthorizationState?> = _authorizationState.asStateFlow()
 
+    private val _chatFolders = MutableStateFlow<List<TdApi.ChatFolderInfo>?>(null)
+
+    /**
+     * The user's chat folders, or null until TDLib sends them. TDLib sends them only once
+     * after startup and has no request to get them, so they are kept here.
+     */
+    val chatFolders: StateFlow<List<TdApi.ChatFolderInfo>?> = _chatFolders.asStateFlow()
+
     @Volatile
     private var client: Client? = null
 
@@ -75,8 +83,9 @@ class TdClient @Inject constructor(
     }
 
     private fun onUpdate(update: TdApi.Object) {
-        if (update is TdApi.UpdateAuthorizationState) {
-            onAuthorizationState(update.authorizationState)
+        when (update) {
+            is TdApi.UpdateAuthorizationState -> onAuthorizationState(update.authorizationState)
+            is TdApi.UpdateChatFolders -> _chatFolders.value = update.chatFolders.toList()
         }
         if (update is TdApi.Update) {
             _updates.tryEmit(update)
@@ -93,6 +102,7 @@ class TdClient @Inject constructor(
             // TDLib); a new one is needed to log in again.
             is TdApi.AuthorizationStateClosed -> synchronized(this) {
                 client = null
+                _chatFolders.value = null
                 start()
             }
         }

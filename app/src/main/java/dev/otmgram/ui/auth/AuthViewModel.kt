@@ -39,9 +39,6 @@ class AuthViewModel @Inject constructor(
 
     fun submitPassword(password: String) = request { auth.checkPassword(password) }
 
-    fun register(firstName: String, lastName: String) =
-        request { auth.register(firstName.trim(), lastName.trim()) }
-
     fun startOver() = request { auth.logOut() }
 
     private fun request(block: suspend () -> Unit) {

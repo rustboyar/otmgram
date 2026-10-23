@@ -44,7 +44,6 @@ fun AuthScreen(state: AuthState, viewModel: AuthViewModel) {
         AuthState.WaitPhoneNumber -> PhoneNumberStep(viewModel)
         is AuthState.WaitCode -> CodeStep(state, viewModel)
         is AuthState.WaitPassword -> PasswordStep(state, viewModel)
-        AuthState.WaitRegistration -> RegistrationStep(viewModel)
         is AuthState.Unsupported -> UnsupportedStep(state, viewModel)
     }
 }
@@ -142,38 +141,6 @@ private fun PasswordStep(state: AuthState.WaitPassword, viewModel: AuthViewModel
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { submit() }),
             modifier = Modifier.fillMaxWidth().testTag("password"),
-        )
-    }
-}
-
-@Composable
-private fun RegistrationStep(viewModel: AuthViewModel) {
-    var firstName by rememberSaveable { mutableStateOf("") }
-    var lastName by rememberSaveable { mutableStateOf("") }
-    AuthStep(
-        title = "Your name",
-        description = "There's no Telegram account with this number yet. Enter a name to create one.",
-        viewModel = viewModel,
-        submitLabel = "Create account",
-        canSubmit = firstName.isNotBlank(),
-        onSubmit = { viewModel.register(firstName, lastName) },
-        secondaryActions = {
-            TextButton(onClick = viewModel::startOver, enabled = !viewModel.busy) { Text("Start over") }
-        },
-    ) {
-        OutlinedTextField(
-            value = firstName,
-            onValueChange = { firstName = it },
-            label = { Text("First name") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().testTag("firstName"),
-        )
-        OutlinedTextField(
-            value = lastName,
-            onValueChange = { lastName = it },
-            label = { Text("Last name (optional)") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().testTag("lastName"),
         )
     }
 }

@@ -13,12 +13,9 @@ sealed interface AuthState {
     data object WaitPhoneNumber : AuthState
     data class WaitCode(val phoneNumber: String, val delivery: CodeDelivery, val length: Int?) : AuthState
     data class WaitPassword(val hint: String) : AuthState
-
-    /** New account: Telegram needs a name. */
-    data object WaitRegistration : AuthState
     data object Ready : AuthState
 
-    /** A step Otmgram doesn't handle (e.g. email verification); finish it in the official app. */
+    /** A step Otmgram doesn't handle (e.g. new account, email verification); use the official app. */
     data class Unsupported(val step: String) : AuthState
 }
 
@@ -46,10 +43,6 @@ class AuthRepository @Inject constructor(
         td.send(TdApi.CheckAuthenticationPassword(password))
     }
 
-    suspend fun register(firstName: String, lastName: String) {
-        td.send(TdApi.RegisterUser(firstName, lastName, false))
-    }
-
     /** Logs out, or abandons a login in progress. TDLib deletes all local data. */
     suspend fun logOut() {
         td.send(TdApi.LogOut())
@@ -74,7 +67,7 @@ private fun TdApi.AuthorizationState?.toAuthState(): AuthState = when (this) {
         },
     )
     is TdApi.AuthorizationStateWaitPassword -> AuthState.WaitPassword(passwordHint)
-    is TdApi.AuthorizationStateWaitRegistration -> AuthState.WaitRegistration
+    is TdApi.AuthorizationStateWaitRegistration -> AuthState.Unsupported("creating a new account")
     is TdApi.AuthorizationStateReady -> AuthState.Ready
     is TdApi.AuthorizationStateWaitEmailAddress,
     is TdApi.AuthorizationStateWaitEmailCode -> AuthState.Unsupported("email verification")
