@@ -1,5 +1,8 @@
 package dev.otmgram.ui.chat
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -79,10 +82,16 @@ fun ChatScreen(
             .distinctUntilChanged()
             .collect(viewModel::onMessagesVisible)
     }
-    // Follow new messages while at the bottom.
-    val newestId = messages.firstOrNull()?.id
-    LaunchedEffect(newestId) {
-        if (listState.firstVisibleItemIndex <= 1) listState.animateScrollToItem(0)
+    // Follow new messages if the previous newest one was at the bottom (several can arrive
+    // at once, e.g. an album), and always after sending.
+    val newest = messages.firstOrNull()
+    var previousNewestId by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(newest?.id) {
+        val previousIndex = rows.indexOfFirst { it is ListRow.Message && it.message.id == previousNewestId }
+        previousNewestId = newest?.id
+        if (previousIndex < 0 || listState.firstVisibleItemIndex <= previousIndex || newest?.isOutgoing == true) {
+            listState.animateScrollToItem(0)
+        }
     }
     viewModel.scrollTarget?.let { target ->
         LaunchedEffect(target, rows) {
@@ -153,6 +162,10 @@ fun ChatScreen(
                 }
             }
             val keyboard = LocalSoftwareKeyboardController.current
+            val pickMedia = rememberLauncherForActivityResult(
+                ActivityResultContracts.PickMultipleVisualMedia(MAX_PICKED_MEDIA),
+                viewModel::sendFromGallery,
+            )
             InputBar(
                 composer = viewModel.composer,
                 onCancel = viewModel::cancelComposer,
@@ -160,6 +173,9 @@ fun ChatScreen(
                 onStickers = {
                     keyboard?.hide()
                     viewModel.toggleStickers()
+                },
+                onAttach = {
+                    pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
                 },
             )
             viewModel.stickerTabs?.let { tabs ->
@@ -272,7 +288,13 @@ private fun ServiceNote(text: String) {
 }
 
 @Composable
-private fun InputBar(composer: Composer, onCancel: () -> Unit, onSend: (String) -> Unit, onStickers: () -> Unit) {
+private fun InputBar(
+    composer: Composer,
+    onCancel: () -> Unit,
+    onSend: (String) -> Unit,
+    onStickers: () -> Unit,
+    onAttach: () -> Unit,
+) {
     var text by rememberSaveable { mutableStateOf("") }
     // Editing starts from the message text.
     LaunchedEffect(composer) {
@@ -306,6 +328,9 @@ private fun InputBar(composer: Composer, onCancel: () -> Unit, onSend: (String) 
             modifier = Modifier.fillMaxWidth().padding(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            TextButton(onClick = onAttach, modifier = Modifier.testTag("attach")) {
+                Text("📎", style = MaterialTheme.typography.titleLarge)
+            }
             TextButton(onClick = onStickers, modifier = Modifier.testTag("stickers")) {
                 Text("☺", style = MaterialTheme.typography.titleLarge)
             }
@@ -338,3 +363,4 @@ fun formatTime(unixTime: Int): String =
         .format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
 
 private const val LOAD_MORE_THRESHOLD = 10
+private const val MAX_PICKED_MEDIA = 10

@@ -1,5 +1,6 @@
 package dev.otmgram.ui.chat
 
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -15,6 +16,7 @@ import dev.otmgram.data.ChatHistory
 import dev.otmgram.data.ChatRepository
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.MessageRepository
+import dev.otmgram.data.OutgoingMedia
 import dev.otmgram.data.StickerRepository
 import dev.otmgram.data.StickerTab
 import dev.otmgram.data.isGroup
@@ -97,6 +99,7 @@ class ChatViewModel @Inject constructor(
     private val chats: ChatRepository,
     private val folders: FolderRepository,
     private val stickerRepository: StickerRepository,
+    private val outgoingMedia: OutgoingMedia,
     private val td: TdClient,
     private val audioPlayer: AudioPlayer,
 ) : ViewModel() {
@@ -283,6 +286,15 @@ class ChatViewModel @Inject constructor(
     fun sendSticker(sticker: TdApi.Sticker) {
         stickerTabs = null
         action { session.sendSticker(sticker) }
+    }
+
+    /** Sends photos and videos picked from the gallery. */
+    fun sendFromGallery(uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        action {
+            val contents = uris.mapNotNull { outgoingMedia.fromGallery(it) }
+            session.sendMedia(contents)
+        }
     }
 
     fun startSearch() {

@@ -111,6 +111,17 @@ class ChatSession internal constructor(
         send(TdApi.InputMessageSticker(input, sticker.emoji))
     }
 
+    /** Sends media; several items go as one album (up to 10, Telegram's limit). */
+    suspend fun sendMedia(contents: List<TdApi.InputMessageContent>) {
+        for (album in contents.chunked(ALBUM_SIZE)) {
+            if (album.size == 1) {
+                send(album.single())
+            } else {
+                td.send(TdApi.SendMessageAlbum(chatId, null, null, null, album.toTypedArray()))
+            }
+        }
+    }
+
     private suspend fun send(content: TdApi.InputMessageContent, replyToMessageId: Long? = null) {
         val replyTo = replyToMessageId?.let { TdApi.InputMessageReplyToMessage(it, null, 0, "") }
         td.send(TdApi.SendMessage(chatId, null, replyTo, null, null, content))
@@ -267,5 +278,6 @@ class ChatSession internal constructor(
         const val PAGE_SIZE = 50
         const val SEARCH_LIMIT = 100
         const val REACTION_ROW_SIZE = 8
+        const val ALBUM_SIZE = 10
     }
 }
