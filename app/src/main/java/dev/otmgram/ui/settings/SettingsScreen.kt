@@ -43,6 +43,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.otmgram.core.launchLogged
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
 import dev.otmgram.data.AppSettings
@@ -51,10 +52,10 @@ import dev.otmgram.data.CacheLimit
 import dev.otmgram.data.CheckInterval
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.MAX_HEADER_NAME
-import dev.otmgram.data.limitTo
 import dev.otmgram.data.StorageKind
 import dev.otmgram.data.StorageRepository
 import dev.otmgram.data.StorageUsage
+import dev.otmgram.data.limitTo
 import dev.otmgram.ui.media.formatSize
 import dev.otmgram.ui.theme.Card
 import dev.otmgram.ui.theme.ChatAvatar
@@ -256,6 +257,8 @@ private fun StorageBar(usage: StorageUsage) {
     }
 }
 
+private const val TAG = "SettingsViewModel"
+
 private val STORAGE_COLORS = mapOf(
     StorageKind.Videos to Otm.Ridge,
     StorageKind.Photos to Otm.Peach,
@@ -296,7 +299,7 @@ class SettingsViewModel @Inject constructor(
         private set
 
     init {
-        viewModelScope.launch { _me.value = td.send(TdApi.GetMe()) }
+        viewModelScope.launchLogged(TAG) { _me.value = td.send(TdApi.GetMe()) }
         viewModelScope.launch { header = folders.displayName.first() }
         loadUsage()
     }
@@ -350,7 +353,7 @@ class SettingsViewModel @Inject constructor(
         try {
             block()
         } catch (e: TdException) {
-            Log.w("SettingsViewModel", "Settings action failed", e)
+            Log.w(TAG, "Settings action failed", e)
         }
     }
 }

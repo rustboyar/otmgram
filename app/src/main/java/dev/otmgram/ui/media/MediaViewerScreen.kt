@@ -3,8 +3,6 @@ package dev.otmgram.ui.media
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +12,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
@@ -44,8 +44,10 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.otmgram.core.launchLogged
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
+import dev.otmgram.core.userMessage
 import dev.otmgram.data.DownloadsFolder
 import dev.otmgram.data.FileRepository
 import dev.otmgram.ui.chat.formatTime
@@ -223,7 +225,7 @@ class MediaViewerViewModel @Inject constructor(
     init {
         val chatId: Long = checkNotNull(savedState["chatId"])
         val messageId: Long = checkNotNull(savedState["messageId"])
-        viewModelScope.launch {
+        viewModelScope.launchLogged(TAG, onError = { notice = "This message is no longer available" }) {
             val message = td.send(TdApi.GetMessage(chatId, messageId))
             info = ViewerInfo(sender(message), postedAt(message.date))
             val album = if (message.mediaAlbumId == 0L) listOf(message) else albumOf(message)
@@ -257,14 +259,10 @@ class MediaViewerViewModel @Inject constructor(
             is ViewerContent.Video -> c.fileId
         }
         val (name, mimeType) = page.saveAs
-        viewModelScope.launch {
-            try {
-                val file = files.downloadNow(fileId)
-                downloads.save(File(file.local.path), name, mimeType)
-                notice = "Saved to Downloads"
-            } catch (e: TdException) {
-                notice = e.error.message
-            }
+        viewModelScope.launchLogged(TAG, onError = { notice = "Couldn't save: ${it.userMessage()}" }) {
+            val file = files.downloadNow(fileId)
+            downloads.save(File(file.local.path), name, mimeType)
+            notice = "Saved to Downloads"
         }
     }
 
@@ -280,6 +278,7 @@ class MediaViewerViewModel @Inject constructor(
 }
 
 private const val ALBUM_MAX = 10
+private const val TAG = "MediaViewer"
 
 /** "Today, 19:01", or the date. */
 private fun postedAt(unixTime: Int): String {

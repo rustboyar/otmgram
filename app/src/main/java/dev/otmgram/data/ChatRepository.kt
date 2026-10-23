@@ -1,6 +1,7 @@
 package dev.otmgram.data
 
 import dev.otmgram.core.td.TdClient
+import dev.otmgram.core.td.TdException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
@@ -76,10 +77,14 @@ class ChatRepository @Inject constructor(
     private suspend fun lastSenderName(chat: TdApi.Chat): String? {
         val message = chat.lastMessage ?: return null
         if (!chat.isGroup || message.isOutgoing) return null
-        return when (val sender = message.senderId) {
-            is TdApi.MessageSenderUser -> td.send(TdApi.GetUser(sender.userId)).firstName
-            is TdApi.MessageSenderChat -> td.send(TdApi.GetChat(sender.chatId)).title
-            else -> null
+        return try {
+            when (val sender = message.senderId) {
+                is TdApi.MessageSenderUser -> td.send(TdApi.GetUser(sender.userId)).firstName
+                is TdApi.MessageSenderChat -> td.send(TdApi.GetChat(sender.chatId)).title
+                else -> null
+            }
+        } catch (e: TdException) {
+            null
         }
     }
 

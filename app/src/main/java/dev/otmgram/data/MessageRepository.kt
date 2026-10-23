@@ -1,5 +1,6 @@
 package dev.otmgram.data
 
+import dev.otmgram.core.launchLogged
 import dev.otmgram.core.media.VoiceRecording
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
@@ -75,7 +76,7 @@ class ChatSession internal constructor(
         scope.launch(start = CoroutineStart.UNDISPATCHED) {
             td.updates.collect(::onUpdate)
         }
-        scope.launch {
+        scope.launchLogged(TAG) {
             td.send(TdApi.OpenChat(chatId))
             lastReadOutboxMessageId = td.send(TdApi.GetChat(chatId)).lastReadOutboxMessageId
             loadOlder()
@@ -276,15 +277,24 @@ class ChatSession internal constructor(
         }
     }
 
+    // A name that can't be loaded stays unknown; the message still shows.
     private suspend fun resolveUserName(userId: Long) {
         if (userId in senderNames) return
-        val user = td.send(TdApi.GetUser(userId))
+        val user = try {
+            td.send(TdApi.GetUser(userId))
+        } catch (e: TdException) {
+            return
+        }
         senderNames[userId] = "${user.firstName} ${user.lastName}".trim()
     }
 
     private suspend fun resolveChatName(chatId: Long) {
         if (chatId in senderNames) return
-        senderNames[chatId] = td.send(TdApi.GetChat(chatId)).title
+        senderNames[chatId] = try {
+            td.send(TdApi.GetChat(chatId)).title
+        } catch (e: TdException) {
+            return
+        }
     }
 
     private fun publish() {
@@ -302,6 +312,7 @@ class ChatSession internal constructor(
         TdApi.InputMessageText(TdApi.FormattedText(text, emptyArray()), null, true)
 
     private companion object {
+        const val TAG = "ChatSession"
         const val PAGE_SIZE = 50
         const val SEARCH_LIMIT = 100
         const val REACTION_ROW_SIZE = 8

@@ -7,12 +7,13 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.otmgram.core.launchLogged
 import dev.otmgram.core.media.MediaTranscoder
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.data.MessageRepository
-import dev.otmgram.data.isSavedMessages
 import dev.otmgram.data.OutgoingFiles
 import dev.otmgram.data.OutgoingMedia
+import dev.otmgram.data.isSavedMessages
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import java.io.File
@@ -37,7 +38,7 @@ class VideoNoteViewModel @Inject constructor(
         private set
 
     init {
-        viewModelScope.launch {
+        viewModelScope.launchLogged("VideoNoteViewModel") {
             val chat = td.send(TdApi.GetChat(chatId))
             chatTitle = if (chat.isSavedMessages(td.send(TdApi.GetMe()).id)) "Saved Messages" else chat.title
         }

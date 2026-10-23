@@ -30,8 +30,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import org.drinkless.tdlib.TdApi
 import java.text.DateFormat
 import java.util.Date
@@ -114,23 +114,38 @@ class LiveLocationService : Service() {
         }
     }
 
-    /** Sends the message and returns its final id, known only once Telegram confirms it. */
+    /**
+     * Sends the message and returns its final id, known only once Telegram confirms it.
+     * Throws if Telegram rejects it or doesn't answer within [SEND_TIMEOUT_MS].
+     */
     private suspend fun sendLiveLocation(chatId: Long, period: Int, location: Location): Long {
-        val confirmed = ConcurrentHashMap<Long, Long>()
-        val pendingId = CompletableDeferred<Long>()
+        // Results by the message's temporary id: its final id, or why it failed.
+        val results = ConcurrentHashMap<Long, Result<Long>>()
+        var pendingId: Long? = null
         val finalId = CompletableDeferred<Long>()
+        // Called on the main thread, from the collector and after sending.
+        fun settle() {
+            val result = pendingId?.let(results::get) ?: return
+            result.fold(finalId::complete, finalId::completeExceptionally)
+        }
         val collector = scope.launch(start = CoroutineStart.UNDISPATCHED) {
-            td.updates.filterIsInstance<TdApi.UpdateMessageSendSucceeded>().collect {
-                confirmed[it.oldMessageId] = it.message.id
-                if (pendingId.isCompleted) confirmed[pendingId.await()]?.let(finalId::complete)
+            td.updates.collect { update ->
+                when (update) {
+                    is TdApi.UpdateMessageSendSucceeded -> results[update.oldMessageId] = Result.success(update.message.id)
+                    is TdApi.UpdateMessageSendFailed ->
+                        results[update.oldMessageId] = Result.failure(IllegalStateException("Telegram rejected it: ${update.error.message}"))
+                    else -> return@collect
+                }
+                settle()
             }
         }
-        val content = TdApi.InputMessageLiveLocation(liveLocation(location, period))
-        val sent = td.send(TdApi.SendMessage(chatId, null, null, null, null, content))
-        pendingId.complete(sent.id)
-        confirmed[sent.id]?.let(finalId::complete)
-        return try {
-            finalId.await()
+        try {
+            val content = TdApi.InputMessageLiveLocation(liveLocation(location, period))
+            val sent = td.send(TdApi.SendMessage(chatId, null, null, null, null, content))
+            pendingId = sent.id
+            settle()
+            return withTimeoutOrNull(SEND_TIMEOUT_MS) { finalId.await() }
+                ?: throw IllegalStateException("No confirmation from Telegram")
         } finally {
             collector.cancel()
         }
@@ -225,5 +240,6 @@ class LiveLocationService : Service() {
         private const val NOTIFICATION_ID = 1
         private const val MIN_INTERVAL_MS = 30_000L
         private const val MIN_DISTANCE_M = 25f
+        private const val SEND_TIMEOUT_MS = 60_000L
     }
 }

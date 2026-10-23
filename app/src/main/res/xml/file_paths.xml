@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Files that other apps may open, via FileProvider: downloads, and our own sent files
-     (TDLib keeps the uploaded copy as their local file). -->
+<!-- Files that other apps may open, via FileProvider: downloaded documents and audio, and
+     our own sent files (TDLib keeps the uploaded copy as their local file). Only these
+     folders: the rest of tdlib/ holds the login and the message database. -->
 <paths>
-    <files-path name="tdlib" path="tdlib/" />
+    <files-path name="documents" path="tdlib/documents/" />
+    <files-path name="music" path="tdlib/music/" />
     <cache-path name="outgoing" path="outgoing/" />
 </paths>

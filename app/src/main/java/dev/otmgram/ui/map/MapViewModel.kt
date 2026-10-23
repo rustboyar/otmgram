@@ -1,5 +1,7 @@
 package dev.otmgram.ui.map
 
+import android.annotation.SuppressLint
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -7,9 +9,10 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import android.annotation.SuppressLint
+import dev.otmgram.core.launchLogged
 import dev.otmgram.core.location.LocationSource
 import dev.otmgram.core.td.TdClient
+import dev.otmgram.core.td.TdException
 import dev.otmgram.ui.chat.MessageMedia
 import dev.otmgram.ui.chat.toMedia
 import kotlinx.coroutines.CoroutineStart
@@ -49,7 +52,7 @@ class MapViewModel @Inject constructor(
     @SuppressLint("MissingPermission")
     fun locateMe() {
         myLocation = locationSource.lastKnown()
-        viewModelScope.launch { locationSource.current()?.let { myLocation = it } }
+        viewModelScope.launchLogged(TAG) { locationSource.current()?.let { myLocation = it } }
     }
 
     /** Who shared the location, for the card under the map. */
@@ -65,10 +68,19 @@ class MapViewModel @Inject constructor(
                     is TdApi.UpdateMessageEdited -> update.chatId == chatId && update.messageId == messageId
                     else -> false
                 }
-                if (changed) reload()
+                if (changed) reloadLogged()
             }
         }
-        viewModelScope.launch { reload() }
+        viewModelScope.launch { reloadLogged() }
+    }
+
+    /** A failed reload keeps what's shown; the message may have been deleted. */
+    private suspend fun reloadLogged() {
+        try {
+            reload()
+        } catch (e: TdException) {
+            Log.w(TAG, "Reload failed", e)
+        }
     }
 
     private suspend fun reload() {
@@ -88,3 +100,5 @@ class MapViewModel @Inject constructor(
         else -> null
     }
 }
+
+private const val TAG = "MapViewModel"

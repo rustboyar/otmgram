@@ -9,6 +9,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.otmgram.core.launchLogged
 import dev.otmgram.core.location.LiveLocationSharing
 import dev.otmgram.core.location.LiveShare
 import dev.otmgram.core.location.LocationSource
@@ -18,11 +19,12 @@ import dev.otmgram.core.media.RecorderState
 import dev.otmgram.core.media.VoiceRecorder
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
+import dev.otmgram.core.userMessage
 import dev.otmgram.data.AppSettings
 import dev.otmgram.data.ChatHistory
+import dev.otmgram.data.ChatRepository
 import dev.otmgram.data.DownloadsFolder
 import dev.otmgram.data.FileRepository
-import dev.otmgram.data.ChatRepository
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.MessageRepository
 import dev.otmgram.data.OutgoingMedia
@@ -233,7 +235,7 @@ class ChatViewModel @Inject constructor(
     private val viewedIds = mutableSetOf<Long>()
 
     init {
-        viewModelScope.launch {
+        action {
             val chat = td.send(TdApi.GetChat(chatId))
             val myId = td.send(TdApi.GetMe()).id
             val saved = chat.isSavedMessages(myId)
@@ -466,7 +468,7 @@ class ChatViewModel @Inject constructor(
     @SuppressLint("MissingPermission")
     fun locateMe() {
         myLocation = locationSource.lastKnown()
-        viewModelScope.launch { locationSource.current()?.let { myLocation = it } }
+        viewModelScope.launchLogged(TAG) { locationSource.current()?.let { myLocation = it } }
     }
 
     /** Shares live location here; the location permission must be granted. */
@@ -673,17 +675,13 @@ class ChatViewModel @Inject constructor(
         notice = null
     }
 
+    /** Runs [block]; any failure becomes a notice instead of a crash. */
     private fun action(block: suspend () -> Unit) {
-        viewModelScope.launch {
-            try {
-                block()
-            } catch (e: TdException) {
-                notice = e.error.message
-            }
-        }
+        viewModelScope.launchLogged(TAG, onError = { notice = it.userMessage() }) { block() }
     }
 }
 
+private const val TAG = "ChatViewModel"
 private const val SEARCH_DELAY_MS = 300L
 
 private fun lastSeen(status: TdApi.UserStatus?): String? = when (status) {
