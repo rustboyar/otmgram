@@ -1,21 +1,38 @@
 package dev.otmgram.data
 
-import dev.otmgram.core.td.TdClient
+import dev.otmgram.core.td.TelegramClient
+import dev.otmgram.di.ApplicationScope
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArraySet
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Downloads of TDLib files. Media is always downloaded automatically, see PLAN.md. */
+/** Downloads of TDLib files: which download when, see PLAN.md. */
 @Singleton
 class FileRepository @Inject constructor(
-    private val td: TdClient,
+    private val td: TelegramClient,
+    @ApplicationScope scope: CoroutineScope,
 ) {
+    /** Who waits for which file; one collector routes file updates to them. */
+    private val listeners = ConcurrentHashMap<Int, MutableSet<(TdApi.File) -> Unit>>()
+
+    init {
+        // One pass over all updates, off the main thread, instead of one per visible file.
+        scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            td.updates.collect { update ->
+                if (update is TdApi.UpdateFile) listeners[update.file.id]?.forEach { it(update.file) }
+            }
+        }
+    }
+
     /**
      * Starts downloading [fileId] (if not done yet) and emits its state until collection
      * stops. Higher [priority] (1..32) downloads first.
@@ -49,12 +66,16 @@ class FileRepository @Inject constructor(
                 send(file)
             }
         }
-        launch(start = CoroutineStart.UNDISPATCHED) {
-            td.updates.filterIsInstance<TdApi.UpdateFile>()
-                .filter { it.file.id == fileId }
-                .collect { emit(it.file) }
-        }
+        // Listening starts before the request, so no update can slip in between; only the
+        // latest progress matters, and the last one (completion) is always kept.
+        val latest = Channel<TdApi.File>(Channel.CONFLATED)
+        val listener: (TdApi.File) -> Unit = { latest.trySend(it) }
+        listeners.compute(fileId) { _, set -> (set ?: CopyOnWriteArraySet()).apply { add(listener) } }
+        launch { for (file in latest) emit(file) }
         emit(initial())
+        awaitClose {
+            listeners.computeIfPresent(fileId) { _, set -> set.apply { remove(listener) }.takeIf { it.isNotEmpty() } }
+        }
     }
 
     companion object {
