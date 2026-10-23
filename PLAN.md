@@ -127,6 +127,12 @@ app/
 - Unit tests (`./gradlew :app:testDebugUnitTest`): message mapping, list rows, media mapping, wording, login steps, storage, and the open chat and folder list against a fake TDLib (`testing/FakeTelegram`, behind the `TelegramClient` interface)
 - UI tests on a device (`scripts/ui-tests.sh`): bubble states, delete dialog. Not `connectedAndroidTest`, which uninstalls the app and so logs it out
 
+## Security
+
+- TDLib's database and login are encrypted with a random 32-byte key (without one, TDLib uses a built-in key, i.e. none). The key is stored encrypted by an Android Keystore key, which never leaves the device (`core/td/DatabaseKey`)
+- Existing databases are encrypted once logged in; if a start fails with a key (stopped mid-switch), it opens without and encrypts again; if the key is lost, the local database is deleted and the app asks to log in again
+- Session backups (`scripts/session.sh`) include the key file, so encrypted ones only restore into the same installation
+
 ## Logging
 
 - No remote crash reporting (it would send data to a third party); logs stay on the phone

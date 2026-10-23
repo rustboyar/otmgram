@@ -34,6 +34,7 @@ class TdException(val error: TdApi.Error) : Exception("TDLib error ${error.code}
 @Singleton
 class TdClient @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val databaseKey: DatabaseKey,
 ) : TelegramClient {
     private val _updates = MutableSharedFlow<TdApi.Update>(extraBufferCapacity = Int.MAX_VALUE)
 
@@ -112,10 +113,12 @@ class TdClient @Inject constructor(
     private fun onAuthorizationState(state: TdApi.AuthorizationState) {
         AppLog.i(TAG, "Authorization: ${state.javaClass.simpleName.removePrefix("AuthorizationState")}")
         when (state) {
-            is TdApi.AuthorizationStateWaitTdlibParameters -> sendIgnoringResult(tdlibParameters())
-            // Never show the account as online, see PLAN.md.
-            is TdApi.AuthorizationStateReady ->
+            is TdApi.AuthorizationStateWaitTdlibParameters -> sendParameters(databaseKey.load())
+            is TdApi.AuthorizationStateReady -> {
+                // Never show the account as online, see PLAN.md.
                 sendIgnoringResult(TdApi.SetOption("online", TdApi.OptionValueBoolean(false)))
+                encryptDatabase()
+            }
             // An instance is closed after logout (its local data is already deleted by
             // TDLib); a new one is needed to log in again.
             is TdApi.AuthorizationStateClosed -> synchronized(this) {
@@ -127,10 +130,54 @@ class TdClient @Inject constructor(
         _authorizationState.value = state
     }
 
-    private fun tdlibParameters() = TdApi.SetTdlibParameters().apply {
+    /**
+     * Opens the database with [key]. If that fails with a key, the database was never
+     * encrypted with it (e.g. the app stopped while switching): open it without one, and
+     * [encryptDatabase] tries again once ready.
+     */
+    private fun sendParameters(key: ByteArray?) {
+        val client = synchronized(this) { client } ?: return
+        client.send(tdlibParameters(key ?: ByteArray(0))) { result ->
+            if (result is TdApi.Error && key != null) {
+                AppLog.w(TAG, "Database didn't open with its key (${result.message}), opening without")
+                databaseKey.delete()
+                sendParameters(null)
+            } else if (result is TdApi.Error && "encryption" in result.message) {
+                // Encrypted with a key that's gone: nothing can open it again. Start over
+                // with a fresh database (a new login); the chats themselves are on Telegram.
+                AppLog.e(TAG, "Database key is lost (${result.message}); deleting the local database")
+                client.send(TdApi.Destroy()) {}
+            } else if (result is TdApi.Error) {
+                AppLog.e(TAG, "Database didn't open: ${result.message}")
+            }
+        }
+    }
+
+    /** Encrypts an unencrypted database (installs from before, or after a failed switch). */
+    private fun encryptDatabase() {
+        if (databaseKey.load() != null) return
+        val key = try {
+            databaseKey.create()
+        } catch (e: Exception) {
+            AppLog.e(TAG, "Can't make a database key", e)
+            return
+        }
+        val client = synchronized(this) { client } ?: return
+        client.send(TdApi.SetDatabaseEncryptionKey(key)) { result ->
+            if (result is TdApi.Error) {
+                AppLog.e(TAG, "Encrypting the database failed: ${result.message}")
+                databaseKey.delete()
+            } else {
+                AppLog.i(TAG, "Database encrypted")
+            }
+        }
+    }
+
+    private fun tdlibParameters(key: ByteArray) = TdApi.SetTdlibParameters().apply {
         useTestDc = BuildConfig.TELEGRAM_TEST_DC
         // Separate databases, so switching between test and production servers is safe.
         databaseDirectory = File(context.filesDir, if (useTestDc) "tdlib-test" else "tdlib").absolutePath
+        databaseEncryptionKey = key
         useFileDatabase = true
         useChatInfoDatabase = true
         useMessageDatabase = true
