@@ -40,6 +40,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -51,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.otmgram.R
 import dev.otmgram.ui.auth.LoadingScreen
 import dev.otmgram.ui.highlightMatches
 import dev.otmgram.ui.theme.Banner
@@ -97,8 +100,8 @@ fun ChatListScreen(
             SkyBand(
                 folderName,
                 actions = {
-                    IconBtn(OtmIcons.Search, "Find a chat", { searching = true }, tag = "search")
-                    IconBtn(OtmIcons.More, "Settings", onOpenSettings, tag = "menu")
+                    IconBtn(OtmIcons.Search, stringResource(R.string.find_chat), { searching = true }, tag = "search")
+                    IconBtn(OtmIcons.More, stringResource(R.string.settings), onOpenSettings, tag = "menu")
                 },
             )
         }
@@ -108,14 +111,14 @@ fun ChatListScreen(
         val searchText = query.trim()
         when {
             list == null -> LoadingScreen()
-            list.isEmpty() -> Empty(if (searchText.isEmpty()) "No chats in this folder yet." else "Nothing like that here.")
+            list.isEmpty() -> Empty(if (searchText.isEmpty()) stringResource(R.string.chats_empty) else stringResource(R.string.chats_no_match))
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize().testTag("chats"),
                 contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 16.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
             ) {
                 if (searching && searchText.isNotEmpty()) {
                     item(key = "count") {
-                        SectionLabel(if (list.size == 1) "1 chat" else "${list.size} chats", Modifier.padding(start = 12.dp, top = 6.dp, bottom = 4.dp))
+                        SectionLabel(pluralStringResource(R.plurals.chat_count, list.size, list.size), Modifier.padding(start = 12.dp, top = 6.dp, bottom = 4.dp))
                     }
                 }
                 items(list, key = { it.id }) { chat ->
@@ -124,7 +127,7 @@ fun ChatListScreen(
                 if (searching) {
                     item(key = "hint") {
                         Text(
-                            "Titles only. To find a message, search inside a chat.",
+                            stringResource(R.string.chats_search_hint),
                             style = OtmType.Secondary,
                             color = Otm.InkSoft,
                             textAlign = TextAlign.Center,
@@ -162,11 +165,11 @@ private fun RequestNotificationPermission() {
 private fun RowScope.SearchField(query: String, onQueryChange: (String) -> Unit, onClose: () -> Unit) {
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
-    IconBtn(OtmIcons.Back, "Close search", onClose, Modifier.padding(end = 4.dp), tag = "closeSearch")
+    IconBtn(OtmIcons.Back, stringResource(R.string.search_close), onClose, Modifier.padding(end = 4.dp), tag = "closeSearch")
     OtmField(
         value = query,
         onValueChange = onQueryChange,
-        placeholder = "Find a chat",
+        placeholder = stringResource(R.string.find_chat),
         textStyle = OtmType.Body.copy(fontSize = OtmType.Name.fontSize),
         shape = RoundedCornerShape(23.dp),
         height = 46.dp,
@@ -175,7 +178,7 @@ private fun RowScope.SearchField(query: String, onQueryChange: (String) -> Unit,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         leading = { Icon(OtmIcons.Search, null, tint = Otm.InkSoft, modifier = Modifier.size(20.dp)) },
         trailing = if (query.isEmpty()) null else {
-            { IconBtn(OtmIcons.Close, "Clear", { onQueryChange("") }, tint = Otm.InkSoft, size = 40.dp, iconSize = 20.dp) }
+            { IconBtn(OtmIcons.Close, stringResource(R.string.search_clear), { onQueryChange("") }, tint = Otm.InkSoft, size = 40.dp, iconSize = 20.dp) }
         },
         modifier = Modifier.weight(1f).padding(end = 4.dp).focusRequester(focusRequester).testTag("query"),
     )
@@ -207,7 +210,7 @@ private fun ChatRow(chat: ChatItem, highlight: String, onClick: () -> Unit) {
                         modifier = Modifier.weight(1f, fill = false),
                     )
                     if (chat.isMuted) {
-                        Icon(OtmIcons.Muted, "Muted", tint = Otm.InkFaint, modifier = Modifier.padding(start = 5.dp).size(15.dp))
+                        Icon(OtmIcons.Muted, stringResource(R.string.muted), tint = Otm.InkFaint, modifier = Modifier.padding(start = 5.dp).size(15.dp))
                     }
                 }
                 chat.date?.let {

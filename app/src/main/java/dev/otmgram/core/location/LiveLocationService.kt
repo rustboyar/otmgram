@@ -210,7 +210,7 @@ class LiveLocationService : Service() {
     private fun startForeground(share: LiveShare) {
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "Live location", NotificationManager.IMPORTANCE_LOW),
+            NotificationChannel(CHANNEL_ID, getString(R.string.live_channel), NotificationManager.IMPORTANCE_LOW),
         )
         val until = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(share.endsAt * 1000L))
         val stop = PendingIntent.getService(
@@ -219,10 +219,10 @@ class LiveLocationService : Service() {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_location)
-            .setContentTitle("Sharing live location")
-            .setContentText("With ${share.chatTitle} until $until")
+            .setContentTitle(getString(R.string.live_title))
+            .setContentText(getString(R.string.live_text, share.chatTitle, until))
             .setContentIntent(open)
-            .addAction(0, "Stop sharing", stop)
+            .addAction(0, getString(R.string.live_stop), stop)
             .setOngoing(true)
             .build()
         ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)

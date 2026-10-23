@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dev.otmgram.R
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -44,6 +45,6 @@ class LiveLocationSharing @Inject constructor(
 
     companion object {
         /** Durations offered for sharing, in seconds. */
-        val PERIODS = listOf(15 * 60 to "15 minutes", 60 * 60 to "1 hour", 8 * 60 * 60 to "8 hours")
+        val PERIODS = listOf(15 * 60 to R.string.live_15_minutes, 60 * 60 to R.string.live_1_hour, 8 * 60 * 60 to R.string.live_8_hours)
     }
 }

@@ -1,6 +1,7 @@
 package dev.otmgram.ui.chat
 
 import dev.otmgram.testing.NOON_2026_10_23
+import dev.otmgram.testing.TestStrings
 import dev.otmgram.testing.file
 import dev.otmgram.testing.message
 import org.drinkless.tdlib.TdApi
@@ -56,9 +57,9 @@ class MessageMediaTest {
     @Test
     fun `live status says how fresh the position is`() {
         val info = MessageMedia.LiveInfo(updatedAt = 1_000, expiresAt = 5_000)
-        assertEquals("Live · updated just now", liveStatus(info, now = 1_030))
-        assertEquals("Live · updated 2 min ago", liveStatus(info, now = 1_150))
-        assertEquals("Live location ended", liveStatus(info, now = 5_000))
+        assertEquals("Live · updated just now", liveStatus(info, now = 1_030, TestStrings))
+        assertEquals("Live · updated 2 min ago", liveStatus(info, now = 1_150, TestStrings))
+        assertEquals("Live location ended", liveStatus(info, now = 5_000, TestStrings))
     }
 
     @Test

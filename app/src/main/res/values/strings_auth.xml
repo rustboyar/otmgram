@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Login steps Otmgram can't do, as in "Telegram asks for …" -->
+    <string name="unsupported_registration">creating a new account</string>
+    <string name="unsupported_email">email verification</string>
+    <string name="unsupported_premium">Telegram Premium purchase</string>
+    <string name="unsupported_other_device">confirmation on another device</string>
+
+    <!-- Signing in -->
+    <string name="sign_in">Sign in</string>
+    <string name="phone_description">Enter the phone number of your Telegram account, with the country code.</string>
+    <string name="phone_footnote">Otmgram shows one folder of your chats.\nYou always appear offline.</string>
+    <string name="next">Next</string>
+    <string name="code_sent_app">Telegram sent it to your other device, in the chat with “Telegram”. It’s not an SMS.</string>
+    <string name="code_sent_sms">We sent it by SMS to %1$s.</string>
+    <string name="code_sent_call">You\'ll get a call to %1$s that tells the code.</string>
+    <string name="code_sent_other">We sent it to %1$s.</string>
+    <string name="code_title">Enter the code</string>
+    <string name="wrong_number">Wrong number?</string>
+    <string name="code_resend_in">You can ask for a new code in %1$s</string>
+    <string name="code_resend">Send the code another way</string>
+    <string name="password_title">Your password</string>
+    <string name="password_description">Your account has two-step verification. Enter the password you set in Telegram.</string>
+    <string name="another_account">Use another account</string>
+    <string name="start_over">Start over</string>
+    <string name="password">Password</string>
+    <string name="password_hide">Hide password</string>
+    <string name="password_show">Show password</string>
+    <string name="password_hint">Hint: %1$s</string>
+    <string name="unsupported_title">Can\'t continue here</string>
+    <string name="unsupported_description">Telegram asks for %1$s, which Otmgram doesn\'t support. Sign in with the official Telegram app once, then try again.</string>
+</resources>

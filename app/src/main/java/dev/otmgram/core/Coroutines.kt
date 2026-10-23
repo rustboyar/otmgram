@@ -1,5 +1,6 @@
 package dev.otmgram.core
 
+import dev.otmgram.R
 import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TdException
 import kotlinx.coroutines.CancellationException
@@ -27,7 +28,7 @@ fun CoroutineScope.launchLogged(
 }
 
 /** What to tell the user about [e]: TDLib's message, or the exception's. */
-fun Exception.userMessage(): String = when (this) {
+fun Exception.userMessage(strings: Strings): String = when (this) {
     is TdException -> error.message
-    else -> message?.takeIf { it.isNotBlank() } ?: "Something went wrong"
+    else -> message?.takeIf { it.isNotBlank() } ?: strings.get(R.string.something_went_wrong)
 }

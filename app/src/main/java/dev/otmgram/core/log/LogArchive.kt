@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.content.FileProvider
 import dev.otmgram.BuildConfig
+import dev.otmgram.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -43,9 +44,9 @@ object LogArchive {
         val send = Intent(Intent.ACTION_SEND)
             .setType("application/zip")
             .putExtra(Intent.EXTRA_STREAM, uri)
-            .putExtra(Intent.EXTRA_SUBJECT, "Otmgram logs")
+            .putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.logs_subject))
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        return Intent.createChooser(send, "Share logs")
+        return Intent.createChooser(send, context.getString(R.string.logs_share))
     }
 
     private fun header(stamp: String) = """

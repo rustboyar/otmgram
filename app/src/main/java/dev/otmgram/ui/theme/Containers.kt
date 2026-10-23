@@ -23,13 +23,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import dev.otmgram.R
 
 /* What holds content: the top bar, cards, banners, dialogs. */
 
@@ -54,7 +56,7 @@ fun ScreenBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            if (onBack != null) IconBtn(backIcon, "Back", onBack, tag = backTag)
+            if (onBack != null) IconBtn(backIcon, stringResource(R.string.back), onBack, tag = backTag)
             leading?.invoke()
             Column(Modifier.weight(1f).padding(start = if (leading != null) 6.dp else 4.dp)) {
                 Text(title, style = OtmType.BarTitle, color = Otm.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -111,7 +113,7 @@ fun OtmDialog(
     onDismiss: () -> Unit,
     confirm: @Composable () -> Unit,
     text: String? = null,
-    dismissLabel: String = "Cancel",
+    dismissLabel: String = stringResource(R.string.cancel),
     content: @Composable (ColumnScope.() -> Unit)? = null,
 ) {
     AlertDialog(

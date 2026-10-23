@@ -35,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -45,6 +46,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dev.otmgram.R
 import dev.otmgram.core.launchLogged
 import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.log.LogArchive
@@ -98,7 +100,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
     var confirmClear by rememberSaveable { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().paper().imePadding()) {
-        ScreenBar("Settings", onBack = onBack)
+        ScreenBar(stringResource(R.string.settings), onBack = onBack)
         Column(
             modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(14.dp).navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -110,11 +112,11 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(account.name, style = OtmType.Name, color = Otm.Ink)
                             Text(
-                                listOfNotNull(account.phone, folderName?.let { "folder $it" }).joinToString(" · "),
+                                listOfNotNull(account.phone, folderName?.let { stringResource(R.string.account_folder, it) }).joinToString(" · "),
                                 style = OtmType.Secondary,
                                 color = Otm.InkSoft,
                             )
-                            Text("Always shown as offline", style = OtmType.Secondary, color = Otm.InkSoft)
+                            Text(stringResource(R.string.account_offline), style = OtmType.Secondary, color = Otm.InkSoft)
                         }
                     }
                 }
@@ -122,11 +124,11 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
 
             viewModel.header?.let { header ->
                 Card {
-                    Title("Name on top", "Shown over the chat list. Leave it empty for no name. The folder in Telegram keeps its name.")
+                    Title(stringResource(R.string.header_title), stringResource(R.string.header_description))
                     OtmField(
                         value = header,
                         onValueChange = viewModel::editHeader,
-                        placeholder = "No name",
+                        placeholder = stringResource(R.string.header_none),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         modifier = Modifier.fillMaxWidth().testTag("headerName"),
                         trailing = {
@@ -140,7 +142,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                     )
                     if (folderName != null && header != folderName) {
                         Text(
-                            "Use the folder's name, $folderName",
+                            stringResource(R.string.header_reset, folderName.orEmpty()),
                             style = OtmType.Secondary.copy(fontWeight = FontWeight.SemiBold),
                             color = Otm.SlateDeep,
                             modifier = Modifier.clickable(onClick = viewModel::resetHeader).padding(vertical = 4.dp).testTag("resetHeaderName"),
@@ -150,10 +152,10 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
             }
 
             Card {
-                Title("Check for new messages", "Notifications arrive at most this often.")
+                Title(stringResource(R.string.interval_title), stringResource(R.string.interval_description))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     CheckInterval.entries.forEach { option ->
-                        Chip(option.label, option == interval, { viewModel.setCheckInterval(option) }, Modifier.testTag("interval-${option.name}"))
+                        Chip(stringResource(option.label), option == interval, { viewModel.setCheckInterval(option) }, Modifier.testTag("interval-${option.name}"))
                     }
                 }
             }
@@ -166,11 +168,11 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                 ) {
                     Column(Modifier.weight(1f)) {
                         Title(
-                            "Show message text",
+                            stringResource(R.string.message_text_title),
                             if (showText) {
-                                "Notifications show what was written. Android shows it on the lock screen too, unless you hide sensitive content there."
+                                stringResource(R.string.message_text_on)
                             } else {
-                                "Notifications only say who wrote, so no text reaches the lock screen."
+                                stringResource(R.string.message_text_off)
                             },
                         )
                     }
@@ -185,7 +187,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Title("Compress photos and videos", "Smaller and faster to send. You can turn it off for each message.")
+                        Title(stringResource(R.string.compress_title), stringResource(R.string.compress_description))
                     }
                     OtmSwitch(compress, onCheckedChange = null)
                 }
@@ -193,29 +195,29 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
 
             Card {
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text("Storage", style = OtmType.Name, color = Otm.Ink, modifier = Modifier.weight(1f))
-                    Text(viewModel.usage?.let { "${formatSize(it.total)} on this phone" } ?: "Counting…", style = OtmType.Secondary, color = Otm.InkSoft)
+                    Text(stringResource(R.string.storage), style = OtmType.Name, color = Otm.Ink, modifier = Modifier.weight(1f))
+                    Text(viewModel.usage?.let { stringResource(R.string.storage_total, formatSize(it.total)) } ?: stringResource(R.string.storage_counting), style = OtmType.Secondary, color = Otm.InkSoft)
                 }
                 viewModel.usage?.let { StorageBar(it) }
-                Text("Keep downloaded media up to", style = OtmType.Preview.copy(fontWeight = FontWeight.Medium), color = Otm.Ink)
+                Text(stringResource(R.string.cache_title), style = OtmType.Preview.copy(fontWeight = FontWeight.Medium), color = Otm.Ink)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     CacheLimit.entries.forEach { option ->
-                        Chip(option.label, option == cacheLimit, { viewModel.setCacheLimit(option) }, Modifier.testTag("limit-${option.name}"))
+                        Chip(stringResource(option.label), option == cacheLimit, { viewModel.setCacheLimit(option) }, Modifier.testTag("limit-${option.name}"))
                     }
                 }
-                Text("Older files go first. They download again when you open them.", style = OtmType.Secondary, color = Otm.InkSoft)
+                Text(stringResource(R.string.cache_description), style = OtmType.Secondary, color = Otm.InkSoft)
                 SoftButton(
-                    if (viewModel.clearing) "Clearing…" else "Clear downloaded media",
+                    if (viewModel.clearing) stringResource(R.string.clearing) else stringResource(R.string.clear_media),
                     { if (!viewModel.clearing) confirmClear = true },
                     Modifier.testTag("clearMedia"),
                 )
             }
 
             Card {
-                Title("Logs", "What the app did and any errors, kept on this phone. No message text or names.")
+                Title(stringResource(R.string.logs_title), stringResource(R.string.logs_description))
                 val context = LocalContext.current
                 SoftButton(
-                    if (viewModel.sharingLogs) "Preparing…" else "Share logs",
+                    if (viewModel.sharingLogs) stringResource(R.string.logs_preparing) else stringResource(R.string.logs_share),
                     {
                         viewModel.shareLogs { zip -> context.startActivity(LogArchive.shareIntent(context, zip)) }
                     },
@@ -234,18 +236,18 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                     .testTag("logout"),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("Log out", style = OtmType.Button, color = Otm.Error)
+                Text(stringResource(R.string.log_out), style = OtmType.Button, color = Otm.Error)
             }
         }
     }
 
     if (confirmClear) {
         OtmDialog(
-            title = "Clear downloaded media?",
-            text = "Photos, videos and files are removed from this phone. They stay in Telegram and download again when you open them.",
+            title = stringResource(R.string.clear_title),
+            text = stringResource(R.string.clear_text),
             onDismiss = { confirmClear = false },
             confirm = {
-                TextAction("Clear", {
+                TextAction(stringResource(R.string.clear), {
                     confirmClear = false
                     viewModel.clearMedia()
                 }, Modifier.testTag("confirmClear"), color = Otm.Error)
@@ -254,10 +256,10 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
     }
     if (confirmLogout) {
         OtmDialog(
-            title = "Log out?",
-            text = "Otmgram will forget this account and remove its downloaded media from the phone. Your chats stay in Telegram.",
+            title = stringResource(R.string.log_out_title),
+            text = stringResource(R.string.log_out_text),
             onDismiss = { confirmLogout = false },
-            confirm = { TextAction("Log out", viewModel::logOut, Modifier.testTag("confirmLogout"), color = Otm.Error) },
+            confirm = { TextAction(stringResource(R.string.log_out), viewModel::logOut, Modifier.testTag("confirmLogout"), color = Otm.Error) },
         )
     }
 }
@@ -276,7 +278,7 @@ private fun Title(title: String, subtitle: String) {
 private fun StorageBar(usage: StorageUsage) {
     val parts = StorageKind.entries.mapNotNull { kind -> usage.byKind[kind]?.takeIf { it > 0 }?.let { kind to it } }
     if (parts.isEmpty()) {
-        Text("Nothing downloaded yet.", style = OtmType.Secondary, color = Otm.InkSoft)
+        Text(stringResource(R.string.storage_empty), style = OtmType.Secondary, color = Otm.InkSoft)
         return
     }
     Row(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -288,7 +290,7 @@ private fun StorageBar(usage: StorageUsage) {
         parts.forEach { (kind, size) ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Box(Modifier.size(10.dp).clip(CircleShape).background(STORAGE_COLORS.getValue(kind)))
-                Text(kind.label, style = OtmType.Secondary, color = Otm.Ink)
+                Text(stringResource(kind.label), style = OtmType.Secondary, color = Otm.Ink)
                 Text(formatSize(size), style = OtmType.Secondary, color = Otm.InkSoft)
             }
         }

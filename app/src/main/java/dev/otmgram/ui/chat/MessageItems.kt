@@ -1,5 +1,7 @@
 package dev.otmgram.ui.chat
 
+import dev.otmgram.R
+import dev.otmgram.core.Strings
 import dev.otmgram.data.ChatHistory
 import dev.otmgram.ui.isService
 import dev.otmgram.ui.summary
@@ -18,7 +20,7 @@ internal val MessageItem.hasEditableText: Boolean
         else -> false
     }
 
-internal fun ChatHistory.toItems(isGroup: Boolean): List<MessageItem> {
+internal fun ChatHistory.toItems(isGroup: Boolean, strings: Strings): List<MessageItem> {
     val byId = messages.associateBy { it.id }
     return messages.mapIndexed { index, message ->
         val media = message.toMedia()
@@ -34,12 +36,12 @@ internal fun ChatHistory.toItems(isGroup: Boolean): List<MessageItem> {
             replyTo = (message.replyTo as? TdApi.MessageReplyToMessage)?.let { replyTo ->
                 val replied = byId[replyTo.messageId] ?: repliedMessages[replyTo.messageId]
                 when {
-                    replied != null -> ReplyPreview(senderNames[replied.senderKey()], replied.summary())
-                    replyTo.content != null -> ReplyPreview(replyTo.origin?.let(::originName), replyTo.content.summary())
-                    else -> ReplyPreview(null, "Deleted message")
+                    replied != null -> ReplyPreview(senderNames[replied.senderKey()], replied.summary(strings))
+                    replyTo.content != null -> ReplyPreview(replyTo.origin?.let(::originName), replyTo.content.summary(strings))
+                    else -> ReplyPreview(null, strings.get(R.string.reply_deleted))
                 }
             },
-            text = if (media != null) message.content.caption() else message.summary(),
+            text = if (media != null) message.content.caption() else message.summary(strings),
             media = media,
             isMediaPlaceholder = media == null && message.content !is TdApi.MessageText && !message.isService,
             date = message.date,
@@ -76,15 +78,20 @@ internal fun TdApi.Message.senderKey(): Long = when (val sender = senderId) {
 }
 
 /** "online", "last seen at 19:01", "last seen recently". */
-internal fun lastSeen(status: TdApi.UserStatus?, today: LocalDate = LocalDate.now(), zone: ZoneId = ZoneId.systemDefault()): String? = when (status) {
-    is TdApi.UserStatusOnline -> "online"
+internal fun lastSeen(
+    status: TdApi.UserStatus?,
+    strings: Strings,
+    today: LocalDate = LocalDate.now(),
+    zone: ZoneId = ZoneId.systemDefault(),
+): String? = when (status) {
+    is TdApi.UserStatusOnline -> strings.get(R.string.status_online)
     is TdApi.UserStatusOffline -> {
         val time = Instant.ofEpochSecond(status.wasOnline.toLong()).atZone(zone)
-        if (time.toLocalDate() == today) "last seen at ${time.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))}"
-        else "last seen ${time.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))}"
+        if (time.toLocalDate() == today) strings.get(R.string.status_last_seen_at, time.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)))
+        else strings.get(R.string.status_last_seen_on, time.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)))
     }
-    is TdApi.UserStatusRecently -> "last seen recently"
-    is TdApi.UserStatusLastWeek -> "last seen within a week"
-    is TdApi.UserStatusLastMonth -> "last seen within a month"
+    is TdApi.UserStatusRecently -> strings.get(R.string.status_recently)
+    is TdApi.UserStatusLastWeek -> strings.get(R.string.status_week)
+    is TdApi.UserStatusLastMonth -> strings.get(R.string.status_month)
     else -> null
 }

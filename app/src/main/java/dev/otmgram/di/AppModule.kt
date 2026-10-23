@@ -5,6 +5,8 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dev.otmgram.core.AndroidStrings
+import dev.otmgram.core.Strings
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TelegramClient
 import kotlinx.coroutines.CoroutineScope
@@ -24,6 +26,9 @@ abstract class TelegramModule {
 
     @Binds
     abstract fun telegramClient(td: TdClient): TelegramClient
+
+    @Binds
+    abstract fun strings(strings: AndroidStrings): Strings
 }
 
 @Module

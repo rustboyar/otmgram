@@ -82,6 +82,7 @@ android {
         // Not a ChromeOS app: x86_64 is only built for the emulator.
         disable += "ChromeOsAbiSupport"
         abortOnError = true
+        warningsAsErrors = true
     }
 
     // Unit tests run on the JVM: Android calls like Log.w do nothing instead of throwing.

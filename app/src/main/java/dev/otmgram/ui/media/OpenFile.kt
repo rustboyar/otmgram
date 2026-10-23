@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.core.content.FileProvider
+import dev.otmgram.R
 import dev.otmgram.core.log.AppLog
 import java.io.File
 
@@ -17,11 +18,11 @@ fun openFile(context: Context, path: String, mimeType: String) {
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         context.startActivity(Intent.createChooser(intent, null))
     } catch (e: ActivityNotFoundException) {
-        Toast.makeText(context, "No app can open this file", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, R.string.open_no_app, Toast.LENGTH_SHORT).show()
     } catch (e: IllegalArgumentException) {
         // A path outside the folders shared in file_paths.xml.
         AppLog.w("openFile", "Can't share $path", e)
-        Toast.makeText(context, "Can't open this file", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, R.string.open_failed, Toast.LENGTH_SHORT).show()
     }
 }
 

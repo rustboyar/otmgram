@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -63,6 +64,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import dev.otmgram.R
 import dev.otmgram.ui.chat.formatDuration
 import dev.otmgram.ui.theme.DarkSystemBars
 import dev.otmgram.ui.theme.IconBtn
@@ -91,12 +93,12 @@ fun VideoNoteScreen(onDone: () -> Unit, viewModel: VideoNoteViewModel = hiltView
         when {
             !granted -> Column(Modifier.align(Alignment.Center).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    "Otmgram needs the camera and microphone to record video circles.",
+                    stringResource(R.string.video_note_permission),
                     style = OtmType.Body,
                     color = Otm.NightText,
                     textAlign = TextAlign.Center,
                 )
-                IconBtn(OtmIcons.Close, "Close", onDone, Modifier.padding(top = 16.dp), tint = Otm.NightText, tag = "cancelVideoNote")
+                IconBtn(OtmIcons.Close, stringResource(R.string.close), onDone, Modifier.padding(top = 16.dp), tint = Otm.NightText, tag = "cancelVideoNote")
             }
             viewModel.state == VideoNoteState.Processing -> Column(
                 Modifier.align(Alignment.Center),
@@ -104,7 +106,7 @@ fun VideoNoteScreen(onDone: () -> Unit, viewModel: VideoNoteViewModel = hiltView
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 CircularProgressIndicator(color = Otm.NightText, strokeWidth = 2.5.dp)
-                Text("Sending…", style = OtmType.Body, color = Otm.NightSoft)
+                Text(stringResource(R.string.sending), style = OtmType.Body, color = Otm.NightSoft)
             }
             else -> Recorder(viewModel, onCancel = onDone)
         }
@@ -147,10 +149,12 @@ private fun Recorder(viewModel: VideoNoteViewModel, onCancel: () -> Unit) {
     DisposableEffect(Unit) { onDispose { recording?.close() } }
 
     val active = recording
+    val record = stringResource(R.string.video_note_record)
+    val stopAndSend = stringResource(R.string.video_note_stop_send)
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             IconBtn(
-                OtmIcons.Close, "Cancel",
+                OtmIcons.Close, stringResource(R.string.cancel),
                 {
                     recording?.close()
                     onCancel()
@@ -159,7 +163,7 @@ private fun Recorder(viewModel: VideoNoteViewModel, onCancel: () -> Unit) {
                 tag = "cancelVideoNote",
             )
             Text(
-                if (viewModel.chatTitle.isEmpty()) "" else "to ${viewModel.chatTitle}",
+                if (viewModel.chatTitle.isEmpty()) "" else stringResource(R.string.send_to, viewModel.chatTitle),
                 style = OtmType.Preview,
                 color = Otm.NightSoft,
                 textAlign = TextAlign.Center,
@@ -167,7 +171,7 @@ private fun Recorder(viewModel: VideoNoteViewModel, onCancel: () -> Unit) {
                 modifier = Modifier.weight(1f),
             )
             IconBtn(
-                OtmIcons.SwitchCamera, "Switch camera",
+                OtmIcons.SwitchCamera, stringResource(R.string.switch_camera),
                 { front = !front },
                 tint = Otm.NightText,
                 enabled = active == null,
@@ -233,7 +237,7 @@ private fun Recorder(viewModel: VideoNoteViewModel, onCancel: () -> Unit) {
                                 }
                             }
                     }
-                    .semantics { contentDescription = if (active == null) "Record" else "Stop and send" }
+                    .semantics { contentDescription = if (active == null) record else stopAndSend }
                     .testTag(if (active == null) "startVideoNote" else "stopVideoNote"),
                 contentAlignment = Alignment.Center,
             ) {

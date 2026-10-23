@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -45,6 +46,8 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.otmgram.R
+import dev.otmgram.core.Strings
 import dev.otmgram.core.launchLogged
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
@@ -100,12 +103,12 @@ fun MediaViewerScreen(onBack: () -> Unit, viewModel: MediaViewerViewModel = hilt
                 .padding(start = 8.dp, end = 8.dp, top = 10.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconBtn(OtmIcons.Back, "Close", onBack, tint = Otm.NightText, tag = "closeViewer")
+            IconBtn(OtmIcons.Back, stringResource(R.string.close), onBack, tint = Otm.NightText, tag = "closeViewer")
             Column(Modifier.weight(1f).padding(start = 6.dp)) {
                 info?.let {
                     Text(it.sender, style = OtmType.Name, color = Otm.NightText, maxLines = 1)
                     Text(
-                        if (pages.size > 1) "${it.time} · ${pager.currentPage + 1} of ${pages.size}" else it.time,
+                        if (pages.size > 1) stringResource(R.string.viewer_position, it.time, pager.currentPage + 1, pages.size) else it.time,
                         style = OtmType.Secondary,
                         color = Otm.NightSoft,
                         modifier = Modifier.testTag("viewerPosition"),
@@ -113,7 +116,7 @@ fun MediaViewerScreen(onBack: () -> Unit, viewModel: MediaViewerViewModel = hilt
                 }
             }
             if (current != null) {
-                IconBtn(OtmIcons.Save, "Save to Downloads", { viewModel.saveToDownloads(current) }, tint = Otm.NightText, tag = "saveMedia")
+                IconBtn(OtmIcons.Save, stringResource(R.string.action_save), { viewModel.saveToDownloads(current) }, tint = Otm.NightText, tag = "saveMedia")
             }
         }
         current?.caption?.takeIf { it.isNotEmpty() && current.content is ViewerContent.Photo }?.let { caption ->
@@ -162,7 +165,7 @@ private fun FullVideo(video: ViewerContent.Video) {
     if (path == null) {
         val percent = ((file?.downloadProgress ?: 0f) * 100).toInt()
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Downloading $percent%", style = OtmType.Body, color = Otm.NightSoft)
+            Text(stringResource(R.string.viewer_downloading, percent), style = OtmType.Body, color = Otm.NightSoft)
         }
         return
     }
@@ -208,6 +211,7 @@ class MediaViewerViewModel @Inject constructor(
     private val td: TdClient,
     private val files: FileRepository,
     private val downloads: DownloadsFolder,
+    private val strings: Strings,
 ) : ViewModel() {
 
     /** The opened photo or video, and the rest of its album around it. */
@@ -226,9 +230,9 @@ class MediaViewerViewModel @Inject constructor(
     init {
         val chatId: Long = checkNotNull(savedState["chatId"])
         val messageId: Long = checkNotNull(savedState["messageId"])
-        viewModelScope.launchLogged(TAG, onError = { notice = "This message is no longer available" }) {
+        viewModelScope.launchLogged(TAG, onError = { notice = strings.get(R.string.viewer_unavailable) }) {
             val message = td.send(TdApi.GetMessage(chatId, messageId))
-            info = ViewerInfo(sender(message), postedAt(message.date))
+            info = ViewerInfo(sender(message), postedAt(message.date, strings))
             val album = if (message.mediaAlbumId == 0L) listOf(message) else albumOf(message)
             pages = album.mapNotNull(::page)
             startIndex = pages.indexOfFirst { it.messageId == messageId }.coerceAtLeast(0)
@@ -260,9 +264,9 @@ class MediaViewerViewModel @Inject constructor(
             is ViewerContent.Video -> c.fileId
         }
         val (name, mimeType) = page.saveAs
-        viewModelScope.launchLogged(TAG, onError = { notice = "Couldn't save: ${it.userMessage()}" }) {
+        viewModelScope.launchLogged(TAG, onError = { notice = strings.get(R.string.viewer_save_failed, it.userMessage(strings)) }) {
             downloads.save(File(files.downloadNow(fileId)), name, mimeType)
-            notice = "Saved to Downloads"
+            notice = strings.get(R.string.notice_saved_to_downloads)
         }
     }
 
@@ -281,12 +285,12 @@ private const val ALBUM_MAX = 10
 private const val TAG = "MediaViewer"
 
 /** "Today, 19:01", or the date. */
-private fun postedAt(unixTime: Int): String {
+private fun postedAt(unixTime: Int, strings: Strings): String {
     val date = Instant.ofEpochSecond(unixTime.toLong()).atZone(ZoneId.systemDefault()).toLocalDate()
     val day = when (date) {
-        LocalDate.now() -> "Today"
-        LocalDate.now().minusDays(1) -> "Yesterday"
+        LocalDate.now() -> strings.get(R.string.day_today)
+        LocalDate.now().minusDays(1) -> strings.get(R.string.day_yesterday)
         else -> date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
     }
-    return "$day, ${formatTime(unixTime)}"
+    return strings.get(R.string.day_and_time, day, formatTime(unixTime))
 }

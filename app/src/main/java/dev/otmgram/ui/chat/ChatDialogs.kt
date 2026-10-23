@@ -37,9 +37,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -48,13 +48,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,11 +65,13 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
+import dev.otmgram.R
+import dev.otmgram.core.Strings
 import dev.otmgram.core.location.LiveLocationSharing
 import dev.otmgram.core.location.MapSnapshots
-import kotlin.math.roundToInt
 import dev.otmgram.data.SizeEstimate
 import dev.otmgram.ui.media.formatSize
+import dev.otmgram.ui.rememberStrings
 import dev.otmgram.ui.theme.ChatAvatar
 import dev.otmgram.ui.theme.Chip
 import dev.otmgram.ui.theme.DialogTags
@@ -81,6 +85,7 @@ import dev.otmgram.ui.theme.OtmType
 import dev.otmgram.ui.theme.PlainDialogWindow
 import dev.otmgram.ui.theme.TextAction
 import dev.otmgram.ui.theme.paper
+import kotlin.math.roundToInt
 
 /**
  * Long-press menu, floating over the dimmed chat: reactions on top, the message, and the
@@ -160,14 +165,14 @@ fun MessageMenuOverlay(
                         .background(Otm.Card, RoundedCornerShape(18.dp))
                         .padding(vertical = 6.dp),
                 ) {
-                    if (menu.canReply) MenuAction(OtmIcons.Reply, "Reply", "reply", onReply)
-                    if (menu.canEdit) MenuAction(OtmIcons.Edit, "Edit", "edit", onEdit)
-                    if (menu.canCopy) MenuAction(OtmIcons.Copy, "Copy text", "copy", onCopy)
-                    if (menu.canForward) MenuAction(OtmIcons.Forward, "Forward", "forward", onForward)
-                    if (menu.canSave) MenuAction(OtmIcons.Save, "Save to Downloads", "save", onSave)
-                    MenuAction(OtmIcons.Select, "Select", "select", onSelect)
+                    if (menu.canReply) MenuAction(OtmIcons.Reply, stringResource(R.string.action_reply), "reply", onReply)
+                    if (menu.canEdit) MenuAction(OtmIcons.Edit, stringResource(R.string.action_edit), "edit", onEdit)
+                    if (menu.canCopy) MenuAction(OtmIcons.Copy, stringResource(R.string.action_copy), "copy", onCopy)
+                    if (menu.canForward) MenuAction(OtmIcons.Forward, stringResource(R.string.action_forward), "forward", onForward)
+                    if (menu.canSave) MenuAction(OtmIcons.Save, stringResource(R.string.action_save), "save", onSave)
+                    MenuAction(OtmIcons.Select, stringResource(R.string.action_select), "select", onSelect)
                     if (menu.canDeleteForSelf || menu.canDeleteForEveryone) {
-                        MenuAction(OtmIcons.Trash, "Delete", "delete", onDelete, danger = true)
+                        MenuAction(OtmIcons.Trash, stringResource(R.string.action_delete), "delete", onDelete, danger = true)
                     }
                 }
             }
@@ -190,15 +195,16 @@ private fun MenuAction(icon: ImageVector, label: String, tag: String, onClick: (
 }
 
 /** One line for media without a caption, e.g. in the menu. */
+@Composable
 fun MessageMedia.label(): String = when (this) {
-    is MessageMedia.Photo -> "Photo"
-    is MessageMedia.Video -> "Video"
-    is MessageMedia.Animation -> "GIF"
-    is MessageMedia.VoiceNote -> "Voice message"
-    is MessageMedia.VideoNote -> "Video message"
-    is MessageMedia.Sticker -> "Sticker"
+    is MessageMedia.Photo -> stringResource(R.string.summary_photo)
+    is MessageMedia.Video -> stringResource(R.string.summary_video)
+    is MessageMedia.Animation -> stringResource(R.string.summary_gif)
+    is MessageMedia.VoiceNote -> stringResource(R.string.summary_voice)
+    is MessageMedia.VideoNote -> stringResource(R.string.summary_video_note)
+    is MessageMedia.Sticker -> stringResource(R.string.summary_sticker)
     is MessageMedia.Document -> name
-    is MessageMedia.Location -> if (live != null) "Live location" else "Location"
+    is MessageMedia.Location -> stringResource(if (live != null) R.string.summary_live_location else R.string.summary_location)
 }
 
 @Composable
@@ -207,12 +213,12 @@ fun DeleteDialog(request: DeleteRequest, onDelete: (forEveryone: Boolean) -> Uni
     var forEveryone by rememberSaveable { mutableStateOf(request.canDeleteForEveryone) }
     val count = request.messageIds.size
     OtmDialog(
-        title = if (count == 1) "Delete message?" else "Delete $count messages?",
-        text = request.quote?.let { "“${it.take(140)}”" },
+        title = pluralStringResource(R.plurals.delete_title, count, count),
+        text = request.quote?.let { stringResource(R.string.quote, it.take(140)) },
         onDismiss = onDismiss,
         confirm = {
             TextAction(
-                "Delete",
+                stringResource(R.string.action_delete),
                 { onDelete(if (request.canDeleteForSelf) forEveryone else true) },
                 Modifier.testTag(if (forEveryone) "deleteForEveryone" else "deleteForMe"),
                 color = Otm.Error,
@@ -229,7 +235,7 @@ fun DeleteDialog(request: DeleteRequest, onDelete: (forEveryone: Boolean) -> Uni
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     SelectionMark(forEveryone)
-                    Text("Also delete for everyone", style = OtmType.Body, color = Otm.Ink)
+                    Text(stringResource(R.string.delete_for_everyone), style = OtmType.Body, color = Otm.Ink)
                 }
             }
         } else {
@@ -245,13 +251,13 @@ fun ForwardSheet(targets: List<ForwardTarget>, onForward: (ForwardTarget) -> Uni
     var query by rememberSaveable { mutableStateOf("") }
     OtmSheet(onDismiss) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Forward to", style = OtmType.BarTitle.copy(fontSize = 20.sp), color = Otm.Ink, modifier = Modifier.weight(1f))
-            IconBtn(OtmIcons.Close, "Close", onDismiss, tint = Otm.InkSoft)
+            Text(stringResource(R.string.forward_to), style = OtmType.BarTitle.copy(fontSize = 20.sp), color = Otm.Ink, modifier = Modifier.weight(1f))
+            IconBtn(OtmIcons.Close, stringResource(R.string.close), onDismiss, tint = Otm.InkSoft)
         }
         OtmField(
             value = query,
             onValueChange = { query = it },
-            placeholder = "Find a chat",
+            placeholder = stringResource(R.string.find_chat),
             textStyle = OtmType.Body,
             shape = RoundedCornerShape(22.dp),
             height = 44.dp,
@@ -293,10 +299,10 @@ fun AttachSheet(
 ) {
     OtmSheet(onDismiss) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
-            AttachOption(OtmIcons.Gallery, "Gallery", "attachMedia", onGallery)
-            AttachOption(OtmIcons.File, "File", "attachFile", onFile)
-            AttachOption(OtmIcons.Pin, "Location", "attachLocation", onLocation)
-            AttachOption(OtmIcons.Mic, "Voice", "record", onVoice)
+            AttachOption(OtmIcons.Gallery, stringResource(R.string.attach_gallery), "attachMedia", onGallery)
+            AttachOption(OtmIcons.File, stringResource(R.string.attach_file), "attachFile", onFile)
+            AttachOption(OtmIcons.Pin, stringResource(R.string.attach_location), "attachLocation", onLocation)
+            AttachOption(OtmIcons.Mic, stringResource(R.string.attach_voice), "record", onVoice)
         }
     }
 }
@@ -340,9 +346,9 @@ fun LocationSheet(
         ) {
             RoundIcon(OtmIcons.Pin)
             Column {
-                Text("Send my current location", style = OtmType.Name, color = Otm.Ink)
+                Text(stringResource(R.string.location_send_current), style = OtmType.Name, color = Otm.Ink)
                 Text(
-                    here?.takeIf { it.hasAccuracy() }?.let { "Accurate to ${it.accuracy.roundToInt()} m" } ?: "Once, as it is now",
+                    here?.takeIf { it.hasAccuracy() }?.let { stringResource(R.string.location_accuracy, it.accuracy.roundToInt()) } ?: stringResource(R.string.location_once),
                     style = OtmType.Secondary,
                     color = Otm.InkSoft,
                 )
@@ -353,13 +359,13 @@ fun LocationSheet(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 RoundIcon(OtmIcons.LiveLocation)
                 Column {
-                    Text("Share live location", style = OtmType.Name, color = Otm.Ink)
-                    Text("Shown in $chatTitle until it ends or you stop", style = OtmType.Secondary, color = Otm.InkSoft)
+                    Text(stringResource(R.string.location_share_live), style = OtmType.Name, color = Otm.Ink)
+                    Text(stringResource(R.string.location_live_hint, chatTitle), style = OtmType.Secondary, color = Otm.InkSoft)
                 }
             }
             Row(Modifier.padding(start = 62.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 LiveLocationSharing.PERIODS.forEach { (seconds, label) ->
-                    Chip(label, selected = false, onClick = { onShareLive(seconds) }, modifier = Modifier.testTag("live-$seconds"))
+                    Chip(stringResource(label), selected = false, onClick = { onShareLive(seconds) }, modifier = Modifier.testTag("live-$seconds"))
                 }
             }
         }
@@ -385,7 +391,7 @@ private fun HereMap(here: android.location.Location) {
             .testTag("hereMap"),
         contentAlignment = Alignment.Center,
     ) {
-        map?.let { Image(it, contentDescription = "Map of where you are", contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize()) }
+        map?.let { Image(it, contentDescription = stringResource(R.string.location_map), contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize()) }
         MapPin()
     }
 }
@@ -432,7 +438,7 @@ fun MediaPreviewScreen(
     var compress by rememberSaveable { mutableStateOf(compressByDefault) }
     var shown by rememberSaveable { mutableIntStateOf(0) }
     SendPreview(
-        title = if (uris.size == 1) "1 item" else "${uris.size} items",
+        title = pluralStringResource(R.plurals.media_items, uris.size, uris.size),
         chatTitle = chatTitle,
         captionTag = "caption",
         sendTag = "sendMedia",
@@ -441,7 +447,7 @@ fun MediaPreviewScreen(
     ) {
         AsyncImage(
             model = uris.getOrNull(shown),
-            contentDescription = "Selected item",
+            contentDescription = stringResource(R.string.media_selected),
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(18.dp)).background(Otm.Haze),
         )
@@ -450,7 +456,7 @@ fun MediaPreviewScreen(
                 itemsIndexed(uris) { index, uri ->
                     AsyncImage(
                         model = uri,
-                        contentDescription = "Item ${index + 1}",
+                        contentDescription = stringResource(R.string.media_item, index + 1),
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .size(64.dp)
@@ -466,8 +472,8 @@ fun MediaPreviewScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                Text("Compress", style = OtmType.Body.copy(fontWeight = FontWeight.SemiBold), color = Otm.Ink)
-                Text(sizeLine(sizes, compress), style = OtmType.Secondary, color = Otm.InkSoft, modifier = Modifier.testTag("sizeEstimate"))
+                Text(stringResource(R.string.compress), style = OtmType.Body.copy(fontWeight = FontWeight.SemiBold), color = Otm.Ink)
+                Text(sizeLine(sizes, compress, rememberStrings()), style = OtmType.Secondary, color = Otm.InkSoft, modifier = Modifier.testTag("sizeEstimate"))
             }
             OtmSwitch(compress, onCheckedChange = null)
         }
@@ -475,11 +481,11 @@ fun MediaPreviewScreen(
 }
 
 /** "About 2.4 MB instead of 31 MB", or the size as it goes. */
-internal fun sizeLine(sizes: SizeEstimate?, compress: Boolean): String = when {
-    sizes == null -> if (compress) "Smaller and faster to send" else "Sent at full quality"
-    !compress -> "${formatSize(sizes.original)}, sent at full quality"
-    sizes.compressed < sizes.original * 9 / 10 -> "About ${formatSize(sizes.compressed)} instead of ${formatSize(sizes.original)}"
-    else -> "Already small: ${formatSize(sizes.original)}"
+internal fun sizeLine(sizes: SizeEstimate?, compress: Boolean, strings: Strings): String = when {
+    sizes == null -> strings.get(if (compress) R.string.size_compress_unknown else R.string.size_full_unknown)
+    !compress -> strings.get(R.string.size_full, formatSize(sizes.original))
+    sizes.compressed < sizes.original * 9 / 10 -> strings.get(R.string.size_compressed, formatSize(sizes.compressed), formatSize(sizes.original))
+    else -> strings.get(R.string.size_already_small, formatSize(sizes.original))
 }
 
 /** Picked files (sent as they are) with a caption field, before sending. */
@@ -494,7 +500,7 @@ fun FilesPreviewScreen(uris: List<Uri>, chatTitle: String, onSend: (caption: Str
         }
     }
     SendPreview(
-        title = if (uris.size == 1) "1 file" else "${uris.size} files",
+        title = pluralStringResource(R.plurals.files_count, uris.size, uris.size),
         chatTitle = chatTitle,
         captionTag = "fileCaption",
         sendTag = "sendFiles",
@@ -518,7 +524,7 @@ fun FilesPreviewScreen(uris: List<Uri>, chatTitle: String, onSend: (caption: Str
                 }
             }
         }
-        Text("Files are sent as they are, without compression.", style = OtmType.Secondary, color = Otm.InkSoft, modifier = Modifier.padding(horizontal = 4.dp))
+        Text(stringResource(R.string.files_hint), style = OtmType.Secondary, color = Otm.InkSoft, modifier = Modifier.padding(horizontal = 4.dp))
     }
 }
 
@@ -537,10 +543,10 @@ private fun SendPreview(
         PlainDialogWindow()
         Column(Modifier.fillMaxSize().paper().systemBarsPadding().imePadding().then(DialogTags)) {
             Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 10.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconBtn(OtmIcons.Close, "Cancel", onDismiss, tag = "cancelSend")
+                IconBtn(OtmIcons.Close, stringResource(R.string.cancel), onDismiss, tag = "cancelSend")
                 Column(Modifier.padding(start = 6.dp)) {
                     Text(title, style = OtmType.BarTitle, color = Otm.Ink)
-                    Text("to $chatTitle", style = OtmType.Secondary, color = Otm.InkSoft)
+                    Text(stringResource(R.string.send_to, chatTitle), style = OtmType.Secondary, color = Otm.InkSoft)
                 }
             }
             Column(Modifier.fillMaxWidth().weight(1f).padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = body)
@@ -552,7 +558,7 @@ private fun SendPreview(
                 OtmField(
                     value = caption,
                     onValueChange = { caption = it },
-                    placeholder = "Add a caption",
+                    placeholder = stringResource(R.string.caption),
                     textStyle = OtmType.Body,
                     singleLine = false,
                     maxLines = 4,
@@ -561,7 +567,7 @@ private fun SendPreview(
                     outlined = false,
                     modifier = Modifier.weight(1f).border(1.dp, Otm.Line, RoundedCornerShape(22.dp)).testTag(captionTag),
                 )
-                IconBtn(OtmIcons.Send, "Send", { onSend(caption) }, tint = Color.White, background = Otm.Slate, tag = sendTag)
+                IconBtn(OtmIcons.Send, stringResource(R.string.send), { onSend(caption) }, tint = Color.White, background = Otm.Slate, tag = sendTag)
             }
         }
     }

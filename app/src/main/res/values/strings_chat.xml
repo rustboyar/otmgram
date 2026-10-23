@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Send preview: what compressing does -->
+    <string name="size_compress_unknown">Smaller and faster to send</string>
+    <string name="size_full_unknown">Sent at full quality</string>
+    <string name="size_full">%1$s, sent at full quality</string>
+    <string name="size_compressed">About %1$s instead of %2$s</string>
+    <string name="size_already_small">Already small: %1$s</string>
+
+    <!-- Notices in a chat -->
+    <string name="notice_downloading">Downloading %1$s…</string>
+    <string name="notice_saved_to_downloads">Saved to Downloads</string>
+    <string name="notice_cant_record">Can\'t record: %1$s</string>
+    <string name="notice_no_location">Couldn\'t get your location. Is location turned on?</string>
+    <string name="notice_message_not_found">Message not found</string>
+    <string name="notice_cant_delete">These messages can\'t be deleted</string>
+    <string name="notice_forwarded">Forwarded to %1$s</string>
+
+    <!-- Recording a video message -->
+    <string name="video_note_send_failed">Couldn\'t send: %1$s</string>
+    <string name="video_note_record_failed">Recording failed: %1$s</string>
+    <string name="video_note_unknown_error">unknown error</string>
+
+    <!-- How long to share live location -->
+    <string name="live_15_minutes">15 minutes</string>
+    <string name="live_1_hour">1 hour</string>
+    <string name="live_8_hours">8 hours</string>
+
+    <!-- Sticker picker -->
+    <string name="stickers_recent">Recent</string>
+
+    <!-- Message menu, dialogs and send previews -->
+    <string name="action_reply">Reply</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_copy">Copy text</string>
+    <string name="action_forward">Forward</string>
+    <string name="action_save">Save to Downloads</string>
+    <string name="action_select">Select</string>
+    <string name="action_delete">Delete</string>
+    <string name="quote">“%1$s”</string>
+    <string name="delete_for_everyone">Also delete for everyone</string>
+    <string name="forward_to">Forward to</string>
+    <string name="find_chat">Find a chat</string>
+    <string name="attach_gallery">Gallery</string>
+    <string name="attach_file">File</string>
+    <string name="attach_location">Location</string>
+    <string name="attach_voice">Voice</string>
+    <string name="location_send_current">Send my current location</string>
+    <string name="location_accuracy">Accurate to %1$d m</string>
+    <string name="location_once">Once, as it is now</string>
+    <string name="location_share_live">Share live location</string>
+    <string name="location_live_hint">Shown in %1$s until it ends or you stop</string>
+    <string name="location_map">Map of where you are</string>
+    <string name="media_selected">Selected item</string>
+    <string name="media_item">Item %1$d</string>
+    <string name="compress">Compress</string>
+    <string name="files_hint">Files are sent as they are, without compression.</string>
+    <string name="send_to">to %1$s</string>
+    <string name="caption">Add a caption</string>
+    <plurals name="delete_title">
+        <item quantity="one">Delete message?</item>
+        <item quantity="other">Delete %1$d messages?</item>
+    </plurals>
+    <plurals name="media_items">
+        <item quantity="one">%1$d item</item>
+        <item quantity="other">%1$d items</item>
+    </plurals>
+    <plurals name="files_count">
+        <item quantity="one">%1$d file</item>
+        <item quantity="other">%1$d files</item>
+    </plurals>
+
+    <!-- Chat screen -->
+    <string name="search_chat">Find in this chat</string>
+    <string name="preparing_media">Preparing media…</string>
+    <string name="selection_cancel">Cancel selection</string>
+    <string name="search_close">Close search</string>
+    <string name="search_clear">Clear</string>
+    <string name="search_type">Type to search</string>
+    <string name="search_searching">Searching…</string>
+    <string name="search_none">No matches</string>
+    <string name="search_position">%1$d of %2$d</string>
+    <string name="search_earlier">Earlier match</string>
+    <string name="search_later">Later match</string>
+    <string name="reply_to">Reply to %1$s</string>
+    <string name="edit_message">Edit message</string>
+    <string name="attach">Attach</string>
+    <string name="composer_message">Message</string>
+    <string name="composer_write_to">Write to %1$s</string>
+    <string name="keyboard">Keyboard</string>
+    <string name="stickers">Stickers</string>
+    <string name="record_video_note">Record video circle</string>
+    <string name="live_sharing">Sharing your live location</string>
+    <string name="live_minutes_left">%1$d min left</string>
+    <string name="live_ending">ending</string>
+    <string name="live_stop_short">Stop</string>
+    <string name="voice_discard">Discard recording</string>
+    <string name="voice_send">Send voice message</string>
+    <plurals name="new_since_you_left">
+        <item quantity="one">%1$d new since you left</item>
+        <item quantity="other">%1$d new since you left</item>
+    </plurals>
+    <plurals name="selected_count">
+        <item quantity="one">%1$d selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
+    <plurals name="live_hours_left">
+        <item quantity="one">%1$d hour left</item>
+        <item quantity="other">%1$d hours left</item>
+    </plurals>
+    <string name="reply_to_yourself">yourself</string>
+
+    <!-- Media in messages -->
+    <string name="download_cancel">Cancel download</string>
+    <string name="size_of">%1$s of %2$s</string>
+    <string name="file_tap_to_open">%1$s · tap to open</string>
+    <string name="file_tap_to_download">%1$s · tap to download</string>
+    <string name="upload_stop">Stop sending</string>
+    <string name="live_ended">Live location ended</string>
+    <string name="live_updated_now">Live · updated just now</string>
+    <string name="live_updated_ago">Live · updated %1$d min ago</string>
+    <string name="play_video">Play video</string>
+    <string name="play_gif">Play GIF</string>
+    <string name="download_stop">Stop downloading</string>
+    <string name="pause">Pause</string>
+    <string name="play_voice">Play voice message</string>
+    <string name="sound_off">Sound off</string>
+
+    <!-- Message bubbles -->
+    <string name="not_sent">Not sent.</string>
+    <string name="retry">Retry</string>
+    <string name="forwarded_from">Forwarded from %1$s</string>
+    <string name="edited">edited</string>
+    <string name="status_sending">Sending</string>
+    <string name="status_not_sent">Not sent</string>
+    <string name="message_selected">Selected</string>
+    <string name="stickers_none">No stickers here yet</string>
+
+    <!-- Recording a video message -->
+    <string name="video_note_permission">Otmgram needs the camera and microphone to record video circles.</string>
+    <string name="sending">Sending…</string>
+    <string name="switch_camera">Switch camera</string>
+    <string name="status_sent">Sent</string>
+    <string name="status_read">Read</string>
+    <string name="video_note_record">Record</string>
+    <string name="video_note_stop_send">Stop and send</string>
+</resources>

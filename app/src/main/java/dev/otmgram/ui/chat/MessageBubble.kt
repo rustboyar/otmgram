@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
@@ -45,6 +46,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import dev.otmgram.R
 import dev.otmgram.core.media.AudioState
 import dev.otmgram.ui.highlightMatches
 import dev.otmgram.ui.theme.Otm
@@ -105,9 +107,9 @@ fun MessageBubble(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Not sent.", style = OtmType.Secondary, color = Otm.Error)
-                TextAction("Retry", onRetry, Modifier.testTag("retry"))
-                TextAction("Delete", onDiscard, Modifier.testTag("discard"), color = Otm.InkSoft)
+                Text(stringResource(R.string.not_sent), style = OtmType.Secondary, color = Otm.Error)
+                TextAction(stringResource(R.string.retry), onRetry, Modifier.testTag("retry"))
+                TextAction(stringResource(R.string.action_delete), onDiscard, Modifier.testTag("discard"), color = Otm.InkSoft)
             }
         }
     }
@@ -171,7 +173,7 @@ private fun Bubble(
             Text(it, style = OtmType.Secondary.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = Otm.Slate, modifier = textPadding)
         }
         message.forwardedFrom?.let {
-            Text("Forwarded from $it", style = OtmType.Time, fontStyle = FontStyle.Italic, color = Otm.Slate, modifier = textPadding)
+            Text(stringResource(R.string.forwarded_from, it), style = OtmType.Time, fontStyle = FontStyle.Italic, color = Otm.Slate, modifier = textPadding)
         }
         message.replyTo?.let { ReplyQuote(it, textPadding.padding(vertical = 4.dp)) }
         if (media != null) {
@@ -219,7 +221,7 @@ private fun TimeLine(message: MessageItem, onChip: Boolean, modifier: Modifier) 
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
-            listOfNotNull("edited".takeIf { message.isEdited }, formatTime(message.date)).joinToString(" "),
+            listOfNotNull(stringResource(R.string.edited).takeIf { message.isEdited }, formatTime(message.date)).joinToString(" "),
             style = OtmType.Time,
             color = if (message.status == MessageStatus.Failed) Otm.Error else Color(0xFF56626B),
         )
@@ -233,11 +235,14 @@ private fun TimeLine(message: MessageItem, onChip: Boolean, modifier: Modifier) 
  */
 @Composable
 fun StatusMark(status: MessageStatus) {
+    // Read here: semantics blocks can't read resources.
+    val sent = stringResource(R.string.status_sent)
+    val read = stringResource(R.string.status_read)
     when (status) {
-        MessageStatus.Sending -> Icon(OtmIcons.Clock, "Sending", tint = Otm.InkFaint, modifier = Modifier.size(15.dp))
-        MessageStatus.Failed -> Icon(OtmIcons.Alert, "Not sent", tint = Otm.Error, modifier = Modifier.size(15.dp))
-        MessageStatus.Sent -> Postmark(Otm.InkFaint, waves = false, Modifier.semantics { contentDescription = "Sent" })
-        MessageStatus.Read -> Postmark(Otm.Slate, waves = true, Modifier.semantics { contentDescription = "Read" })
+        MessageStatus.Sending -> Icon(OtmIcons.Clock, stringResource(R.string.status_sending), tint = Otm.InkFaint, modifier = Modifier.size(15.dp))
+        MessageStatus.Failed -> Icon(OtmIcons.Alert, stringResource(R.string.status_not_sent), tint = Otm.Error, modifier = Modifier.size(15.dp))
+        MessageStatus.Sent -> Postmark(Otm.InkFaint, waves = false, Modifier.semantics { contentDescription = sent })
+        MessageStatus.Read -> Postmark(Otm.Slate, waves = true, Modifier.semantics { contentDescription = read })
     }
 }
 
@@ -274,7 +279,7 @@ fun SelectionMark(selected: Boolean, modifier: Modifier = Modifier) {
             .then(if (selected) Modifier.background(Otm.Slate) else Modifier.border(1.5.dp, Otm.InkFaint, CircleShape)),
         contentAlignment = Alignment.Center,
     ) {
-        if (selected) Icon(OtmIcons.Check, "Selected", tint = Color.White, modifier = Modifier.size(15.dp))
+        if (selected) Icon(OtmIcons.Check, stringResource(R.string.message_selected), tint = Color.White, modifier = Modifier.size(15.dp))
     }
 }
 

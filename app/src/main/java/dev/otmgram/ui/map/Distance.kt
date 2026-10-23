@@ -1,5 +1,7 @@
 package dev.otmgram.ui.map
 
+import dev.otmgram.R
+import dev.otmgram.core.Strings
 import kotlin.math.asin
 import kotlin.math.cos
 import kotlin.math.pow
@@ -16,10 +18,10 @@ internal fun distanceMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Doub
 }
 
 /** "340 m away", "2.1 km away", "23 km away". */
-internal fun formatDistance(meters: Double): String = when {
-    meters < 1_000 -> "${(meters / 10).roundToInt() * 10} m away"
-    meters < 10_000 -> "%.1f km away".format(meters / 1_000)
-    else -> "${(meters / 1_000).roundToInt()} km away"
+internal fun formatDistance(meters: Double, strings: Strings): String = when {
+    meters < 1_000 -> strings.get(R.string.distance_meters, (meters / 10).roundToInt() * 10)
+    meters < 10_000 -> strings.get(R.string.distance_km_tenths, meters / 1_000)
+    else -> strings.get(R.string.distance_km, (meters / 1_000).roundToInt())
 }
 
 private const val EARTH_RADIUS_M = 6_371_000.0

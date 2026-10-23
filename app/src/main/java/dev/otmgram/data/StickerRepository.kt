@@ -1,5 +1,7 @@
 package dev.otmgram.data
 
+import dev.otmgram.R
+import dev.otmgram.core.Strings
 import dev.otmgram.core.td.TdClient
 import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
@@ -37,11 +39,12 @@ data class StickerTab(val setId: Long?, val title: String, val cover: Sticker? =
 @Singleton
 class StickerRepository @Inject constructor(
     private val td: TdClient,
+    private val strings: Strings,
 ) {
     /** "Recent" followed by the installed sticker sets. */
     suspend fun tabs(): List<StickerTab> {
         val sets = td.send(TdApi.GetInstalledStickerSets(TdApi.StickerTypeRegular())).sets
-        return listOf(StickerTab(null, "Recent")) + sets.map { StickerTab(it.id, it.title, it.covers.firstOrNull()?.toSticker()) }
+        return listOf(StickerTab(null, strings.get(R.string.stickers_recent))) + sets.map { StickerTab(it.id, it.title, it.covers.firstOrNull()?.toSticker()) }
     }
 
     suspend fun stickers(tab: StickerTab): List<Sticker> =

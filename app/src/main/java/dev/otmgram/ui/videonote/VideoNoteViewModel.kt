@@ -7,9 +7,12 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.otmgram.R
+import dev.otmgram.core.Strings
 import dev.otmgram.core.launchLogged
 import dev.otmgram.core.media.MediaTranscoder
 import dev.otmgram.core.td.TdClient
+import dev.otmgram.core.userMessage
 import dev.otmgram.data.MessageRepository
 import dev.otmgram.data.OutgoingFiles
 import dev.otmgram.data.OutgoingMedia
@@ -29,6 +32,7 @@ class VideoNoteViewModel @Inject constructor(
     private val outgoing: OutgoingMedia,
     private val files: OutgoingFiles,
     td: TdClient,
+    private val strings: Strings,
 ) : ViewModel() {
 
     private val chatId: Long = checkNotNull(savedState["chatId"])
@@ -40,7 +44,7 @@ class VideoNoteViewModel @Inject constructor(
     init {
         viewModelScope.launchLogged("VideoNoteViewModel") {
             val chat = td.send(TdApi.GetChat(chatId))
-            chatTitle = if (chat.isSavedMessages(td.send(TdApi.GetMe()).id)) "Saved Messages" else chat.title
+            chatTitle = if (chat.isSavedMessages(td.send(TdApi.GetMe()).id)) strings.get(R.string.saved_messages) else chat.title
         }
     }
 
@@ -62,7 +66,7 @@ class VideoNoteViewModel @Inject constructor(
                 messages.sendVideoNote(chatId, videoNote, duration, MediaTranscoder.VIDEO_NOTE_SIZE)
                 state = VideoNoteState.Sent
             } catch (e: Exception) {
-                error = "Couldn't send: ${e.message}"
+                error = strings.get(R.string.video_note_send_failed, e.userMessage(strings))
                 state = VideoNoteState.Recording
             }
         }
@@ -70,6 +74,6 @@ class VideoNoteViewModel @Inject constructor(
 
     fun discard(recording: File, reason: String?) {
         recording.delete()
-        error = "Recording failed: ${reason ?: "unknown error"}"
+        error = strings.get(R.string.video_note_record_failed, reason ?: strings.get(R.string.video_note_unknown_error))
     }
 }

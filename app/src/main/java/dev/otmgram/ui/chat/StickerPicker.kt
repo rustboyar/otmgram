@@ -27,8 +27,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.otmgram.R
 import dev.otmgram.data.Sticker
 import dev.otmgram.data.StickerTab
 import dev.otmgram.ui.auth.LoadingScreen
@@ -73,7 +75,7 @@ fun StickerPicker(
         when {
             stickers == null -> LoadingScreen()
             stickers.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No stickers here yet", style = OtmType.Body, color = Otm.InkSoft)
+                Text(stringResource(R.string.stickers_none), style = OtmType.Body, color = Otm.InkSoft)
             }
             else -> LazyVerticalGrid(
                 GridCells.Fixed(4),

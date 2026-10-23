@@ -49,6 +49,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,14 +57,16 @@ import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.rememberLottieComposition
+import dev.otmgram.R
+import dev.otmgram.core.Strings
 import dev.otmgram.core.location.MapSnapshots
 import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.media.AudioState
 import dev.otmgram.core.td.TdException
-import dev.otmgram.ui.media.LocalFileRepository
-import dev.otmgram.ui.media.LoopingVideo
 import dev.otmgram.data.FileState
 import dev.otmgram.data.StickerKind
+import dev.otmgram.ui.media.LocalFileRepository
+import dev.otmgram.ui.media.LoopingVideo
 import dev.otmgram.ui.media.OnDemandFile
 import dev.otmgram.ui.media.TdImage
 import dev.otmgram.ui.media.formatSize
@@ -71,6 +74,7 @@ import dev.otmgram.ui.media.openFile
 import dev.otmgram.ui.media.rememberDownloadedPath
 import dev.otmgram.ui.media.rememberFileState
 import dev.otmgram.ui.media.rememberOnDemandFile
+import dev.otmgram.ui.rememberStrings
 import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmType
@@ -176,7 +180,7 @@ private fun DocumentContent(media: MessageMedia.Document, onLongClick: () -> Uni
                     trackColor = Otm.Slate.copy(alpha = 0.18f),
                     strokeWidth = 3.dp,
                 )
-                Icon(OtmIcons.Close, "Cancel download", tint = Otm.SlateDeep, modifier = Modifier.size(16.dp))
+                Icon(OtmIcons.Close, stringResource(R.string.download_cancel), tint = Otm.SlateDeep, modifier = Modifier.size(16.dp))
             } else {
                 Icon(if (path != null) OtmIcons.File else OtmIcons.Download, null, tint = Otm.SlateDeep, modifier = Modifier.size(22.dp))
             }
@@ -185,9 +189,9 @@ private fun DocumentContent(media: MessageMedia.Document, onLongClick: () -> Uni
             Text(media.name, style = OtmType.Body.copy(fontWeight = FontWeight.Medium), color = Otm.Ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
                 when {
-                    downloading -> "${formatSize(file.downloaded)} of ${formatSize(media.size)}"
-                    path != null -> "${formatSize(media.size)} · tap to open"
-                    else -> "${formatSize(media.size)} · tap to download"
+                    downloading -> stringResource(R.string.size_of, formatSize(file.downloaded), formatSize(media.size))
+                    path != null -> stringResource(R.string.file_tap_to_open, formatSize(media.size))
+                    else -> stringResource(R.string.file_tap_to_download, formatSize(media.size))
                 },
                 style = OtmType.Secondary,
                 color = Otm.InkSoft,
@@ -215,11 +219,11 @@ private fun UploadingDocument(media: MessageMedia.Document, file: FileState, onC
                 trackColor = Otm.Slate.copy(alpha = 0.18f),
                 strokeWidth = 3.dp,
             )
-            Icon(OtmIcons.Close, "Stop sending", tint = Otm.SlateDeep, modifier = Modifier.size(16.dp))
+            Icon(OtmIcons.Close, stringResource(R.string.upload_stop), tint = Otm.SlateDeep, modifier = Modifier.size(16.dp))
         }
         Column(Modifier.weight(1f, fill = false)) {
             Text(media.name, style = OtmType.Body.copy(fontWeight = FontWeight.Medium), color = Otm.Ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text("${formatSize(sent)} of ${formatSize(total)}", style = OtmType.Secondary, color = Otm.InkSoft)
+            Text(stringResource(R.string.size_of, formatSize(sent), formatSize(total)), style = OtmType.Secondary, color = Otm.InkSoft)
         }
     }
 }
@@ -233,7 +237,7 @@ private fun UploadRing(fileId: Int, onCancel: () -> Unit) {
             .size(52.dp)
             .clip(CircleShape)
             .background(Otm.Ink.copy(alpha = 0.5f))
-            .clickable(onClick = onCancel, onClickLabel = "Stop sending")
+            .clickable(onClick = onCancel, onClickLabel = stringResource(R.string.upload_stop))
             .testTag("cancelUpload"),
         contentAlignment = Alignment.Center,
     ) {
@@ -276,13 +280,13 @@ private fun LocationPreview(media: MessageMedia.Location, outgoing: Boolean, onO
         ) {
             if (live != null) {
                 Text(
-                    liveStatus(live, rememberNow()),
+                    liveStatus(live, rememberNow(), rememberStrings()),
                     style = OtmType.Time.copy(fontWeight = FontWeight.SemiBold),
                     color = Otm.SlateDeep,
                     modifier = Modifier.testTag("liveStatus"),
                 )
             } else {
-                Text("Location", style = OtmType.Time, color = Color(0xFF56626B))
+                Text(stringResource(R.string.summary_location), style = OtmType.Time, color = Color(0xFF56626B))
             }
         }
     }
@@ -310,11 +314,10 @@ fun rememberNow(): Int {
     return now
 }
 
-fun liveStatus(live: MessageMedia.LiveInfo, now: Int): String {
-    if (now >= live.expiresAt) return "Live location ended"
+fun liveStatus(live: MessageMedia.LiveInfo, now: Int, strings: Strings): String {
+    if (now >= live.expiresAt) return strings.get(R.string.live_ended)
     val minutes = (now - live.updatedAt).coerceAtLeast(0) / 60
-    val updated = if (minutes == 0) "updated just now" else "updated $minutes min ago"
-    return "Live · $updated"
+    return if (minutes == 0) strings.get(R.string.live_updated_now) else strings.get(R.string.live_updated_ago, minutes)
 }
 
 /** A video downloads when played: tapping opens the viewer, which shows the progress. */
@@ -333,7 +336,7 @@ private fun VideoPreview(media: MessageMedia.Video, onOpen: () -> Unit, onLongCl
         TdImage(media.thumbnailFileId, media.minithumbnail, Modifier.matchParentSize())
         if (!uploading) {
             Box(Modifier.size(48.dp).background(Otm.Sheet.copy(alpha = 0.88f), CircleShape), contentAlignment = Alignment.Center) {
-                Icon(OtmIcons.Play, "Play video", tint = Otm.Ink, modifier = Modifier.size(18.dp))
+                Icon(OtmIcons.Play, stringResource(R.string.play_video), tint = Otm.Ink, modifier = Modifier.size(18.dp))
             }
         }
         val status = when {
@@ -365,8 +368,8 @@ private fun Gif(media: MessageMedia.Animation, onLongClick: () -> Unit) {
             return@Box
         }
         TdImage(media.thumbnailFileId, media.minithumbnail, Modifier.matchParentSize())
-        DownloadButton(gif, "Play GIF")
-        Label(listOfNotNull("GIF", gif.size.takeIf { it > 0 }?.let(::formatSize)).joinToString(" · "), Modifier.align(Alignment.TopStart))
+        DownloadButton(gif, stringResource(R.string.play_gif))
+        Label(listOfNotNull(stringResource(R.string.summary_gif), gif.size.takeIf { it > 0 }?.let(::formatSize)).joinToString(" · "), Modifier.align(Alignment.TopStart))
     }
 }
 
@@ -382,7 +385,7 @@ private fun DownloadButton(file: OnDemandFile, label: String) {
                 trackColor = Otm.Slate.copy(alpha = 0.18f),
                 strokeWidth = 3.dp,
             )
-            Icon(OtmIcons.Close, "Stop downloading", tint = Otm.Ink, modifier = Modifier.size(16.dp))
+            Icon(OtmIcons.Close, stringResource(R.string.download_stop), tint = Otm.Ink, modifier = Modifier.size(16.dp))
         } else {
             Icon(OtmIcons.Play, label, tint = Otm.Ink, modifier = Modifier.size(18.dp))
         }
@@ -437,10 +440,10 @@ private fun VoiceNote(
                         trackColor = tint.copy(alpha = 0.18f),
                         strokeWidth = 2.5.dp,
                     )
-                    Icon(OtmIcons.Close, "Stop downloading", tint = tint, modifier = Modifier.size(14.dp))
+                    Icon(OtmIcons.Close, stringResource(R.string.download_stop), tint = tint, modifier = Modifier.size(14.dp))
                 }
-                current?.isPlaying == true -> Icon(OtmIcons.Pause, "Pause", tint = tint, modifier = Modifier.size(16.dp))
-                else -> Icon(OtmIcons.Play, "Play voice message", tint = tint, modifier = Modifier.size(16.dp))
+                current?.isPlaying == true -> Icon(OtmIcons.Pause, stringResource(R.string.pause), tint = tint, modifier = Modifier.size(16.dp))
+                else -> Icon(OtmIcons.Play, stringResource(R.string.play_voice), tint = tint, modifier = Modifier.size(16.dp))
             }
         }
         Column {
@@ -526,7 +529,7 @@ private fun VideoNote(media: MessageMedia.VideoNote, onSound: () -> Unit, onLong
         Label(formatDuration(media.duration), Modifier.align(Alignment.BottomCenter))
         if (!withSound) {
             Icon(
-                OtmIcons.Muted, "Sound off",
+                OtmIcons.Muted, stringResource(R.string.sound_off),
                 tint = Color.White,
                 modifier = Modifier.align(Alignment.TopEnd).padding(14.dp).size(26.dp).background(Otm.Ink.copy(alpha = 0.45f), CircleShape).padding(5.dp),
             )

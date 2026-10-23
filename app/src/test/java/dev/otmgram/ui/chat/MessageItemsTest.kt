@@ -1,6 +1,7 @@
 package dev.otmgram.ui.chat
 
 import dev.otmgram.data.ChatHistory
+import dev.otmgram.testing.TestStrings
 import dev.otmgram.testing.message
 import dev.otmgram.testing.text
 import org.drinkless.tdlib.TdApi
@@ -24,7 +25,7 @@ class MessageItemsTest {
             message(2, outgoing = true, from = 1),
             message(1),
             lastReadOutbox = 2,
-        ).toItems(isGroup = false)
+        ).toItems(isGroup = false, TestStrings)
         assertEquals(
             listOf(MessageStatus.Sending, MessageStatus.Failed, MessageStatus.Sent, MessageStatus.Read, null),
             items.map { it.status },
@@ -40,13 +41,13 @@ class MessageItemsTest {
             message(3, from = 3),
             message(2, from = 1, outgoing = true),
             message(1, from = 3),
-        ).toItems(isGroup = true)
+        ).toItems(isGroup = true, TestStrings)
         assertEquals(listOf(null, "Anna", "Lea", null, "Lea"), items.map { it.senderName })
     }
 
     @Test
     fun `private chats show no sender names`() {
-        val items = history(message(2, from = 2), message(1, from = 3)).toItems(isGroup = false)
+        val items = history(message(2, from = 2), message(1, from = 3)).toItems(isGroup = false, TestStrings)
         assertTrue(items.all { it.senderName == null })
     }
 
@@ -56,7 +57,7 @@ class MessageItemsTest {
             message(3, replyTo = 1),
             message(2, replyTo = 99),
             message(1, content = text("hello"), from = 3),
-        ).toItems(isGroup = true)
+        ).toItems(isGroup = true, TestStrings)
         assertEquals(ReplyPreview("Lea", "hello"), items[0].replyTo)
         assertEquals(ReplyPreview(null, "Deleted message"), items[1].replyTo)
         assertNull(items[2].replyTo)
@@ -68,7 +69,7 @@ class MessageItemsTest {
             TdApi.MessageReaction(TdApi.ReactionTypeEmoji("🔥"), 3, true, null, emptyArray()),
             TdApi.MessageReaction(TdApi.ReactionTypePaid(), 1, false, null, emptyArray()),
         )
-        val chips = history(message(1, reactions = reactions)).toItems(isGroup = false).single().reactions
+        val chips = history(message(1, reactions = reactions)).toItems(isGroup = false, TestStrings).single().reactions
         assertEquals(ReactionChip("🔥", "🔥", 3, true), chips[0])
         // Paid reactions show, but can't be added from here.
         assertEquals(ReactionChip("⭐", null, 1, false), chips[1])
@@ -77,7 +78,7 @@ class MessageItemsTest {
     @Test
     fun `media without a view is a placeholder with its description`() {
         val poll = message(1, content = TdApi.MessagePoll())
-        val item = history(poll).toItems(isGroup = false).single()
+        val item = history(poll).toItems(isGroup = false, TestStrings).single()
         assertTrue(item.isMediaPlaceholder)
         assertEquals("Message", item.text)
     }
@@ -90,7 +91,7 @@ class MessageItemsTest {
                 format = TdApi.StickerFormatWebp()
                 emoji = "🙂"
             }
-        })).toItems(isGroup = false)
+        })).toItems(isGroup = false, TestStrings)
         assertTrue(items[0].hasEditableText)
         assertFalse(items[1].hasEditableText)
     }

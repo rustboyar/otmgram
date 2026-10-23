@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -49,6 +50,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.otmgram.R
 import dev.otmgram.data.AuthState
 import dev.otmgram.data.CodeDelivery
 import dev.otmgram.ui.chat.formatDuration
@@ -89,11 +91,11 @@ private fun PhoneNumberStep(viewModel: AuthViewModel) {
     AuthStep(
         heroHeight = 300,
         wordmark = true,
-        title = "Sign in",
-        description = "Enter the phone number of your Telegram account, with the country code.",
+        title = stringResource(R.string.sign_in),
+        description = stringResource(R.string.phone_description),
         viewModel = viewModel,
-        footnote = "Otmgram shows one folder of your chats.\nYou always appear offline.",
-        submitLabel = "Next",
+        footnote = stringResource(R.string.phone_footnote),
+        submitLabel = stringResource(R.string.next),
         canSubmit = phone.isNotBlank(),
         onSubmit = submit,
     ) {
@@ -119,18 +121,18 @@ private fun CodeStep(state: AuthState.WaitCode, viewModel: AuthViewModel) {
         if (state.length != null && code.length == state.length) submit()
     }
     val sentTo = when (state.delivery) {
-        CodeDelivery.TelegramApp -> "Telegram sent it to your other device, in the chat with “Telegram”. It’s not an SMS."
-        CodeDelivery.Sms -> "We sent it by SMS to ${state.phoneNumber}."
-        CodeDelivery.Call -> "You'll get a call to ${state.phoneNumber} that tells the code."
-        CodeDelivery.Other -> "We sent it to ${state.phoneNumber}."
+        CodeDelivery.TelegramApp -> stringResource(R.string.code_sent_app)
+        CodeDelivery.Sms -> stringResource(R.string.code_sent_sms, state.phoneNumber)
+        CodeDelivery.Call -> stringResource(R.string.code_sent_call, state.phoneNumber)
+        CodeDelivery.Other -> stringResource(R.string.code_sent_other, state.phoneNumber)
     }
     AuthStep(
         heroHeight = 180,
         onBack = viewModel::startOver,
-        title = "Enter the code",
+        title = stringResource(R.string.code_title),
         description = sentTo,
         viewModel = viewModel,
-        submitLabel = "Next",
+        submitLabel = stringResource(R.string.next),
         // Codes of a known length are sent as soon as they're complete.
         showSubmit = state.length == null,
         canSubmit = code.isNotBlank(),
@@ -140,7 +142,7 @@ private fun CodeStep(state: AuthState.WaitCode, viewModel: AuthViewModel) {
                 buildAnnotatedString {
                     append("${state.phoneNumber} · ")
                     withStyle(SpanStyle(color = Otm.SlateDeep, fontWeight = FontWeight.SemiBold)) {
-                        append("Wrong number?")
+                        append(stringResource(R.string.wrong_number))
                     }
                 },
                 style = OtmType.Secondary,
@@ -197,10 +199,10 @@ private fun ResendLine(state: AuthState.WaitCode, viewModel: AuthViewModel) {
         }
     }
     if (left > 0) {
-        Text("You can ask for a new code in ${formatDuration(left)}", style = OtmType.Secondary, color = Otm.InkSoft)
+        Text(stringResource(R.string.code_resend_in, formatDuration(left)), style = OtmType.Secondary, color = Otm.InkSoft)
     } else {
         Text(
-            "Send the code another way",
+            stringResource(R.string.code_resend),
             style = OtmType.Secondary.copy(fontWeight = FontWeight.SemiBold),
             color = Otm.SlateDeep,
             modifier = Modifier.clickable(enabled = !viewModel.busy, onClick = viewModel::resendCode).padding(vertical = 8.dp).testTag("resend"),
@@ -216,17 +218,17 @@ private fun PasswordStep(state: AuthState.WaitPassword, viewModel: AuthViewModel
     AuthStep(
         heroHeight = 180,
         onBack = viewModel::startOver,
-        title = "Your password",
-        description = "Your account has two-step verification. Enter the password you set in Telegram.",
+        title = stringResource(R.string.password_title),
+        description = stringResource(R.string.password_description),
         viewModel = viewModel,
-        submitLabel = "Sign in",
+        submitLabel = stringResource(R.string.sign_in),
         canSubmit = password.isNotEmpty(),
         onSubmit = submit,
         bottom = {
             Text(
                 buildAnnotatedString {
-                    append("Use another account · ")
-                    withStyle(SpanStyle(color = Otm.SlateDeep, fontWeight = FontWeight.SemiBold)) { append("Start over") }
+                    append(stringResource(R.string.another_account) + " · ")
+                    withStyle(SpanStyle(color = Otm.SlateDeep, fontWeight = FontWeight.SemiBold)) { append(stringResource(R.string.start_over)) }
                 },
                 style = OtmType.Secondary,
                 color = Otm.InkSoft,
@@ -240,7 +242,7 @@ private fun PasswordStep(state: AuthState.WaitPassword, viewModel: AuthViewModel
         OtmField(
             value = password,
             onValueChange = { password = it },
-            placeholder = "Password",
+            placeholder = stringResource(R.string.password),
             visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { submit() }),
@@ -248,13 +250,13 @@ private fun PasswordStep(state: AuthState.WaitPassword, viewModel: AuthViewModel
             trailing = {
                 IconBtn(
                     if (visible) OtmIcons.EyeOff else OtmIcons.Eye,
-                    if (visible) "Hide password" else "Show password",
+                    if (visible) stringResource(R.string.password_hide) else stringResource(R.string.password_show),
                     onClick = { visible = !visible },
                     tint = Otm.InkSoft,
                 )
             },
         )
-        if (state.hint.isNotEmpty()) Text("Hint: ${state.hint}", style = OtmType.Secondary, color = Otm.InkSoft)
+        if (state.hint.isNotEmpty()) Text(stringResource(R.string.password_hint, state.hint), style = OtmType.Secondary, color = Otm.InkSoft)
     }
 }
 
@@ -262,11 +264,10 @@ private fun PasswordStep(state: AuthState.WaitPassword, viewModel: AuthViewModel
 private fun UnsupportedStep(state: AuthState.Unsupported, viewModel: AuthViewModel) {
     AuthStep(
         heroHeight = 180,
-        title = "Can't continue here",
-        description = "Telegram asks for ${state.step}, which Otmgram doesn't support. " +
-            "Sign in with the official Telegram app once, then try again.",
+        title = stringResource(R.string.unsupported_title),
+        description = stringResource(R.string.unsupported_description, stringResource(state.step)),
         viewModel = viewModel,
-        submitLabel = "Start over",
+        submitLabel = stringResource(R.string.start_over),
         canSubmit = true,
         onSubmit = viewModel::startOver,
     ) {}
@@ -298,7 +299,7 @@ private fun AuthStep(
         Hero(heroHeight.dp) {
             if (wordmark) Wordmark(Modifier.padding(start = 24.dp, top = 40.dp))
             if (onBack != null) {
-                IconBtn(OtmIcons.Back, "Back", onBack, Modifier.padding(start = 8.dp, top = 6.dp), enabled = !viewModel.busy, tag = "back")
+                IconBtn(OtmIcons.Back, stringResource(R.string.back), onBack, Modifier.padding(start = 8.dp, top = 6.dp), enabled = !viewModel.busy, tag = "back")
             }
         }
         Column(

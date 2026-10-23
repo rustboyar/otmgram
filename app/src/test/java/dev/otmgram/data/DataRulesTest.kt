@@ -1,5 +1,6 @@
 package dev.otmgram.data
 
+import dev.otmgram.R
 import org.drinkless.tdlib.TdApi
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -18,7 +19,7 @@ class DataRulesTest {
 
     @Test
     fun `steps Otmgram can't do send you to the official app`() {
-        assertEquals(AuthState.Unsupported("creating a new account"), TdApi.AuthorizationStateWaitRegistration().toAuthState())
+        assertEquals(AuthState.Unsupported(R.string.unsupported_registration), TdApi.AuthorizationStateWaitRegistration().toAuthState())
         assertEquals(AuthState.WaitPassword("first mountain"), TdApi.AuthorizationStateWaitPassword().apply { passwordHint = "first mountain" }.toAuthState())
         assertEquals(AuthState.Loading, null.toAuthState())
     }

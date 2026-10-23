@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import androidx.core.app.NotificationCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import dev.otmgram.core.AndroidStrings
 import dev.otmgram.core.td.DatabaseKey
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.data.AppSettings
@@ -25,7 +26,7 @@ class LockScreenNotificationTest {
 
     private fun show(withText: Boolean): Notification {
         val td = TdClient(context, DatabaseKey(context))
-        val notifier = NewMessagesNotifier(context, td, ChatRepository(td), NotificationState(context), AppSettings(context))
+        val notifier = NewMessagesNotifier(context, td, ChatRepository(td), NotificationState(context), AppSettings(context), AndroidStrings(context))
         notifier.show(news, withText)
         return context.getSystemService(NotificationManager::class.java).activeNotifications.single().notification
     }

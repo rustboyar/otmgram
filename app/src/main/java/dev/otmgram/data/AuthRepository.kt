@@ -1,5 +1,7 @@
 package dev.otmgram.data
 
+import androidx.annotation.StringRes
+import dev.otmgram.R
 import dev.otmgram.core.td.TdClient
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -26,7 +28,7 @@ sealed interface AuthState {
     data object Ready : AuthState
 
     /** A step Otmgram doesn't handle (e.g. new account, email verification); use the official app. */
-    data class Unsupported(val step: String) : AuthState
+    data class Unsupported(@StringRes val step: Int) : AuthState
 }
 
 enum class CodeDelivery { TelegramApp, Sms, Call, Other }
@@ -79,12 +81,12 @@ internal fun TdApi.AuthorizationState?.toAuthState(): AuthState = when (this) {
         resendAfter = codeInfo.timeout,
     )
     is TdApi.AuthorizationStateWaitPassword -> AuthState.WaitPassword(passwordHint)
-    is TdApi.AuthorizationStateWaitRegistration -> AuthState.Unsupported("creating a new account")
+    is TdApi.AuthorizationStateWaitRegistration -> AuthState.Unsupported(R.string.unsupported_registration)
     is TdApi.AuthorizationStateReady -> AuthState.Ready
     is TdApi.AuthorizationStateWaitEmailAddress,
-    is TdApi.AuthorizationStateWaitEmailCode -> AuthState.Unsupported("email verification")
-    is TdApi.AuthorizationStateWaitPremiumPurchase -> AuthState.Unsupported("Telegram Premium purchase")
-    is TdApi.AuthorizationStateWaitOtherDeviceConfirmation -> AuthState.Unsupported("confirmation on another device")
+    is TdApi.AuthorizationStateWaitEmailCode -> AuthState.Unsupported(R.string.unsupported_email)
+    is TdApi.AuthorizationStateWaitPremiumPurchase -> AuthState.Unsupported(R.string.unsupported_premium)
+    is TdApi.AuthorizationStateWaitOtherDeviceConfirmation -> AuthState.Unsupported(R.string.unsupported_other_device)
     // Starting up, or closing after logout until the next instance is ready.
     else -> AuthState.Loading
 }

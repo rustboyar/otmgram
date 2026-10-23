@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Chat list -->
+    <string name="chats_empty">No chats in this folder yet.</string>
+    <string name="chats_no_match">Nothing like that here.</string>
+    <string name="chats_search_hint">Titles only. To find a message, search inside a chat.</string>
+    <string name="muted">Muted</string>
+    <plurals name="chat_count">
+        <item quantity="one">%1$d chat</item>
+        <item quantity="other">%1$d chats</item>
+    </plurals>
+
+    <!-- Choosing the folder -->
+    <string name="folder_choose_another">Choose another folder</string>
+    <string name="folder_choose">Choose one folder</string>
+    <string name="folder_missing">The folder you picked no longer exists.</string>
+    <string name="folder_none">You have no chat folders yet. Create one in the official Telegram app and it will show up here.</string>
+    <string name="folder_description">Otmgram will show only the chats in it. To pick another folder later, log out and sign in again.</string>
+    <string name="folder_left_out">Channels and forum topics in the folder are left out.</string>
+    <string name="folder_use_this">Use this folder</string>
+    <string name="folder_use">Use %1$s</string>
+</resources>

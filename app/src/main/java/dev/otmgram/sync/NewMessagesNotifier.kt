@@ -11,6 +11,7 @@ import androidx.core.app.NotificationManagerCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.otmgram.MainActivity
 import dev.otmgram.R
+import dev.otmgram.core.Strings
 import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.data.AppSettings
@@ -37,6 +38,7 @@ class NewMessagesNotifier @Inject constructor(
     private val chats: ChatRepository,
     private val state: NotificationState,
     private val settings: AppSettings,
+    private val strings: Strings,
 ) {
     suspend fun check(folderId: Int) {
         val seenUpTo = state.seenUpTo()
@@ -65,9 +67,9 @@ class NewMessagesNotifier @Inject constructor(
             val sender = (message.senderId as? TdApi.MessageSenderUser)
                 ?.takeIf { chat.chat.isGroup }
                 ?.let { td.send(TdApi.GetUser(it.userId)).firstName }
-            if (sender != null) "$sender: ${message.summary()}" else message.summary()
+            if (sender != null) strings.get(R.string.notification_sender_line, sender, message.summary(strings)) else message.summary(strings)
         }
-        val title = if (chat.isSavedMessages) "Saved Messages" else chat.chat.title
+        val title = if (chat.isSavedMessages) strings.get(R.string.saved_messages) else chat.chat.title
         return ChatNews(title, lines, newest = messages.maxOf { it.date })
     }
 
@@ -102,7 +104,7 @@ class NewMessagesNotifier @Inject constructor(
         // A new id: lock screen visibility can only be set when a channel is created.
         manager.deleteNotificationChannel(OLD_CHANNEL_ID)
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "New messages", NotificationManager.IMPORTANCE_DEFAULT).apply {
+            NotificationChannel(CHANNEL_ID, strings.get(R.string.messages_channel), NotificationManager.IMPORTANCE_DEFAULT).apply {
                 lockscreenVisibility = Notification.VISIBILITY_PRIVATE
             },
         )
@@ -113,11 +115,11 @@ class NewMessagesNotifier @Inject constructor(
             PendingIntent.FLAG_IMMUTABLE,
         )
         val count = news.sumOf { it.lines.size }
-        val countText = if (count == 1) "1 new message" else "$count new messages"
+        val countText = strings.plural(R.plurals.new_messages, count, count)
         // What a locked phone shows instead: no text, no names.
         val locked = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_message)
-            .setContentTitle("Otmgram")
+            .setContentTitle(strings.get(R.string.app_name))
             .setContentText(countText)
             .build()
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -132,7 +134,7 @@ class NewMessagesNotifier @Inject constructor(
                 builder.setContentTitle(news.single().title).setContentText(countText)
             } else {
                 val style = NotificationCompat.InboxStyle()
-                news.forEach { chat -> style.addLine("${chat.title} · ${chat.lines.size} new") }
+                news.forEach { chat -> style.addLine(strings.plural(R.plurals.notification_chat_count, chat.lines.size, chat.title, chat.lines.size)) }
                 builder.setContentTitle(countText)
                     .setContentText(news.joinToString(", ") { it.title })
                     .setStyle(style)
@@ -141,7 +143,7 @@ class NewMessagesNotifier @Inject constructor(
             val only = news.single()
             builder.setContentTitle(only.title).setContentText(only.lines.single())
         } else {
-            val chatsText = if (news.size == 1) news.single().title else "${news.size} chats"
+            val chatsText = if (news.size == 1) news.single().title else strings.plural(R.plurals.chats, news.size, news.size)
             val style = NotificationCompat.InboxStyle()
             if (news.size == 1) {
                 // One chat: its messages, oldest first, like in the chat.
@@ -149,8 +151,11 @@ class NewMessagesNotifier @Inject constructor(
             } else {
                 // Several chats: one line each, with the newest message.
                 news.forEach { chat ->
-                    val more = if (chat.lines.size > 1) " (+${chat.lines.size - 1} more)" else ""
-                    style.addLine("${chat.title}: ${chat.lines.first()}$more")
+                    val more = chat.lines.size - 1
+                    style.addLine(
+                        if (more > 0) strings.plural(R.plurals.notification_chat_newest_more, more, chat.title, chat.lines.first(), more)
+                        else strings.get(R.string.notification_chat_newest, chat.title, chat.lines.first()),
+                    )
                 }
             }
             builder.setContentTitle(countText)

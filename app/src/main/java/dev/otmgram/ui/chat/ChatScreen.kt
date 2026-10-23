@@ -52,6 +52,8 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -59,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.otmgram.R
 import dev.otmgram.core.location.LiveShare
 import dev.otmgram.core.media.RecorderState
 import dev.otmgram.ui.theme.Banner
@@ -188,7 +191,7 @@ fun ChatScreen(
                     leading = header?.let { h ->
                         { ChatAvatar(viewModel.chatId, h.title, h.photoFileId, h.minithumbnail, size = 38.dp, savedMessages = h.isSavedMessages) }
                     },
-                    actions = { IconBtn(OtmIcons.Search, "Find in this chat", search::open, tag = "search") },
+                    actions = { IconBtn(OtmIcons.Search, stringResource(R.string.search_chat), search::open, tag = "search") },
                 )
             }
             liveShare?.takeIf { it.chatId == viewModel.chatId }?.let { share ->
@@ -196,7 +199,7 @@ fun ChatScreen(
             }
             if (viewModel.outgoing.preparing) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).testTag("preparing"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Preparing media…", style = OtmType.Secondary, color = Otm.InkSoft)
+                    Text(stringResource(R.string.preparing_media), style = OtmType.Secondary, color = Otm.InkSoft)
                     LinearProgressIndicator(Modifier.fillMaxWidth(), color = Otm.Slate, trackColor = Otm.Haze)
                 }
             }
@@ -215,7 +218,7 @@ fun ChatScreen(
                     when (row) {
                         is ListRow.Day -> Divider(dayLabel(row.date))
                         is ListRow.Unread -> Divider(
-                            if (row.count == 1) "1 new since you left" else "${row.count} new since you left",
+                            pluralStringResource(R.plurals.new_since_you_left, row.count, row.count),
                             color = Otm.Slate,
                             line = Otm.RidgeLight,
                         )
@@ -402,9 +405,9 @@ private fun ScreenBarRow(content: @Composable androidx.compose.foundation.layout
 @Composable
 private fun SelectionBar(count: Int, onCancel: () -> Unit, onCopy: () -> Unit) {
     ScreenBarRow {
-        IconBtn(OtmIcons.Close, "Cancel selection", onCancel, tag = "cancelSelection")
-        Text(if (count == 1) "1 selected" else "$count selected", style = OtmType.BarTitle, color = Otm.Ink, modifier = Modifier.weight(1f).padding(start = 4.dp).testTag("selectedCount"))
-        IconBtn(OtmIcons.Copy, "Copy text", onCopy, tint = Color(0xFF56626B), tag = "copySelected")
+        IconBtn(OtmIcons.Close, stringResource(R.string.selection_cancel), onCancel, tag = "cancelSelection")
+        Text(pluralStringResource(R.plurals.selected_count, count, count), style = OtmType.BarTitle, color = Otm.Ink, modifier = Modifier.weight(1f).padding(start = 4.dp).testTag("selectedCount"))
+        IconBtn(OtmIcons.Copy, stringResource(R.string.action_copy), onCopy, tint = Color(0xFF56626B), tag = "copySelected")
     }
 }
 
@@ -413,8 +416,8 @@ private fun SelectionActions(onForward: () -> Unit, onDelete: () -> Unit) {
     Column(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.6f)).navigationBarsPadding()) {
         Hairline()
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SoftButton("Forward", onForward, Modifier.weight(1f).testTag("forwardSelected"), icon = OtmIcons.Forward, height = 52.dp)
-            SoftButton("Delete", onDelete, Modifier.weight(1f).testTag("deleteSelected"), icon = OtmIcons.Trash, background = Otm.ErrorSoft, color = Otm.Error, height = 52.dp)
+            SoftButton(stringResource(R.string.action_forward), onForward, Modifier.weight(1f).testTag("forwardSelected"), icon = OtmIcons.Forward, height = 52.dp)
+            SoftButton(stringResource(R.string.action_delete), onDelete, Modifier.weight(1f).testTag("deleteSelected"), icon = OtmIcons.Trash, background = Otm.ErrorSoft, color = Otm.Error, height = 52.dp)
         }
     }
 }
@@ -424,17 +427,17 @@ private fun FindBar(query: String, onQueryChange: (String) -> Unit, onClose: () 
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
     ScreenBarRow {
-        IconBtn(OtmIcons.Back, "Close search", onClose, tag = "closeSearch")
+        IconBtn(OtmIcons.Back, stringResource(R.string.search_close), onClose, tag = "closeSearch")
         OtmField(
             value = query,
             onValueChange = onQueryChange,
-            placeholder = "Find in this chat",
+            placeholder = stringResource(R.string.search_chat),
             textStyle = OtmType.Body.copy(fontSize = OtmType.Name.fontSize),
             shape = RoundedCornerShape(22.dp),
             height = 44.dp,
             outlined = false,
             trailing = if (query.isEmpty()) null else {
-                { IconBtn(OtmIcons.Close, "Clear", { onQueryChange("") }, tint = Otm.InkSoft, size = 40.dp, iconSize = 20.dp) }
+                { IconBtn(OtmIcons.Close, stringResource(R.string.search_clear), { onQueryChange("") }, tint = Otm.InkSoft, size = 40.dp, iconSize = 20.dp) }
             },
             modifier = Modifier.weight(1f).focusRequester(focusRequester).testTag("query"),
         )
@@ -450,20 +453,20 @@ private fun FindStepper(results: List<SearchResult>?, index: Int, query: String,
             Column(Modifier.weight(1f).testTag("matches")) {
                 Text(
                     when {
-                        query.isBlank() -> "Type to search"
-                        results == null -> "Searching…"
-                        results.isEmpty() -> "No matches"
+                        query.isBlank() -> stringResource(R.string.search_type)
+                        results == null -> stringResource(R.string.search_searching)
+                        results.isEmpty() -> stringResource(R.string.search_none)
                         // Counted from the oldest, as they read top to bottom.
-                        else -> "${results.size - index} of ${results.size}"
+                        else -> stringResource(R.string.search_position, results.size - index, results.size)
                     },
                     style = OtmType.Body.copy(fontWeight = FontWeight.SemiBold),
                     color = Otm.Ink,
                 )
             }
             val any = !results.isNullOrEmpty()
-            IconBtn(OtmIcons.ChevronUp, "Earlier match", { onStep(1) }, tint = Otm.SlateDeep, background = Otm.Haze, enabled = any && index < results!!.lastIndex, tag = "olderMatch")
+            IconBtn(OtmIcons.ChevronUp, stringResource(R.string.search_earlier), { onStep(1) }, tint = Otm.SlateDeep, background = Otm.Haze, enabled = any && index < results!!.lastIndex, tag = "olderMatch")
             Box(Modifier.size(8.dp))
-            IconBtn(OtmIcons.ChevronDown, "Later match", { onStep(-1) }, tint = Otm.SlateDeep, background = Otm.Haze, enabled = any && index > 0, tag = "newerMatch")
+            IconBtn(OtmIcons.ChevronDown, stringResource(R.string.search_later), { onStep(-1) }, tint = Otm.SlateDeep, background = Otm.Haze, enabled = any && index > 0, tag = "newerMatch")
         }
     }
 }
@@ -514,17 +517,17 @@ private fun InputBar(
             Composer.New -> null
             is Composer.Reply -> Triple(
                 OtmIcons.Reply,
-                "Reply to " + (composer.message.senderName ?: if (composer.message.isOutgoing) "yourself" else chatTitle),
+                stringResource(R.string.reply_to, composer.message.senderName ?: if (composer.message.isOutgoing) stringResource(R.string.reply_to_yourself) else chatTitle),
                 composer.message.text.ifEmpty { composer.message.media?.label().orEmpty() },
             )
-            is Composer.Edit -> Triple(OtmIcons.Edit, "Edit message", composer.message.text)
+            is Composer.Edit -> Triple(OtmIcons.Edit, stringResource(R.string.edit_message), composer.message.text)
         }
         banner?.let { (icon, label, quote) ->
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 androidx.compose.material3.Icon(icon, null, tint = Otm.Slate, modifier = Modifier.size(22.dp))
                 ReplyQuote(ReplyPreview(label, quote), Modifier.weight(1f).padding(start = 10.dp))
                 IconBtn(
-                    OtmIcons.Close, "Cancel",
+                    OtmIcons.Close, stringResource(R.string.cancel),
                     {
                         if (composer is Composer.Edit) text = ""
                         onCancel()
@@ -539,11 +542,11 @@ private fun InputBar(
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            IconBtn(OtmIcons.Attach, "Attach", onAttach, tint = Color(0xFF56626B), tag = "attach")
+            IconBtn(OtmIcons.Attach, stringResource(R.string.attach), onAttach, tint = Color(0xFF56626B), tag = "attach")
             OtmField(
                 value = text,
                 onValueChange = { text = it },
-                placeholder = if (chatTitle.isEmpty()) "Message" else "Write to $chatTitle",
+                placeholder = if (chatTitle.isEmpty()) stringResource(R.string.composer_message) else stringResource(R.string.composer_write_to, chatTitle),
                 textStyle = OtmType.Body,
                 singleLine = false,
                 maxLines = 5,
@@ -553,7 +556,7 @@ private fun InputBar(
                 trailing = {
                     IconBtn(
                         if (stickersOpen) OtmIcons.Keyboard else OtmIcons.Smile,
-                        if (stickersOpen) "Keyboard" else "Stickers",
+                        if (stickersOpen) stringResource(R.string.keyboard) else stringResource(R.string.stickers),
                         onStickers,
                         tint = if (stickersOpen) Otm.SlateDeep else Color(0xFF56626B),
                         size = 40.dp,
@@ -564,13 +567,13 @@ private fun InputBar(
             )
             Box(Modifier.size(4.dp))
             if (text.isBlank() && composer !is Composer.Edit) {
-                IconBtn(OtmIcons.CircleCamera, "Record video circle", onRecordVideoNote, tint = Otm.SlateDeep, background = Color(0xFFDCE4E9), tag = "recordVideoNote")
+                IconBtn(OtmIcons.CircleCamera, stringResource(R.string.record_video_note), onRecordVideoNote, tint = Otm.SlateDeep, background = Color(0xFFDCE4E9), tag = "recordVideoNote")
             } else {
                 // Editing a caption may leave it empty.
                 val canSend = text.isNotBlank() || (composer is Composer.Edit && composer.message.media != null)
                 IconBtn(
                     if (composer is Composer.Edit) OtmIcons.Check else OtmIcons.Send,
-                    if (composer is Composer.Edit) "Save" else "Send",
+                    if (composer is Composer.Edit) stringResource(R.string.save) else stringResource(R.string.send),
                     {
                         onSend(text)
                         text = ""
@@ -590,14 +593,14 @@ private fun LiveShareBanner(share: LiveShare, onStop: () -> Unit) {
     val left = ((share.endsAt - rememberNow()) / 60).coerceAtLeast(0)
     Banner(
         OtmIcons.Pin,
-        "Sharing your live location",
+        stringResource(R.string.live_sharing),
         Modifier.testTag("liveShareBanner"),
         subtitle = when {
-            left >= 120 -> "${left / 60} hours left"
-            left >= 1 -> "$left min left"
-            else -> "ending"
+            left >= 120 -> pluralStringResource(R.plurals.live_hours_left, left / 60, left / 60)
+            left >= 1 -> stringResource(R.string.live_minutes_left, left)
+            else -> stringResource(R.string.live_ending)
         },
-        action = { SoftButton("Stop", onStop, Modifier.testTag("stopLiveLocation"), height = 36.dp) },
+        action = { SoftButton(stringResource(R.string.live_stop_short), onStop, Modifier.testTag("stopLiveLocation"), height = 36.dp) },
     )
 }
 
@@ -620,7 +623,7 @@ private fun RecordingBar(state: RecorderState, onCancel: () -> Unit, onSend: () 
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            IconBtn(OtmIcons.Trash, "Discard recording", onCancel, tint = Otm.Error, tag = "cancelRecording")
+            IconBtn(OtmIcons.Trash, stringResource(R.string.voice_discard), onCancel, tint = Otm.Error, tag = "cancelRecording")
             Row(
                 modifier = Modifier
                     .weight(1f)
@@ -639,7 +642,7 @@ private fun RecordingBar(state: RecorderState, onCancel: () -> Unit, onSend: () 
                 Text(formatDuration((state.elapsedMs / 1000).toInt()), style = OtmType.Body, color = Otm.Ink)
                 Waveform(levels.toList(), progress = 1f, played = Otm.Ridge, rest = Otm.Ridge, modifier = Modifier.weight(1f).height(24.dp), bars = LIVE_BARS)
             }
-            IconBtn(OtmIcons.Send, "Send voice message", onSend, tint = Color.White, background = Otm.Slate, tag = "sendRecording")
+            IconBtn(OtmIcons.Send, stringResource(R.string.voice_send), onSend, tint = Color.White, background = Otm.Slate, tag = "sendRecording")
         }
     }
 }

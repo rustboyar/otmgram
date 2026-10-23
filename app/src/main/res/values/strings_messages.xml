@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- One-line descriptions of messages: chat list, replies, notifications -->
+    <string name="summary_photo">Photo</string>
+    <string name="summary_video">Video</string>
+    <string name="summary_voice">Voice message</string>
+    <string name="summary_video_note">Video message</string>
+    <string name="summary_sticker">Sticker</string>
+    <string name="summary_gif">GIF</string>
+    <string name="summary_file">File</string>
+    <string name="summary_audio">Audio</string>
+    <string name="summary_location">Location</string>
+    <string name="summary_live_location">Live location</string>
+    <string name="summary_call">Call</string>
+    <string name="summary_group_created">Group created</string>
+    <string name="summary_joined_group">Joined the group</string>
+    <string name="summary_left_group">Left the group</string>
+    <string name="summary_group_renamed">Group renamed to \"%1$s\"</string>
+    <string name="summary_group_photo">Group photo changed</string>
+    <string name="summary_pinned">Pinned a message</string>
+    <string name="summary_joined_telegram">Joined Telegram</string>
+    <string name="summary_message">Message</string>
+    <string name="summary_with_caption">%1$s, %2$s</string>
+
+    <!-- Previews -->
+    <string name="reply_deleted">Deleted message</string>
+    <string name="preview_you">You: %1$s</string>
+    <string name="preview_sender">%1$s: %2$s</string>
+
+    <!-- Under a chat's name -->
+    <string name="status_online">online</string>
+    <string name="status_last_seen_at">last seen at %1$s</string>
+    <string name="status_last_seen_on">last seen %1$s</string>
+    <string name="status_recently">last seen recently</string>
+    <string name="status_week">last seen within a week</string>
+    <string name="status_month">last seen within a month</string>
+    <string name="status_bot">bot</string>
+    <plurals name="members">
+        <item quantity="one">%1$d member</item>
+        <item quantity="other">%1$d members</item>
+    </plurals>
+
+    <!-- Chat list banner -->
+    <string name="connection_waiting">Waiting for network · showing what’s already here</string>
+    <string name="connection_connecting">Connecting…</string>
+</resources>

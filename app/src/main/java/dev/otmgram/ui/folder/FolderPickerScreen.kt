@@ -32,6 +32,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -39,6 +41,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.otmgram.R
 import dev.otmgram.data.Folder
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.ui.theme.Hero
@@ -66,16 +69,16 @@ fun FolderPickerScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Text(
-                if (previousMissing) "Choose another folder" else "Choose one folder",
+                if (previousMissing) stringResource(R.string.folder_choose_another) else stringResource(R.string.folder_choose),
                 style = OtmType.Headline,
                 color = Otm.Ink,
                 modifier = Modifier.padding(horizontal = 4.dp),
             )
             Text(
                 when {
-                    previousMissing -> "The folder you picked no longer exists."
-                    folders.isEmpty() -> "You have no chat folders yet. Create one in the official Telegram app and it will show up here."
-                    else -> "Otmgram will show only the chats in it. To pick another folder later, log out and sign in again."
+                    previousMissing -> stringResource(R.string.folder_missing)
+                    folders.isEmpty() -> stringResource(R.string.folder_none)
+                    else -> stringResource(R.string.folder_description)
                 },
                 style = OtmType.Body,
                 color = Otm.InkSoft,
@@ -88,7 +91,7 @@ fun FolderPickerScreen(
             }
             Spacer(Modifier.height(10.dp))
             Text(
-                "Channels and forum topics in the folder are left out.",
+                stringResource(R.string.folder_left_out),
                 style = OtmType.Secondary,
                 color = Otm.InkSoft,
                 textAlign = TextAlign.Center,
@@ -96,7 +99,7 @@ fun FolderPickerScreen(
             )
             val folder = folders.find { it.id == picked }
             PrimaryButton(
-                if (folder == null) "Use this folder" else "Use ${folder.name}",
+                if (folder == null) stringResource(R.string.folder_use_this) else stringResource(R.string.folder_use, folder.name),
                 onClick = { folder?.let { viewModel.select(it.id) } },
                 enabled = folder != null,
                 modifier = Modifier.testTag("confirmFolder"),
@@ -122,7 +125,7 @@ private fun FolderCard(folder: Folder, count: Int?, selected: Boolean, onClick: 
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(folder.name, style = OtmType.Name.copy(fontSize = OtmType.BarTitle.fontSize), color = Otm.Ink)
-            count?.let { Text(if (it == 1) "1 chat" else "$it chats", style = OtmType.Secondary, color = Otm.InkSoft) }
+            count?.let { Text(pluralStringResource(R.plurals.chat_count, it, it), style = OtmType.Secondary, color = Otm.InkSoft) }
         }
         Box(
             Modifier

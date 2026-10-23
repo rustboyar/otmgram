@@ -134,6 +134,7 @@ app/
 - Composables take app types only (`FileState`, `Sticker`, `Account`, thumbnails as JPEG bytes); view models are where TDLib types turn into those
 - TDLib's message objects are mutable and can't be copied; the open chat changes them in place and `ChatHistory.version` marks each change, before they become immutable `MessageItem`s
 - The chat screen's state is split: `ChatSearch`, `ChatSelection`, `StickerPanel`, `OutgoingQueue`, wired together by `ChatViewModel`
+- Texts are resources, one file per area (`res/values/strings_chat.xml`, `strings_settings.xml`, …; shared words in `strings.xml`). Composables use `stringResource`; other code gets `Strings` injected, and unit tests use `TestStrings`, which reads the same files. Units (KB, MB) and date patterns stay in code
 
 ## Security
 

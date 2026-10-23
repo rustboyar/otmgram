@@ -1,3 +1,13 @@
 <resources>
     <string name="app_name">Otmgram</string>
+
+    <!-- Shared -->
+    <string name="saved_messages">Saved Messages</string>
+    <string name="something_went_wrong">Something went wrong</string>
+    <string name="tagline">One folder. Nothing else.</string>
+    <string name="close">Close</string>
+    <string name="cancel">Cancel</string>
+    <string name="send">Send</string>
+    <string name="save">Save</string>
+    <string name="back">Back</string>
 </resources>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Distance on the map -->
+    <string name="distance_meters">%1$d m away</string>
+    <string name="distance_km_tenths">%1$.1f km away</string>
+    <string name="distance_km">%1$d km away</string>
+
+    <!-- Media viewer -->
+    <string name="viewer_unavailable">This message is no longer available</string>
+    <string name="viewer_save_failed">Couldn\'t save: %1$s</string>
+    <string name="day_today">Today</string>
+    <string name="day_yesterday">Yesterday</string>
+    <string name="day_and_time">%1$s, %2$s</string>
+    <string name="viewer_position">%1$s · %2$d of %3$d</string>
+    <string name="viewer_downloading">Downloading %1$d%%</string>
+
+    <!-- Opening files and maps elsewhere -->
+    <string name="open_no_app">No app can open this file</string>
+    <string name="open_failed">Can\'t open this file</string>
+    <string name="map_open_elsewhere">Open in another app</string>
+    <string name="map_no_app">No maps app installed</string>
+</resources>

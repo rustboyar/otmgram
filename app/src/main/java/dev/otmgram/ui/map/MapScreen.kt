@@ -2,32 +2,22 @@ package dev.otmgram.ui.map
 
 import android.Manifest
 import android.content.ActivityNotFoundException
-import android.content.pm.PackageManager
-import androidx.core.content.ContextCompat
-import androidx.core.net.toUri
-import kotlin.math.roundToInt
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.draw.shadow
-import dev.otmgram.ui.theme.ChatAvatar
-import dev.otmgram.ui.theme.IconBtn
-import dev.otmgram.ui.theme.Otm
-import dev.otmgram.ui.theme.OtmIcons
-import dev.otmgram.ui.theme.OtmType
-import dev.otmgram.ui.theme.SoftButton
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,19 +29,31 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.otmgram.R
 import dev.otmgram.core.location.MAP_STYLE_URL
 import dev.otmgram.core.location.MapSnapshots
 import dev.otmgram.ui.chat.liveStatus
 import dev.otmgram.ui.chat.rememberNow
+import dev.otmgram.ui.rememberStrings
+import dev.otmgram.ui.theme.ChatAvatar
+import dev.otmgram.ui.theme.IconBtn
+import dev.otmgram.ui.theme.Otm
+import dev.otmgram.ui.theme.OtmIcons
+import dev.otmgram.ui.theme.OtmType
+import dev.otmgram.ui.theme.SoftButton
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
@@ -61,6 +63,7 @@ import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Point
+import kotlin.math.roundToInt
 
 /** Interactive map of a location message; follows live locations as they update. */
 @Composable
@@ -110,7 +113,7 @@ fun MapScreen(onBack: () -> Unit, viewModel: MapViewModel = hiltViewModel()) {
     Box(Modifier.fillMaxSize()) {
         AndroidView({ mapView }, Modifier.fillMaxSize().testTag("map"))
         IconBtn(
-            OtmIcons.Back, "Back", onBack,
+            OtmIcons.Back, stringResource(R.string.back), onBack,
             modifier = Modifier
                 .statusBarsPadding()
                 .padding(12.dp)
@@ -133,11 +136,12 @@ fun MapScreen(onBack: () -> Unit, viewModel: MapViewModel = hiltViewModel()) {
                 sender?.let { ChatAvatar(it.id, it.name, it.photoFileId, it.minithumbnail) }
                 Column(Modifier.weight(1f)) {
                     Text(sender?.name.orEmpty(), style = OtmType.Name, color = Otm.Ink)
+                    val strings = rememberStrings()
                     val distance = location?.let { point ->
-                        viewModel.myLocation?.takeIf { !viewModel.isMine }?.let { formatDistance(distanceMeters(it.latitude, it.longitude, point.latitude, point.longitude)) }
+                        viewModel.myLocation?.takeIf { !viewModel.isMine }?.let { formatDistance(distanceMeters(it.latitude, it.longitude, point.latitude, point.longitude), strings) }
                     }
                     Text(
-                        listOfNotNull(location?.live?.let { liveStatus(it, rememberNow()) } ?: "Location", distance).joinToString(" · "),
+                        listOfNotNull(location?.live?.let { liveStatus(it, rememberNow(), strings) } ?: stringResource(R.string.summary_location), distance).joinToString(" · "),
                         style = OtmType.Secondary,
                         color = if (location?.live != null) Otm.SlateDeep else Otm.InkSoft,
                         modifier = Modifier.testTag("mapLiveStatus"),
@@ -146,7 +150,7 @@ fun MapScreen(onBack: () -> Unit, viewModel: MapViewModel = hiltViewModel()) {
             }
             location?.let { point ->
                 SoftButton(
-                    "Open in another app",
+                    stringResource(R.string.map_open_elsewhere),
                     onClick = { openInMaps(context, point.latitude, point.longitude, sender?.name) },
                     modifier = Modifier.fillMaxWidth().testTag("openInMaps"),
                 )
@@ -162,7 +166,7 @@ private fun openInMaps(context: Context, latitude: Double, longitude: Double, la
     try {
         context.startActivity(Intent.createChooser(intent, null))
     } catch (e: ActivityNotFoundException) {
-        Toast.makeText(context, "No maps app installed", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, R.string.map_no_app, Toast.LENGTH_SHORT).show()
     }
 }
 

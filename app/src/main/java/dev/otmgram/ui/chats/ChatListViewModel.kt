@@ -3,11 +3,13 @@ package dev.otmgram.ui.chats
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.otmgram.R
+import dev.otmgram.core.Strings
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.data.ChatRepository
 import dev.otmgram.data.FolderChat
-import dev.otmgram.ui.summary
 import dev.otmgram.data.FolderRepository
+import dev.otmgram.ui.summary
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -41,6 +43,7 @@ class ChatListViewModel @Inject constructor(
     folders: FolderRepository,
     chats: ChatRepository,
     td: TdClient,
+    private val strings: Strings,
 ) : ViewModel() {
 
     /** The name on top: the folder's, or what the user set instead (possibly nothing). */
@@ -56,14 +59,14 @@ class ChatListViewModel @Inject constructor(
         folders.selectedFolderId.filterNotNull().flatMapLatest(chats::folderChats),
         _query,
     ) { all, query ->
-        all.map { it.toItem() }.filter { it.title.contains(query.trim(), ignoreCase = true) }
+        all.map { it.toItem(strings) }.filter { it.title.contains(query.trim(), ignoreCase = true) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** What the connection is doing while it isn't ready, or null when it is. */
     val connection: StateFlow<String?> = td.connectionState.map { state ->
         when (state) {
-            is TdApi.ConnectionStateWaitingForNetwork -> "Waiting for network · showing what’s already here"
-            is TdApi.ConnectionStateConnecting, is TdApi.ConnectionStateConnectingToProxy -> "Connecting…"
+            is TdApi.ConnectionStateWaitingForNetwork -> strings.get(R.string.connection_waiting)
+            is TdApi.ConnectionStateConnecting, is TdApi.ConnectionStateConnectingToProxy -> strings.get(R.string.connection_connecting)
             else -> null
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -73,17 +76,17 @@ class ChatListViewModel @Inject constructor(
     }
 }
 
-private fun FolderChat.toItem() = ChatItem(
+private fun FolderChat.toItem(strings: Strings) = ChatItem(
     id = chat.id,
-    title = if (isSavedMessages) "Saved Messages" else chat.title,
+    title = if (isSavedMessages) strings.get(R.string.saved_messages) else chat.title,
     photoFileId = chat.photo?.small?.id,
     photoMinithumbnail = chat.photo?.minithumbnail?.data,
     preview = chat.lastMessage?.let { message ->
-        val text = message.summary()
+        val text = message.summary(strings)
         when {
             isSavedMessages -> text
-            message.isOutgoing -> "You: $text"
-            lastSenderName != null -> "$lastSenderName: $text"
+            message.isOutgoing -> strings.get(R.string.preview_you, text)
+            lastSenderName != null -> strings.get(R.string.preview_sender, lastSenderName, text)
             else -> text
         }
     }.orEmpty(),

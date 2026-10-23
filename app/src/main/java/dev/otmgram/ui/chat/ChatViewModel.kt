@@ -9,6 +9,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.otmgram.R
+import dev.otmgram.core.Strings
 import dev.otmgram.core.launchLogged
 import dev.otmgram.core.location.LiveLocationSharing
 import dev.otmgram.core.location.LiveShare
@@ -144,6 +146,7 @@ class ChatViewModel @Inject constructor(
     private val td: TdClient,
     private val audioPlayer: AudioPlayer,
     appSettings: AppSettings,
+    private val strings: Strings,
 ) : ViewModel() {
 
     val chatId: Long = checkNotNull(savedState["chatId"])
@@ -154,7 +157,7 @@ class ChatViewModel @Inject constructor(
 
     /** Messages, newest first. */
     val messages: StateFlow<List<MessageItem>> = combine(session.history, _header) { history, header ->
-        history.toItems(isGroup = header?.isGroup == true)
+        history.toItems(isGroup = header?.isGroup == true, strings)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Live location being shared from this device, in any chat. */
@@ -200,7 +203,7 @@ class ChatViewModel @Inject constructor(
         viewModelScope,
         search = { query ->
             val names = session.history.value.senderNames
-            session.search(query).map { SearchResult(it.id, names[it.senderKey()], it.summary(), it.date) }
+            session.search(query).map { SearchResult(it.id, names[it.senderKey()], it.summary(strings), it.date) }
         },
         show = ::show,
         onError = ::showError,
@@ -230,7 +233,7 @@ class ChatViewModel @Inject constructor(
             val saved = chat.isSavedMessages(myId)
             if (chat.unreadCount > 0) unreadMark = UnreadMark(chat.lastReadInboxMessageId, chat.unreadCount)
             _header.value = ChatHeader(
-                title = if (saved) "Saved Messages" else chat.title,
+                title = if (saved) strings.get(R.string.saved_messages) else chat.title,
                 isGroup = chat.isGroup,
                 subtitle = if (saved) null else subtitle(chat),
                 photoFileId = chat.photo?.small?.id,
@@ -273,12 +276,12 @@ class ChatViewModel @Inject constructor(
         is TdApi.ChatTypeSupergroup -> members(td.send(TdApi.GetSupergroup(type.supergroupId)).memberCount)
         is TdApi.ChatTypePrivate -> {
             val user = td.send(TdApi.GetUser(type.userId))
-            if (user.type is TdApi.UserTypeBot) "bot" else lastSeen(user.status)
+            if (user.type is TdApi.UserTypeBot) strings.get(R.string.status_bot) else lastSeen(user.status, strings)
         }
         else -> null
     }
 
-    private fun members(count: Int) = if (count <= 0) null else if (count == 1) "1 member" else "$count members"
+    private fun members(count: Int) = if (count <= 0) null else strings.plural(R.plurals.members, count, count)
 
     fun openMenu(message: MessageItem) {
         if (message.isService) return
@@ -325,9 +328,9 @@ class ChatViewModel @Inject constructor(
         menu = null
         val document = message.media as? MessageMedia.Document ?: return
         action {
-            notice = "Downloading ${document.name}…"
+            notice = strings.get(R.string.notice_downloading, document.name)
             downloads.save(File(files.downloadNow(document.fileId)), document.name, document.mimeType)
-            notice = "Saved to Downloads"
+            notice = strings.get(R.string.notice_saved_to_downloads)
         }
     }
 
@@ -353,7 +356,7 @@ class ChatViewModel @Inject constructor(
             voiceRecorder.start()
         } catch (e: Exception) {
             voiceRecorder.cancel()
-            notice = "Can't record: ${e.message}"
+            notice = strings.get(R.string.notice_cant_record, e.userMessage(strings))
         }
     }
 
@@ -374,7 +377,7 @@ class ChatViewModel @Inject constructor(
         action {
             val location = locationSource.current()
             if (location == null) {
-                notice = "Couldn't get your location. Is location turned on?"
+                notice = strings.get(R.string.notice_no_location)
             } else {
                 session.sendLocation(location.latitude, location.longitude, location.accuracy.toDouble())
             }
@@ -402,7 +405,7 @@ class ChatViewModel @Inject constructor(
     /** Scrolls to [messageId], loading older history as needed. */
     private fun show(messageId: Long) {
         action {
-            if (session.loadUntil(messageId)) scrollTarget = messageId else notice = "Message not found"
+            if (session.loadUntil(messageId)) scrollTarget = messageId else notice = strings.get(R.string.notice_message_not_found)
         }
     }
 
@@ -437,7 +440,7 @@ class ChatViewModel @Inject constructor(
     /** Asks to delete the selected messages. */
     fun askDeleteSelected() = action {
         val request = selection.deleteRequest()
-        if (request == null) notice = "These messages can't be deleted" else deleting = request
+        if (request == null) notice = strings.get(R.string.notice_cant_delete) else deleting = request
     }
 
     fun delete(forEveryone: Boolean) {
@@ -476,7 +479,7 @@ class ChatViewModel @Inject constructor(
             val targets = chats.folderChats(folderId).first().map {
                 ForwardTarget(
                     chatId = it.chat.id,
-                    title = if (it.isSavedMessages) "Saved Messages" else it.chat.title,
+                    title = if (it.isSavedMessages) strings.get(R.string.saved_messages) else it.chat.title,
                     photoFileId = it.chat.photo?.small?.id,
                     minithumbnail = it.chat.photo?.minithumbnail?.data,
                     isSavedMessages = it.isSavedMessages,
@@ -492,7 +495,7 @@ class ChatViewModel @Inject constructor(
         selection.clear()
         action {
             session.forward(ids, target.chatId)
-            notice = "Forwarded to ${target.title}"
+            notice = strings.get(R.string.notice_forwarded, target.title)
         }
     }
 
@@ -505,12 +508,12 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun showError(e: Exception) {
-        notice = e.userMessage()
+        notice = e.userMessage(strings)
     }
 
     /** Runs [block]; any failure becomes a notice instead of a crash. */
     private fun action(block: suspend () -> Unit) {
-        viewModelScope.launchLogged(TAG, onError = { notice = it.userMessage() }) { block() }
+        viewModelScope.launchLogged(TAG, onError = { notice = it.userMessage(strings) }) { block() }
     }
 }
 

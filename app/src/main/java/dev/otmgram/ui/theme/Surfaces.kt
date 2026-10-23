@@ -42,11 +42,13 @@ import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.core.view.WindowCompat
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
+import dev.otmgram.R
 
 /* Backgrounds and full-screen surfaces: paper, the sunrise, system bars. */
 
@@ -161,7 +163,7 @@ fun Hero(height: Dp, modifier: Modifier = Modifier, content: @Composable BoxScop
 fun Wordmark(modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text("otmgram", style = OtmType.FolderName.copy(fontSize = 38.sp), color = Otm.Ink)
-        Text("One folder. Nothing else.", style = OtmType.Body, color = Color(0xFF4A5560))
+        Text(stringResource(R.string.tagline), style = OtmType.Body, color = Color(0xFF4A5560))
     }
 }
 

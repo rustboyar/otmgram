@@ -1,5 +1,7 @@
 package dev.otmgram.data
 
+import androidx.annotation.StringRes
+import dev.otmgram.R
 import dev.otmgram.core.td.TdClient
 import kotlinx.coroutines.flow.first
 import org.drinkless.tdlib.TdApi
@@ -7,7 +9,13 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /** Kinds of downloaded files, for the storage bar in settings. */
-enum class StorageKind(val label: String) { Videos("Videos"), Photos("Photos"), Voice("Voice"), Files("Files"), Other("Other") }
+enum class StorageKind(@StringRes val label: Int) {
+    Videos(R.string.storage_videos),
+    Photos(R.string.storage_photos),
+    Voice(R.string.storage_voice),
+    Files(R.string.storage_files),
+    Other(R.string.storage_other),
+}
 
 data class StorageUsage(val total: Long, val byKind: Map<StorageKind, Long>)
 
