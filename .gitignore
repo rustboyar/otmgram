@@ -1,0 +1,14 @@
+# Gradle / IDE
+.gradle/
+build/
+.kotlin/
+.idea/
+*.iml
+local.properties
+captures/
+.cxx/
+
+# TDLib build (scripts/build-tdlib.sh)
+.tdlib-build/
+tdlib/src/main/jniLibs/
+tdlib/src/main/java/org/drinkless/tdlib/
