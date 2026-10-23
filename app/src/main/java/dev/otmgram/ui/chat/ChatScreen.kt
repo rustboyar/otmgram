@@ -96,14 +96,15 @@ fun ChatScreen(
     val snackbar = remember { SnackbarHostState() }
     val unreadMark = viewModel.unreadMark
     val rows = remember(messages, unreadMark) { buildRows(messages, unreadMark) }
-    val selection = viewModel.selection
-    val selecting = selection.isNotEmpty()
-    val searching = viewModel.searchQuery != null
+    val selection = viewModel.selection.selected
+    val selecting = viewModel.selection.isActive
+    val search = viewModel.search
+    val searching = search.isOpen
     val clipboard = LocalClipboardManager.current
     val title = header?.title.orEmpty()
 
-    BackHandler(enabled = selecting, onBack = viewModel::clearSelection)
-    BackHandler(enabled = searching && !selecting, onBack = viewModel::closeSearch)
+    BackHandler(enabled = selecting, onBack = viewModel.selection::clear)
+    BackHandler(enabled = searching && !selecting, onBack = search::close)
 
     // Load older messages when scrolled close to the oldest loaded one.
     LaunchedEffect(listState) {
@@ -148,8 +149,8 @@ fun ChatScreen(
 
     val context = LocalContext.current
     val keyboard = LocalSoftwareKeyboardController.current
-    val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments(), viewModel::pickedFiles)
-    val pickMedia = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MAX_PICKED_MEDIA), viewModel::pickedMedia)
+    val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments(), viewModel.outgoing::pickFiles)
+    val pickMedia = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MAX_PICKED_MEDIA), viewModel.outgoing::pickMedia)
     val requestLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         if (result.values.any { it }) viewModel.sendCurrentLocation()
     }
@@ -169,13 +170,13 @@ fun ChatScreen(
             when {
                 selecting -> SelectionBar(
                     count = selection.size,
-                    onCancel = viewModel::clearSelection,
+                    onCancel = viewModel.selection::clear,
                     onCopy = {
-                        clipboard.setText(AnnotatedString(viewModel.selectedText()))
-                        viewModel.clearSelection()
+                        clipboard.setText(AnnotatedString(viewModel.selection.text()))
+                        viewModel.selection.clear()
                     },
                 )
-                searching -> FindBar(viewModel.searchQuery.orEmpty(), viewModel::setSearch, viewModel::closeSearch)
+                searching -> FindBar(search.query.orEmpty(), search::type, search::close)
                 else -> ScreenBar(
                     title = title,
                     subtitle = header?.subtitle,
@@ -183,22 +184,22 @@ fun ChatScreen(
                     leading = header?.let { h ->
                         { ChatAvatar(viewModel.chatId, h.title, h.photoFileId, h.minithumbnail, size = 38.dp, savedMessages = h.isSavedMessages) }
                     },
-                    actions = { IconBtn(OtmIcons.Search, "Find in this chat", viewModel::startSearch, tag = "search") },
+                    actions = { IconBtn(OtmIcons.Search, "Find in this chat", search::open, tag = "search") },
                 )
             }
             liveShare?.takeIf { it.chatId == viewModel.chatId }?.let { share ->
                 LiveShareBanner(share, onStop = viewModel::stopLiveLocation)
             }
-            if (viewModel.preparingMedia) {
+            if (viewModel.outgoing.preparing) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).testTag("preparing"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("Preparing media…", style = OtmType.Secondary, color = Otm.InkSoft)
                     LinearProgressIndicator(Modifier.fillMaxWidth(), color = Otm.Slate, trackColor = Otm.Haze)
                 }
             }
 
-            val results = viewModel.searchResults
+            val results = search.results
             val resultIds = remember(results) { results?.map { it.messageId }?.toSet().orEmpty() }
-            val currentMatch = results?.getOrNull(viewModel.searchIndex)?.messageId
+            val currentMatch = results?.getOrNull(search.index)?.messageId
             LazyColumn(
                 state = listState,
                 reverseLayout = true,
@@ -233,13 +234,13 @@ fun ChatScreen(
                                 onPlayVoice = { fileId, path -> viewModel.playVoice(message, fileId, path) },
                                 onVideoNoteSound = { viewModel.markContentOpened(message) },
                                 highlight = if (searching && message.id in resultIds) {
-                                    Highlight(viewModel.searchQuery.orEmpty(), current = message.id == currentMatch)
+                                    Highlight(search.query.orEmpty(), current = message.id == currentMatch)
                                 } else {
                                     null
                                 },
                                 selecting = selecting,
                                 selected = message.id in selection,
-                                onToggleSelected = { viewModel.toggleSelected(message) },
+                                onToggleSelected = { viewModel.selection.toggle(message) },
                                 onRetry = { viewModel.retry(message) },
                                 onDiscard = { viewModel.discard(message) },
                             )
@@ -251,17 +252,17 @@ fun ChatScreen(
             val current = recording
             when {
                 selecting -> SelectionActions(onForward = viewModel::forwardSelected, onDelete = viewModel::askDeleteSelected)
-                searching -> FindStepper(results, viewModel.searchIndex, viewModel.searchQuery.orEmpty(), onStep = viewModel::stepSearch)
+                searching -> FindStepper(results, search.index, search.query.orEmpty(), onStep = search::step)
                 current != null -> RecordingBar(current, onCancel = viewModel::cancelVoice, onSend = viewModel::sendVoice)
                 else -> InputBar(
                     composer = viewModel.composer,
                     chatTitle = title,
-                    stickersOpen = viewModel.stickerTabs != null,
+                    stickersOpen = viewModel.stickers.isOpen,
                     onCancel = viewModel::cancelComposer,
                     onSend = viewModel::send,
                     onStickers = {
                         keyboard?.hide()
-                        viewModel.toggleStickers()
+                        viewModel.stickers.toggle()
                     },
                     onAttach = {
                         keyboard?.hide()
@@ -271,12 +272,12 @@ fun ChatScreen(
                 )
             }
             if (!selecting && !searching && current == null) {
-                viewModel.stickerTabs?.let { tabs ->
+                viewModel.stickers.tabs?.let { tabs ->
                     StickerPicker(
                         tabs = tabs,
-                        selected = viewModel.selectedStickerTab,
-                        stickers = viewModel.stickers,
-                        onSelectTab = viewModel::selectStickerTab,
+                        selected = viewModel.stickers.selected,
+                        stickers = viewModel.stickers.stickers,
+                        onSelectTab = viewModel.stickers::select,
                         onSend = viewModel::sendSticker,
                     )
                 }
@@ -345,14 +346,15 @@ fun ChatScreen(
             onDismiss = { choosingLocation = false },
         )
     }
-    if (viewModel.pendingFiles.isNotEmpty()) {
-        FilesPreviewScreen(viewModel.pendingFiles, title, onSend = viewModel::sendPendingFiles, onDismiss = viewModel::cancelPendingFiles)
+    val outgoing = viewModel.outgoing
+    if (outgoing.files.isNotEmpty()) {
+        FilesPreviewScreen(outgoing.files, title, onSend = outgoing::sendFiles, onDismiss = outgoing::cancelFiles)
     }
-    if (viewModel.pendingMedia.isNotEmpty()) {
+    if (outgoing.media.isNotEmpty()) {
         val compress by viewModel.compressByDefault.collectAsStateWithLifecycle()
         MediaPreviewScreen(
-            viewModel.pendingMedia, title, compress, viewModel.pendingSizes,
-            onSend = viewModel::sendPendingMedia, onDismiss = viewModel::cancelPendingMedia,
+            outgoing.media, title, compress, outgoing.sizes,
+            onSend = outgoing::sendMedia, onDismiss = outgoing::cancelMedia,
         )
     }
     viewModel.menu?.let { menu ->

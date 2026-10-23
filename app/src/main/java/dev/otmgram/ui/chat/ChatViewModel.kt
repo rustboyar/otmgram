@@ -21,32 +21,25 @@ import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
 import dev.otmgram.core.userMessage
 import dev.otmgram.data.AppSettings
-import dev.otmgram.data.ChatHistory
 import dev.otmgram.data.ChatRepository
 import dev.otmgram.data.DownloadsFolder
 import dev.otmgram.data.FileRepository
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.MessageRepository
 import dev.otmgram.data.OutgoingMedia
-import dev.otmgram.data.SizeEstimate
 import dev.otmgram.data.StickerRepository
-import dev.otmgram.data.StickerTab
 import dev.otmgram.data.isGroup
 import dev.otmgram.data.isSavedMessages
 import dev.otmgram.ui.isService
 import dev.otmgram.ui.summary
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import java.io.File
 import javax.inject.Inject
@@ -189,10 +182,6 @@ class ChatViewModel @Inject constructor(
     var forwarding by mutableStateOf<Pair<List<Long>, List<ForwardTarget>>?>(null)
         private set
 
-    /** Selected messages; selection mode is on while it isn't empty. */
-    var selection by mutableStateOf<Set<Long>>(emptySet())
-        private set
-
     /** Unread messages when the chat was opened, for the "new since you left" line. */
     var unreadMark by mutableStateOf<UnreadMark?>(null)
         private set
@@ -201,36 +190,35 @@ class ChatViewModel @Inject constructor(
     var notice by mutableStateOf<String?>(null)
         private set
 
-    /** Search text, or null when not searching. */
-    var searchQuery by mutableStateOf<String?>(null)
-        private set
-
-    /** Results for [searchQuery], newest first, or null while searching or not searching. */
-    var searchResults by mutableStateOf<List<SearchResult>?>(null)
-        private set
-
-    /** Index in [searchResults] of the match shown. */
-    var searchIndex by mutableStateOf(0)
-        private set
-
     /** Message to scroll to, consumed by the screen. */
     var scrollTarget by mutableStateOf<Long?>(null)
         private set
 
-    private val searchQueries = MutableStateFlow("")
+    /** Find in chat. */
+    val search = ChatSearch(
+        viewModelScope,
+        search = { query ->
+            val names = session.history.value.senderNames
+            session.search(query).map { SearchResult(it.id, names[it.senderKey()], it.summary(), it.date) }
+        },
+        show = ::show,
+        onError = ::showError,
+    )
 
-    /** Tabs of the sticker picker, or null while it's closed. */
-    var stickerTabs by mutableStateOf<List<StickerTab>?>(null)
-        private set
+    /** Messages selected to copy, forward or delete. */
+    val selection = ChatSelection(properties = session::properties, messages = { this.messages.value })
 
-    var selectedStickerTab by mutableStateOf<StickerTab?>(null)
-        private set
+    val stickers = StickerPanel(viewModelScope, stickerRepository::tabs, stickerRepository::stickers, ::showError)
 
-    /** Stickers of [selectedStickerTab], or null while loading. */
-    var stickers by mutableStateOf<List<TdApi.Sticker>?>(null)
-        private set
-
-    private var stickersJob: Job? = null
+    /** Picked media and files in the send preview. */
+    val outgoing = OutgoingQueue<Uri>(
+        viewModelScope,
+        estimate = outgoingMedia::estimate,
+        prepareMedia = outgoingMedia::fromGallery,
+        prepareFile = outgoingMedia::document,
+        send = session::sendMedia,
+        onError = ::showError,
+    )
 
     private val viewedIds = mutableSetOf<Long>()
 
@@ -248,24 +236,6 @@ class ChatViewModel @Inject constructor(
                 minithumbnail = chat.photo?.minithumbnail,
                 isSavedMessages = saved,
             )
-        }
-        viewModelScope.launch {
-            searchQueries.collectLatest { query ->
-                searchResults = null
-                if (query.isBlank()) return@collectLatest
-                delay(SEARCH_DELAY_MS)
-                try {
-                    val names = session.history.value.senderNames
-                    val results = session.search(query.trim()).map {
-                        SearchResult(it.id, names[it.senderKey()], it.summary(), it.date)
-                    }
-                    searchResults = results
-                    searchIndex = 0
-                    results.firstOrNull()?.let { show(it.messageId) }
-                } catch (e: TdException) {
-                    notice = e.error.message
-                }
-            }
         }
     }
 
@@ -311,8 +281,8 @@ class ChatViewModel @Inject constructor(
 
     fun openMenu(message: MessageItem) {
         if (message.isService) return
-        if (selection.isNotEmpty()) {
-            toggleSelected(message)
+        if (selection.isActive) {
+            selection.toggle(message)
             return
         }
         action {
@@ -361,30 +331,6 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    /** Files picked to send, waiting for a caption. */
-    var pendingFiles by mutableStateOf<List<Uri>>(emptyList())
-        private set
-
-    fun pickedFiles(uris: List<Uri>) {
-        pendingFiles = uris
-    }
-
-    /** Sends the picked files as they are; several go as an album, captioned on the first. */
-    fun sendPendingFiles(caption: String) {
-        val uris = pendingFiles
-        pendingFiles = emptyList()
-        action {
-            val contents = uris.mapIndexed { index, uri ->
-                outgoingMedia.document(uri, caption = if (index == 0) caption else "")
-            }
-            session.sendMedia(contents)
-        }
-    }
-
-    fun cancelPendingFiles() {
-        pendingFiles = emptyList()
-    }
-
     fun react(message: MessageItem, emoji: String) {
         menu = null
         val chosen = message.reactions.any { it.emoji == emoji && it.isChosen }
@@ -396,33 +342,8 @@ class ChatViewModel @Inject constructor(
         action { session.setReaction(message.id, emoji, chosen = !chip.isChosen) }
     }
 
-    fun toggleStickers() {
-        if (stickerTabs != null) {
-            stickerTabs = null
-            return
-        }
-        action {
-            val tabs = stickerRepository.tabs()
-            stickerTabs = tabs
-            selectStickerTab(tabs.first())
-        }
-    }
-
-    fun selectStickerTab(tab: StickerTab) {
-        selectedStickerTab = tab
-        stickers = null
-        stickersJob?.cancel()
-        stickersJob = viewModelScope.launch {
-            try {
-                stickers = stickerRepository.stickers(tab)
-            } catch (e: TdException) {
-                notice = e.error.message
-            }
-        }
-    }
-
     fun sendSticker(sticker: TdApi.Sticker) {
-        stickerTabs = null
+        stickers.close()
         action { session.sendSticker(sticker) }
     }
 
@@ -478,69 +399,6 @@ class ChatViewModel @Inject constructor(
 
     fun stopLiveLocation() = liveLocation.stop()
 
-    /** Photos and videos picked from the gallery, waiting for a caption before sending. */
-    var pendingMedia by mutableStateOf<List<Uri>>(emptyList())
-        private set
-
-    /** Size of [pendingMedia] now and after compression, once estimated. */
-    var pendingSizes by mutableStateOf<SizeEstimate?>(null)
-        private set
-
-    fun pickedMedia(uris: List<Uri>) {
-        pendingMedia = uris
-        pendingSizes = null
-        if (uris.isNotEmpty()) viewModelScope.launch { pendingSizes = outgoingMedia.estimate(uris) }
-    }
-
-    /** True while picked media is being prepared (compressed) for sending. */
-    var preparingMedia by mutableStateOf(false)
-        private set
-
-    /** Sends the picked media; an album gets the caption on its first item. */
-    fun sendPendingMedia(caption: String, compress: Boolean) {
-        val uris = pendingMedia
-        pendingMedia = emptyList()
-        preparingMedia = true
-        action {
-            try {
-                val contents = uris.mapIndexedNotNull { index, uri ->
-                    outgoingMedia.fromGallery(uri, caption = if (index == 0) caption else "", compress = compress)
-                }
-                session.sendMedia(contents)
-            } finally {
-                preparingMedia = false
-            }
-        }
-    }
-
-    fun cancelPendingMedia() {
-        pendingMedia = emptyList()
-    }
-
-    fun startSearch() {
-        searchQuery = ""
-    }
-
-    fun setSearch(query: String) {
-        searchQuery = query
-        searchQueries.value = query
-    }
-
-    fun closeSearch() {
-        searchQuery = null
-        searchResults = null
-        searchQueries.value = ""
-    }
-
-    /** Steps to an older (+1) or newer (-1) match. */
-    fun stepSearch(direction: Int) {
-        val results = searchResults ?: return
-        val index = (searchIndex + direction).coerceIn(0, results.lastIndex)
-        if (index == searchIndex) return
-        searchIndex = index
-        show(results[index].messageId)
-    }
-
     /** Scrolls to [messageId], loading older history as needed. */
     private fun show(messageId: Long) {
         action {
@@ -576,28 +434,16 @@ class ChatViewModel @Inject constructor(
         )
     }
 
-    /** Asks to delete the selected messages; "for everyone" only if all of them allow it. */
-    fun askDeleteSelected() {
-        val ids = selection.toList()
-        action {
-            val properties = ids.map { session.properties(it) }
-            if (properties.none { it.canBeDeletedOnlyForSelf || it.canBeDeletedForAllUsers }) {
-                notice = "These messages can't be deleted"
-                return@action
-            }
-            deleting = DeleteRequest(
-                messageIds = ids.filterIndexed { i, _ -> properties[i].canBeDeletedOnlyForSelf || properties[i].canBeDeletedForAllUsers },
-                quote = null,
-                canDeleteForSelf = properties.any { it.canBeDeletedOnlyForSelf },
-                canDeleteForEveryone = properties.all { it.canBeDeletedForAllUsers },
-            )
-        }
+    /** Asks to delete the selected messages. */
+    fun askDeleteSelected() = action {
+        val request = selection.deleteRequest()
+        if (request == null) notice = "These messages can't be deleted" else deleting = request
     }
 
     fun delete(forEveryone: Boolean) {
         val request = deleting ?: return
         deleting = null
-        selection = emptySet()
+        selection.clear()
         action { session.delete(request.messageIds, forEveryone) }
     }
 
@@ -610,24 +456,7 @@ class ChatViewModel @Inject constructor(
     /** Starts selecting messages, with [message] selected. */
     fun select(message: MessageItem) {
         menu = null
-        selection = setOf(message.id)
-    }
-
-    fun toggleSelected(message: MessageItem) {
-        if (message.isService) return
-        selection = if (message.id in selection) selection - message.id else selection + message.id
-    }
-
-    fun clearSelection() {
-        selection = emptySet()
-    }
-
-    /** Text of the selected messages, oldest first, for the clipboard. */
-    fun selectedText(): String {
-        val byId = messages.value.associateBy { it.id }
-        return selection.sorted().mapNotNull { byId[it] }
-            .filter { it.text.isNotEmpty() && !it.isMediaPlaceholder }
-            .joinToString("\n\n") { message -> listOfNotNull(message.senderName?.let { "$it:" }, message.text).joinToString(" ") }
+        selection.start(message)
     }
 
     fun cancelDelete() {
@@ -639,7 +468,7 @@ class ChatViewModel @Inject constructor(
         forward(listOf(message.id))
     }
 
-    fun forwardSelected() = forward(selection.toList())
+    fun forwardSelected() = forward(selection.selected.toList())
 
     private fun forward(ids: List<Long>) {
         action {
@@ -660,7 +489,7 @@ class ChatViewModel @Inject constructor(
     fun forward(target: ForwardTarget) {
         val ids = forwarding?.first ?: return
         forwarding = null
-        selection = emptySet()
+        selection.clear()
         action {
             session.forward(ids, target.chatId)
             notice = "Forwarded to ${target.title}"
@@ -675,6 +504,10 @@ class ChatViewModel @Inject constructor(
         notice = null
     }
 
+    private fun showError(e: Exception) {
+        notice = e.userMessage()
+    }
+
     /** Runs [block]; any failure becomes a notice instead of a crash. */
     private fun action(block: suspend () -> Unit) {
         viewModelScope.launchLogged(TAG, onError = { notice = it.userMessage() }) { block() }
@@ -682,4 +515,3 @@ class ChatViewModel @Inject constructor(
 }
 
 private const val TAG = "ChatViewModel"
-private const val SEARCH_DELAY_MS = 300L
