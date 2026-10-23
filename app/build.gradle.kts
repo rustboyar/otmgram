@@ -62,6 +62,7 @@ android {
         release {
             buildConfigField("boolean", "TELEGRAM_TEST_DC", "false")
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
@@ -75,6 +76,12 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    lint {
+        // Not a ChromeOS app: x86_64 is only built for the emulator.
+        disable += "ChromeOsAbiSupport"
+        abortOnError = true
     }
 
     // Unit tests run on the JVM: Android calls like Log.w do nothing instead of throwing.

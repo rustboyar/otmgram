@@ -1,16 +1,13 @@
 package dev.otmgram.sync
 
-import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.otmgram.MainActivity
 import dev.otmgram.R
@@ -99,9 +96,8 @@ class NewMessagesNotifier @Inject constructor(
      * lock screen gets a text-free version when Android hides sensitive content there.
      */
     internal fun show(news: List<ChatNews>, withText: Boolean) {
-        val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
-            PackageManager.PERMISSION_GRANTED
-        if (!granted) return
+        // Covers the runtime permission (Android 13+) and notifications turned off for the app.
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
         val manager = context.getSystemService(NotificationManager::class.java)
         // A new id: lock screen visibility can only be set when a channel is created.
         manager.deleteNotificationChannel(OLD_CHANNEL_ID)

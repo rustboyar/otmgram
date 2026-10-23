@@ -1,5 +1,6 @@
 package dev.otmgram.core.log
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
 import java.io.File
@@ -16,6 +17,7 @@ import java.util.concurrent.Executors
  *
  * Never log message text, names or phone numbers.
  */
+@SuppressLint("LogNotTimber") // This is the app's logger; it writes to logcat on purpose.
 object AppLog {
     private const val MAX_BYTES = 512 * 1024L
     private const val FILE = "app.log"

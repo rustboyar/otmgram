@@ -1,6 +1,7 @@
 package dev.otmgram.ui.chat
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -157,7 +158,10 @@ fun ChatScreen(
     var pendingLivePeriod by rememberSaveable { mutableStateOf<Int?>(null) }
     val requestLiveLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         val period = pendingLivePeriod
-        val located = result.filterKeys { it != Manifest.permission.POST_NOTIFICATIONS }.values.any { it } || hasLocationPermission(context)
+        // Only compares the name: fine on Android versions without that permission.
+        @SuppressLint("InlinedApi")
+        val notifications = Manifest.permission.POST_NOTIFICATIONS
+        val located = result.filterKeys { it != notifications }.values.any { it } || hasLocationPermission(context)
         if (period != null && located) viewModel.startLiveLocation(period)
         pendingLivePeriod = null
     }

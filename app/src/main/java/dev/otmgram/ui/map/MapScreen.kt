@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import kotlin.math.roundToInt
 import android.content.Context
 import android.content.Intent
@@ -157,7 +158,7 @@ fun MapScreen(onBack: () -> Unit, viewModel: MapViewModel = hiltViewModel()) {
 /** Hands the point to whichever maps app is installed. */
 private fun openInMaps(context: Context, latitude: Double, longitude: Double, label: String?) {
     val query = "$latitude,$longitude" + (label?.let { "(${Uri.encode(it)})" } ?: "")
-    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:$latitude,$longitude?q=$query"))
+    val intent = Intent(Intent.ACTION_VIEW, "geo:$latitude,$longitude?q=$query".toUri())
     try {
         context.startActivity(Intent.createChooser(intent, null))
     } catch (e: ActivityNotFoundException) {

@@ -24,6 +24,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -213,7 +214,7 @@ class MediaViewerViewModel @Inject constructor(
     var pages by mutableStateOf<List<ViewerPage>>(emptyList())
         private set
 
-    var startIndex by mutableStateOf(0)
+    var startIndex by mutableIntStateOf(0)
         private set
 
     var info by mutableStateOf<ViewerInfo?>(null)

@@ -1,6 +1,7 @@
 package dev.otmgram.core.location
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.location.Location
 import android.location.LocationManager
@@ -60,7 +61,7 @@ class LocationSource @Inject constructor(
 
     /** The last position any app got, without waiting for a new one; null if none or location is off. */
     @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
-    fun lastKnown(): Location? = provider()?.let(manager::getLastKnownLocation)
+    fun lastKnown(): Location? = provider()?.let { manager.getLastKnownLocation(it) }
 
     /** Accurate position updates, at most every [intervalMs] and after moving [minDistanceMeters]. */
     @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
@@ -74,6 +75,8 @@ class LocationSource @Inject constructor(
         return true
     }
 
+    // Stopping needs no permission; it must work after the permission was taken back too.
+    @SuppressLint("MissingPermission")
     fun removeUpdates(listener: LocationListenerCompat) {
         LocationManagerCompat.removeUpdates(manager, listener)
     }

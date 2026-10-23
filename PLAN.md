@@ -126,6 +126,7 @@ app/
 
 - Unit tests (`./gradlew :app:testDebugUnitTest`): message mapping, list rows, media mapping, wording, login steps, storage, and the open chat and folder list against a fake TDLib (`testing/FakeTelegram`, behind the `TelegramClient` interface)
 - UI tests on a device (`scripts/ui-tests.sh`): bubble states, delete dialog. Not `connectedAndroidTest`, which uninstalls the app and so logs it out
+- Before committing: `scripts/check.sh` (lint, failing on any issue, and unit tests; `--release` also builds the release APK). No CI: building TDLib takes too long for it
 
 ## Structure
 
