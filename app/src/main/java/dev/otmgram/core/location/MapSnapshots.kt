@@ -13,7 +13,13 @@ import kotlin.coroutines.resume
 /** Map style: OpenFreeMap vector tiles, free and without an API key. */
 const val MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
 
-/** Static map images for location bubbles, which are much lighter than live maps. */
+/**
+ * Static map images for location bubbles, which are much lighter than live maps.
+ *
+ * Previews are coarse on purpose: at [ZOOM] a tile covers about 25 km, so the tile server
+ * learns only the rough area of a shared place. The pin is drawn on the phone, at the exact
+ * spot; detailed tiles load only when the user opens the full map.
+ */
 object MapSnapshots {
     private val cache = LruCache<String, Bitmap>(CACHE_SIZE)
 
@@ -45,5 +51,5 @@ object MapSnapshots {
     }
 
     private const val CACHE_SIZE = 30
-    private const val ZOOM = 14.0
+    private const val ZOOM = 10.0
 }
