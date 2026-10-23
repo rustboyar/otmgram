@@ -81,7 +81,7 @@ fun MediaContent(
         }
         is MessageMedia.VoiceNote -> VoiceNote(media, audio, onPlayVoice)
         is MessageMedia.VideoNote -> VideoNote(media, onVideoNoteSound)
-        is MessageMedia.Sticker -> Sticker(media)
+        is MessageMedia.Sticker -> StickerView(media, Modifier.size(STICKER_SIZE).testTag("sticker-${media.kind}"))
     }
 }
 
@@ -190,8 +190,7 @@ private fun VideoNote(media: MessageMedia.VideoNote, onSound: () -> Unit) {
 }
 
 @Composable
-private fun Sticker(media: MessageMedia.Sticker) {
-    val modifier = Modifier.size(STICKER_SIZE).testTag("sticker-${media.kind}")
+fun StickerView(media: MessageMedia.Sticker, modifier: Modifier) {
     when (media.kind) {
         StickerKind.Image -> TdImage(media.fileId, null, modifier, contentScale = ContentScale.Fit)
         StickerKind.Lottie -> {

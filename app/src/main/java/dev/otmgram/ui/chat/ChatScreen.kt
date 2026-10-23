@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -151,11 +152,25 @@ fun ChatScreen(
                     }
                 }
             }
+            val keyboard = LocalSoftwareKeyboardController.current
             InputBar(
                 composer = viewModel.composer,
                 onCancel = viewModel::cancelComposer,
                 onSend = viewModel::send,
+                onStickers = {
+                    keyboard?.hide()
+                    viewModel.toggleStickers()
+                },
             )
+            viewModel.stickerTabs?.let { tabs ->
+                StickerPicker(
+                    tabs = tabs,
+                    selected = viewModel.selectedStickerTab,
+                    stickers = viewModel.stickers,
+                    onSelectTab = viewModel::selectStickerTab,
+                    onSend = viewModel::sendSticker,
+                )
+            }
         }
     }
 
@@ -257,7 +272,7 @@ private fun ServiceNote(text: String) {
 }
 
 @Composable
-private fun InputBar(composer: Composer, onCancel: () -> Unit, onSend: (String) -> Unit) {
+private fun InputBar(composer: Composer, onCancel: () -> Unit, onSend: (String) -> Unit, onStickers: () -> Unit) {
     var text by rememberSaveable { mutableStateOf("") }
     // Editing starts from the message text.
     LaunchedEffect(composer) {
@@ -291,6 +306,9 @@ private fun InputBar(composer: Composer, onCancel: () -> Unit, onSend: (String) 
             modifier = Modifier.fillMaxWidth().padding(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            TextButton(onClick = onStickers, modifier = Modifier.testTag("stickers")) {
+                Text("☺", style = MaterialTheme.typography.titleLarge)
+            }
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },

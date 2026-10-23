@@ -13,7 +13,9 @@ if ! "$EMULATOR" -list-avds | grep -qx "$AVD"; then
     --name "$AVD" --package "$IMAGE" --device pixel_8
 fi
 
-args=(-avd "$AVD" -no-boot-anim -no-snapshot-save)
+# Fake cameras: circles need a front camera, and testing shouldn't film the room.
+# Use "-camera-front webcam0" for a real webcam.
+args=(-avd "$AVD" -no-boot-anim -no-snapshot-save -camera-front emulated -camera-back emulated)
 if [ "${1:-}" = --headless ]; then
   args+=(-no-window -no-audio -gpu swiftshader_indirect)
 fi

@@ -15,10 +15,13 @@ import dev.otmgram.data.ChatHistory
 import dev.otmgram.data.ChatRepository
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.MessageRepository
+import dev.otmgram.data.StickerRepository
+import dev.otmgram.data.StickerTab
 import dev.otmgram.data.isGroup
 import dev.otmgram.data.isSavedMessages
 import dev.otmgram.ui.isService
 import dev.otmgram.ui.summary
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -93,6 +96,7 @@ class ChatViewModel @Inject constructor(
     messages: MessageRepository,
     private val chats: ChatRepository,
     private val folders: FolderRepository,
+    private val stickerRepository: StickerRepository,
     private val td: TdClient,
     private val audioPlayer: AudioPlayer,
 ) : ViewModel() {
@@ -142,6 +146,19 @@ class ChatViewModel @Inject constructor(
         private set
 
     private val searchQueries = MutableStateFlow("")
+
+    /** Tabs of the sticker picker, or null while it's closed. */
+    var stickerTabs by mutableStateOf<List<StickerTab>?>(null)
+        private set
+
+    var selectedStickerTab by mutableStateOf<StickerTab?>(null)
+        private set
+
+    /** Stickers of [selectedStickerTab], or null while loading. */
+    var stickers by mutableStateOf<List<TdApi.Sticker>?>(null)
+        private set
+
+    private var stickersJob: Job? = null
 
     private val viewedIds = mutableSetOf<Long>()
 
@@ -236,6 +253,36 @@ class ChatViewModel @Inject constructor(
     fun toggleReaction(message: MessageItem, chip: ReactionChip) {
         val emoji = chip.emoji ?: return
         action { session.setReaction(message.id, emoji, chosen = !chip.isChosen) }
+    }
+
+    fun toggleStickers() {
+        if (stickerTabs != null) {
+            stickerTabs = null
+            return
+        }
+        action {
+            val tabs = stickerRepository.tabs()
+            stickerTabs = tabs
+            selectStickerTab(tabs.first())
+        }
+    }
+
+    fun selectStickerTab(tab: StickerTab) {
+        selectedStickerTab = tab
+        stickers = null
+        stickersJob?.cancel()
+        stickersJob = viewModelScope.launch {
+            try {
+                stickers = stickerRepository.stickers(tab)
+            } catch (e: TdException) {
+                notice = e.error.message
+            }
+        }
+    }
+
+    fun sendSticker(sticker: TdApi.Sticker) {
+        stickerTabs = null
+        action { session.sendSticker(sticker) }
     }
 
     fun startSearch() {

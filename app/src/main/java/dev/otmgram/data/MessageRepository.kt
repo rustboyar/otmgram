@@ -103,8 +103,17 @@ class ChatSession internal constructor(
     }
 
     suspend fun sendText(text: String, replyToMessageId: Long? = null) {
+        send(textContent(text), replyToMessageId)
+    }
+
+    suspend fun sendSticker(sticker: TdApi.Sticker) {
+        val input = TdApi.InputSticker(TdApi.InputFileId(sticker.sticker.id), null, sticker.width, sticker.height)
+        send(TdApi.InputMessageSticker(input, sticker.emoji))
+    }
+
+    private suspend fun send(content: TdApi.InputMessageContent, replyToMessageId: Long? = null) {
         val replyTo = replyToMessageId?.let { TdApi.InputMessageReplyToMessage(it, null, 0, "") }
-        td.send(TdApi.SendMessage(chatId, null, replyTo, null, null, textContent(text)))
+        td.send(TdApi.SendMessage(chatId, null, replyTo, null, null, content))
     }
 
     suspend fun editText(messageId: Long, text: String) {

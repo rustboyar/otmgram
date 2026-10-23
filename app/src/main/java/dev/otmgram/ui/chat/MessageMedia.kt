@@ -78,19 +78,21 @@ fun TdApi.MessageContent.toMedia(): MessageMedia? = when (this) {
     is TdApi.MessageVideoNote -> MessageMedia.VideoNote(
         videoNote.video.id, videoNote.thumbnail?.file?.id, videoNote.duration, videoNote.minithumbnail,
     )
-    is TdApi.MessageSticker -> MessageMedia.Sticker(
-        fileId = sticker.sticker.id,
-        kind = when (sticker.format) {
-            is TdApi.StickerFormatTgs -> StickerKind.Lottie
-            is TdApi.StickerFormatWebm -> StickerKind.Video
-            else -> StickerKind.Image
-        },
-        width = sticker.width,
-        height = sticker.height,
-        thumbnailFileId = sticker.thumbnail?.file?.id,
-    )
+    is TdApi.MessageSticker -> sticker.toMedia()
     else -> null
 }
+
+fun TdApi.Sticker.toMedia() = MessageMedia.Sticker(
+    fileId = sticker.id,
+    kind = when (format) {
+        is TdApi.StickerFormatTgs -> StickerKind.Lottie
+        is TdApi.StickerFormatWebm -> StickerKind.Video
+        else -> StickerKind.Image
+    },
+    width = width,
+    height = height,
+    thumbnailFileId = thumbnail?.file?.id,
+)
 
 /** Caption of media messages, empty if none. */
 fun TdApi.MessageContent.caption(): String = when (this) {
