@@ -24,6 +24,7 @@ sealed interface MessageMedia {
     /** GIF-like silent looping video. */
     data class Animation(
         val fileId: Int,
+        val thumbnailFileId: Int?,
         val width: Int,
         val height: Int,
         val minithumbnail: TdApi.Minithumbnail?,
@@ -97,7 +98,7 @@ fun TdApi.MessageContent.toMedia(): MessageMedia? = when (this) {
         minithumbnail = video.minithumbnail,
     )
     is TdApi.MessageAnimation -> MessageMedia.Animation(
-        animation.animation.id, animation.width, animation.height, animation.minithumbnail,
+        animation.animation.id, animation.thumbnail?.file?.id, animation.width, animation.height, animation.minithumbnail,
     )
     is TdApi.MessageVoiceNote -> MessageMedia.VoiceNote(
         voiceNote.voice.id, voiceNote.duration, Waveform.decode(voiceNote.waveform),

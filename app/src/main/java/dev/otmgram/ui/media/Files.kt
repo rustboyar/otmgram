@@ -12,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -27,6 +28,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
 import coil3.compose.AsyncImage
+import dev.otmgram.core.launchLogged
 import dev.otmgram.core.media.SoftwareFirstCodecSelector
 import dev.otmgram.data.FileRepository
 import kotlinx.coroutines.delay
@@ -64,6 +66,38 @@ fun rememberFileState(fileId: Int): TdApi.File? {
     val flow = remember(fileId) { files.observe(fileId) }
     val file by flow.collectAsState(initial = null)
     return file
+}
+
+/** A file downloaded only when the user asks: its state, and a toggle to start or cancel it. */
+class OnDemandFile(val file: TdApi.File?, val toggle: () -> Unit) {
+    /** Local path once fully downloaded. */
+    val path: String? get() = file?.local?.takeIf { it.isDownloadingCompleted }?.path
+    val downloading: Boolean get() = file?.local?.isDownloadingActive == true
+
+    /** Downloaded fraction, 0..1. */
+    val progress: Float
+        get() {
+            val total = file?.expectedSize?.takeIf { it > 0 } ?: file?.size ?: 0L
+            return if (total > 0) file!!.local.downloadedSize.toFloat() / total else 0f
+        }
+
+    /** Size in bytes, 0 if unknown. */
+    val size: Long get() = file?.size?.takeIf { it > 0 } ?: file?.expectedSize ?: 0L
+}
+
+/** State of a file that downloads on tap (videos, voice, GIFs); see [OnDemandFile]. */
+@Composable
+fun rememberOnDemandFile(fileId: Int): OnDemandFile {
+    val files = LocalFileRepository.current
+    val scope = rememberCoroutineScope()
+    val file = rememberFileState(fileId)
+    return OnDemandFile(file) {
+        val local = file?.local
+        if (local?.isDownloadingCompleted == true) return@OnDemandFile
+        scope.launchLogged("OnDemandFile") {
+            if (local?.isDownloadingActive == true) files.cancelDownload(fileId) else files.startDownload(fileId)
+        }
+    }
 }
 
 /** Local path of a TDLib file once fully downloaded. */

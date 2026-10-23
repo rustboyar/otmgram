@@ -26,6 +26,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -58,17 +59,16 @@ import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.rememberLottieComposition
 import dev.otmgram.core.location.MapSnapshots
 import dev.otmgram.core.media.AudioState
-import dev.otmgram.data.FileRepository
 import dev.otmgram.core.td.TdException
 import dev.otmgram.ui.media.LocalFileRepository
 import dev.otmgram.ui.media.LoopingVideo
-import dev.otmgram.ui.media.Minithumbnail
 import dev.otmgram.ui.media.TdImage
 import dev.otmgram.ui.media.rememberDownloadedPath
 import dev.otmgram.ui.media.formatSize
 import dev.otmgram.ui.media.openFile
-import dev.otmgram.ui.media.rememberFile
+import dev.otmgram.ui.media.OnDemandFile
 import dev.otmgram.ui.media.rememberFileState
+import dev.otmgram.ui.media.rememberOnDemandFile
 import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmType
@@ -119,14 +119,7 @@ fun MediaContent(
             VideoPreview(media, onOpen, onLongClick, uploading = onCancelUpload != null)
             onCancelUpload?.let { UploadRing(media.fileId, it) }
         }
-        is MessageMedia.Animation -> {
-            val path = rememberDownloadedPath(media.fileId)
-            val modifier = Modifier
-                .width(MEDIA_WIDTH)
-                .aspectRatio(aspect(media.width, media.height))
-                .clip(RoundedCornerShape(13.dp))
-            if (path != null) LoopingVideo(path, modifier) else Minithumbnail(media.minithumbnail, modifier)
-        }
+        is MessageMedia.Animation -> Gif(media, onLongClick)
         is MessageMedia.VoiceNote -> VoiceNote(media, audio, outgoing, onPlayVoice, onLongClick)
         is MessageMedia.VideoNote -> VideoNote(media, onVideoNoteSound, onLongClick)
         is MessageMedia.Sticker -> StickerView(media, Modifier.size(STICKER_SIZE).testTag("sticker-${media.kind}"))
@@ -326,10 +319,10 @@ fun liveStatus(live: MessageMedia.LiveInfo, now: Int): String {
     return "Live · $updated"
 }
 
+/** A video downloads when played: tapping opens the viewer, which shows the progress. */
 @Composable
 private fun VideoPreview(media: MessageMedia.Video, onOpen: () -> Unit, onLongClick: () -> Unit, uploading: Boolean) {
-    // Auto-download: the video itself downloads in the background, behind visible thumbnails.
-    val file = rememberFile(media.fileId, priority = FileRepository.PRIORITY_BACKGROUND)
+    val file = rememberFileState(media.fileId)
     Box(
         modifier = Modifier
             .width(MEDIA_WIDTH)
@@ -346,12 +339,58 @@ private fun VideoPreview(media: MessageMedia.Video, onOpen: () -> Unit, onLongCl
             }
         }
         val local = file?.local
-        val progress = if (local == null || local.isDownloadingCompleted || file.size == 0L) {
-            null
-        } else {
-            "${local.downloadedSize * 100 / file.size}%"
+        val size = file?.size?.takeIf { it > 0 } ?: file?.expectedSize ?: 0L
+        val status = when {
+            local == null || uploading -> null
+            local.isDownloadingCompleted -> null
+            local.isDownloadingActive && size > 0 -> "${local.downloadedSize * 100 / size}%"
+            size > 0 -> formatSize(size)
+            else -> null
         }
-        Label(listOfNotNull(formatDuration(media.duration), progress).joinToString(" · "), Modifier.align(Alignment.TopStart))
+        Label(listOfNotNull(formatDuration(media.duration), status).joinToString(" · "), Modifier.align(Alignment.TopStart))
+    }
+}
+
+/** A GIF downloads on tap, then loops in place; tap again while downloading to stop. */
+@Composable
+private fun Gif(media: MessageMedia.Animation, onLongClick: () -> Unit) {
+    val gif = rememberOnDemandFile(media.fileId)
+    val path = gif.path
+    Box(
+        modifier = Modifier
+            .width(MEDIA_WIDTH)
+            .aspectRatio(aspect(media.width, media.height))
+            .clip(RoundedCornerShape(13.dp))
+            .combinedClickable(onClick = gif.toggle, onLongClick = onLongClick)
+            .testTag("gif"),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (path != null) {
+            LoopingVideo(path, Modifier.matchParentSize())
+            return@Box
+        }
+        TdImage(media.thumbnailFileId, media.minithumbnail, Modifier.matchParentSize())
+        DownloadButton(gif, "Play GIF")
+        Label(listOfNotNull("GIF", gif.size.takeIf { it > 0 }?.let(::formatSize)).joinToString(" · "), Modifier.align(Alignment.TopStart))
+    }
+}
+
+/** Play while not downloaded yet; a progress ring with a cross while downloading. */
+@Composable
+private fun DownloadButton(file: OnDemandFile, label: String) {
+    Box(Modifier.size(48.dp).background(Otm.Sheet.copy(alpha = 0.88f), CircleShape), contentAlignment = Alignment.Center) {
+        if (file.downloading) {
+            CircularProgressIndicator(
+                progress = { file.progress },
+                modifier = Modifier.matchParentSize().padding(3.dp),
+                color = Otm.Slate,
+                trackColor = Otm.Slate.copy(alpha = 0.18f),
+                strokeWidth = 3.dp,
+            )
+            Icon(OtmIcons.Close, "Stop downloading", tint = Otm.Ink, modifier = Modifier.size(16.dp))
+        } else {
+            Icon(OtmIcons.Play, label, tint = Otm.Ink, modifier = Modifier.size(18.dp))
+        }
     }
 }
 
@@ -363,7 +402,16 @@ private fun VoiceNote(
     onPlay: (Int, String) -> Unit,
     onLongClick: () -> Unit,
 ) {
-    val path = rememberDownloadedPath(media.fileId)
+    // Downloads on the first tap, then plays as soon as it's in.
+    val voice = rememberOnDemandFile(media.fileId)
+    val path = voice.path
+    var playWhenReady by remember { mutableStateOf(false) }
+    LaunchedEffect(path, playWhenReady) {
+        if (playWhenReady && path != null) {
+            playWhenReady = false
+            onPlay(media.fileId, path)
+        }
+    }
     val current = audio?.takeIf { it.fileId == media.fileId }
     val progress = if (current != null && current.durationMs > 0) current.positionMs.toFloat() / current.durationMs else 0f
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -372,13 +420,30 @@ private fun VoiceNote(
                 .size(40.dp)
                 .clip(CircleShape)
                 .background(if (outgoing) Color(0xFFFBF1E7) else Otm.Haze)
-                .combinedClickable(enabled = path != null, onLongClick = onLongClick) { path?.let { onPlay(media.fileId, it) } }
+                .combinedClickable(onLongClick = onLongClick) {
+                    when {
+                        path != null -> onPlay(media.fileId, path)
+                        else -> {
+                            playWhenReady = !voice.downloading
+                            voice.toggle()
+                        }
+                    }
+                }
                 .testTag("playVoice"),
             contentAlignment = Alignment.Center,
         ) {
             val tint = if (outgoing) Color(0xFF8A5A3C) else Otm.SlateDeep
             when {
-                path == null -> CircularProgressIndicator(Modifier.size(18.dp), color = tint, strokeWidth = 2.dp)
+                voice.downloading -> {
+                    CircularProgressIndicator(
+                        progress = { voice.progress },
+                        modifier = Modifier.matchParentSize().padding(2.dp),
+                        color = tint,
+                        trackColor = tint.copy(alpha = 0.18f),
+                        strokeWidth = 2.5.dp,
+                    )
+                    Icon(OtmIcons.Close, "Stop downloading", tint = tint, modifier = Modifier.size(14.dp))
+                }
                 current?.isPlaying == true -> Icon(OtmIcons.Pause, "Pause", tint = tint, modifier = Modifier.size(16.dp))
                 else -> Icon(OtmIcons.Play, "Play voice message", tint = tint, modifier = Modifier.size(16.dp))
             }

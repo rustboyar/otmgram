@@ -72,7 +72,7 @@ app/
 - Inline videos use software decoders first (few hardware decoder instances; the emulator's fails)
 - Stickers: WEBP, TGS (Lottie, merge paths enabled); WEBM shows its still thumbnail (alpha video unsupported by Android decoders)
 - Chat photos as avatars in the chat list
-- Auto-download everything, with progress; cache limit is M10 (`optimizeStorage`)
+- Downloads: photos, video circles, stickers, avatars and video thumbnails automatically once their message is on screen; videos, voice messages and GIFs on tap (voice then plays, a GIF then loops in place; tap again to stop the download); files on tap. Cache limit in settings (`optimizeStorage`)
 
 ### M5 — Media sending
 - Photos/videos via the system photo picker, copied to the cache for TDLib; preview with a caption before sending; several picks go as an album (caption on the first item)
