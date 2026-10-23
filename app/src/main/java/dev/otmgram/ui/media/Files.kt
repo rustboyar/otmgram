@@ -23,10 +23,10 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
 import coil3.compose.AsyncImage
+import dev.otmgram.core.media.SoftwareFirstCodecSelector
 import dev.otmgram.data.FileRepository
 import kotlinx.coroutines.flow.emptyFlow
 import org.drinkless.tdlib.TdApi
@@ -36,11 +36,7 @@ import java.io.File
 @OptIn(UnstableApi::class)
 fun buildPlayer(context: Context, path: String, softwareDecoders: Boolean): ExoPlayer {
     val renderers = DefaultRenderersFactory(context)
-    if (softwareDecoders) {
-        renderers.setMediaCodecSelector { mimeType, secure, tunneling ->
-            MediaCodecSelector.DEFAULT.getDecoderInfos(mimeType, secure, tunneling).sortedBy { it.hardwareAccelerated }
-        }
-    }
+    if (softwareDecoders) renderers.setMediaCodecSelector(SoftwareFirstCodecSelector)
     return ExoPlayer.Builder(context, renderers).build().apply {
         setMediaItem(MediaItem.fromUri(Uri.fromFile(File(path))))
         prepare()

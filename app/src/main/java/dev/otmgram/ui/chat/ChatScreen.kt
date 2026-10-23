@@ -66,6 +66,7 @@ import java.time.format.FormatStyle
 fun ChatScreen(
     onBack: () -> Unit,
     onOpenMedia: (chatId: Long, messageId: Long) -> Unit,
+    onRecordVideoNote: (chatId: Long) -> Unit,
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
     val header by viewModel.header.collectAsStateWithLifecycle()
@@ -192,6 +193,7 @@ fun ChatScreen(
                     onAttach = {
                         pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
                     },
+                    onRecordVideoNote = { onRecordVideoNote(viewModel.chatId) },
                     onRecord = {
                         val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
                             PackageManager.PERMISSION_GRANTED
@@ -315,6 +317,7 @@ private fun InputBar(
     onSend: (String) -> Unit,
     onStickers: () -> Unit,
     onAttach: () -> Unit,
+    onRecordVideoNote: () -> Unit,
     onRecord: () -> Unit,
 ) {
     var text by rememberSaveable { mutableStateOf("") }
@@ -364,6 +367,9 @@ private fun InputBar(
                 modifier = Modifier.weight(1f).testTag("input"),
             )
             if (text.isBlank() && composer !is Composer.Edit) {
+                TextButton(onClick = onRecordVideoNote, modifier = Modifier.testTag("recordVideoNote")) {
+                    Text("⭕", style = MaterialTheme.typography.titleLarge)
+                }
                 TextButton(onClick = onRecord, modifier = Modifier.testTag("record")) {
                     Text("🎤", style = MaterialTheme.typography.titleLarge)
                 }

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
+import java.io.File
 import java.util.TreeMap
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -19,6 +20,12 @@ import javax.inject.Singleton
 class MessageRepository @Inject constructor(
     private val td: TdClient,
 ) {
+    /** Sends a square video message of [length] px from a local file. */
+    suspend fun sendVideoNote(chatId: Long, file: File, duration: Int, length: Int) {
+        val videoNote = TdApi.InputVideoNote(TdApi.InputFileLocal(file.path), null, duration, length)
+        td.send(TdApi.SendMessage(chatId, null, null, null, null, TdApi.InputMessageVideoNote(videoNote, null)))
+    }
+
     /** Opens [chatId] for as long as [scope] lives; see [ChatSession]. */
     fun openChat(chatId: Long, scope: CoroutineScope): ChatSession = ChatSession(td, chatId, scope)
 }

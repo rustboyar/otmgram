@@ -73,10 +73,10 @@ app/
 - Auto-download everything, with progress; cache limit is M7 (`optimizeStorage`)
 
 ### M5 — Media sending
-- Photos/videos via the system photo picker
-- Voice: hold to record OGG/Opus (MediaRecorder), compute waveform, send
-- Circles: CameraX front camera → crop to square with Media3 Transformer, max 60 s
-- Sticker picker: installed sets + recents
+- Photos/videos via the system photo picker, copied to the cache for TDLib; several picks go as an album (no captions yet)
+- Voice: tap 🎤 to record OGG/Opus (MediaRecorder), level sampled for the waveform, cancel or send; < 0.7 s discarded
+- Circles: separate recording screen, CameraX front camera (mirrored) → Media3 Transformer crops to 480×480, max 60 s; decoders fall back to software
+- Sticker picker: recent stickers + installed sets
 
 ### M6 — Notifications (periodic check)
 - `PeriodicWorkRequest` every X minutes (setting, minimum 15 — WorkManager limit), requires network
