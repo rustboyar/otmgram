@@ -7,7 +7,8 @@
 # Follows td/example/android/build-tdlib.sh, but without PHP: TdApi.java is
 # generated without Javadoc and @Nullable annotations.
 #
-# Env overrides: ANDROID_HOME, TDLIB_WORK_DIR, JOBS.
+# Env overrides: ANDROID_HOME, TDLIB_WORK_DIR, JOBS, ABIS (space-separated).
+# x86_64 is only needed for the emulator (debug builds).
 set -euo pipefail
 
 TD_COMMIT=ea3f69ce11aef458bfbb09869b809ede4447486f # TDLib 1.8.69
@@ -15,7 +16,7 @@ OPENSSL_VERSION=1.1.1w
 OPENSSL_SHA256=cf3098950cb4d853ad95c0841f1f9c6d3dc102dccfcacd521d93925208b76ac8
 NDK_VERSION=29.0.14206865
 API_LEVEL=29
-ABIS=(arm64-v8a)
+read -ra ABIS <<< "${ABIS:-arm64-v8a x86_64}"
 # Some TDLib translation units need several GB of RAM each.
 JOBS=${JOBS:-8}
 

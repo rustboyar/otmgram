@@ -10,11 +10,14 @@ plugins {
 // Telegram API credentials from my.telegram.org, kept out of git:
 //   telegram.apiId=12345
 //   telegram.apiHash=0123456789abcdef0123456789abcdef
+// telegram.testDc=true makes debug builds use Telegram's test servers. Their test
+// accounts (99966XYYYY numbers) no longer work since 2025, so production is the default.
 val localProperties = Properties().apply {
     rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use(::load)
 }
 val telegramApiId = localProperties.getProperty("telegram.apiId") ?: "0"
 val telegramApiHash = localProperties.getProperty("telegram.apiHash") ?: ""
+val telegramTestDc = localProperties.getProperty("telegram.testDc")?.toBoolean() ?: false
 
 android {
     namespace = "dev.otmgram"
@@ -35,7 +38,13 @@ android {
     }
 
     buildTypes {
+        debug {
+            // x86_64 for the emulator.
+            ndk { abiFilters += "x86_64" }
+            buildConfigField("boolean", "TELEGRAM_TEST_DC", "$telegramTestDc")
+        }
         release {
+            buildConfigField("boolean", "TELEGRAM_TEST_DC", "false")
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Personal sideload build: sign release with the debug key.

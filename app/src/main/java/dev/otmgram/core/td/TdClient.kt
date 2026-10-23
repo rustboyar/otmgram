@@ -100,7 +100,9 @@ class TdClient @Inject constructor(
     }
 
     private fun tdlibParameters() = TdApi.SetTdlibParameters().apply {
-        databaseDirectory = File(context.filesDir, "tdlib").absolutePath
+        useTestDc = BuildConfig.TELEGRAM_TEST_DC
+        // Separate databases, so switching between test and production servers is safe.
+        databaseDirectory = File(context.filesDir, if (useTestDc) "tdlib-test" else "tdlib").absolutePath
         useFileDatabase = true
         useChatInfoDatabase = true
         useMessageDatabase = true
