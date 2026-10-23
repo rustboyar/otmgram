@@ -127,6 +127,13 @@ app/
 - Unit tests (`./gradlew :app:testDebugUnitTest`): message mapping, list rows, media mapping, wording, login steps, storage, and the open chat and folder list against a fake TDLib (`testing/FakeTelegram`, behind the `TelegramClient` interface)
 - UI tests on a device (`scripts/ui-tests.sh`): bubble states, delete dialog. Not `connectedAndroidTest`, which uninstalls the app and so logs it out
 
+## Structure
+
+- `core` (TDLib client, media, location, logging), `data` (repositories; `TelegramClient` is what they need from TDLib), `sync` (background checks), `ui` (screens and their view models)
+- Composables take app types only (`FileState`, `Sticker`, `Account`, thumbnails as JPEG bytes); view models are where TDLib types turn into those
+- TDLib's message objects are mutable and can't be copied; the open chat changes them in place and `ChatHistory.version` marks each change, before they become immutable `MessageItem`s
+- The chat screen's state is split: `ChatSearch`, `ChatSelection`, `StickerPanel`, `OutgoingQueue`, wired together by `ChatViewModel`
+
 ## Security
 
 - TDLib's database and login are encrypted with a random 32-byte key (without one, TDLib uses a built-in key, i.e. none). The key is stored encrypted by an Android Keystore key, which never leaves the device (`core/td/DatabaseKey`)

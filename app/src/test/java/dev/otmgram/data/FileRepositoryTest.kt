@@ -23,6 +23,7 @@ class FileRepositoryTest {
             local.downloadedSize = downloaded
             local.isDownloadingActive = !done
             local.isDownloadingCompleted = done
+            if (done) local.path = "/files/$id"
         },
     )
 
@@ -31,8 +32,8 @@ class FileRepositoryTest {
         val files = FileRepository(td, backgroundScope)
         val seen1 = mutableListOf<Long>()
         val seen2 = mutableListOf<Long>()
-        backgroundScope.launch { files.observe(1).collect { seen1 += it.local.downloadedSize } }
-        backgroundScope.launch { files.observe(2).collect { seen2 += it.local.downloadedSize } }
+        backgroundScope.launch { files.observe(1).collect { seen1 += it.downloaded } }
+        backgroundScope.launch { files.observe(2).collect { seen2 += it.downloaded } }
         runCurrent()
         td.emit(progress(1, 100))
         runCurrent()
@@ -46,7 +47,7 @@ class FileRepositoryTest {
     fun `a finished download never goes back`() = runTest {
         val files = FileRepository(td, backgroundScope)
         val seen = mutableListOf<Boolean>()
-        backgroundScope.launch { files.observe(1).collect { seen += it.local.isDownloadingCompleted } }
+        backgroundScope.launch { files.observe(1).collect { seen += it.isDownloaded } }
         runCurrent()
         td.emit(progress(1, 1000, done = true))
         runCurrent()
@@ -64,7 +65,7 @@ class FileRepositoryTest {
             file(request.fileId)
         }
         val seen = mutableListOf<Boolean>()
-        backgroundScope.launch { files.observe(3).collect { seen += it.local.isDownloadingCompleted } }
+        backgroundScope.launch { files.observe(3).collect { seen += it.isDownloaded } }
         runCurrent()
         assertTrue(seen.last())
     }

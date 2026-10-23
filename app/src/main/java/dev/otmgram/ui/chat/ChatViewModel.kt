@@ -27,6 +27,7 @@ import dev.otmgram.data.FileRepository
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.MessageRepository
 import dev.otmgram.data.OutgoingMedia
+import dev.otmgram.data.Sticker
 import dev.otmgram.data.StickerRepository
 import dev.otmgram.data.isGroup
 import dev.otmgram.data.isSavedMessages
@@ -50,7 +51,7 @@ data class ChatHeader(
     /** "3 members", "last seen recently"; null if there's nothing to say. */
     val subtitle: String?,
     val photoFileId: Int?,
-    val minithumbnail: TdApi.Minithumbnail?,
+    val minithumbnail: ByteArray?,
     val isSavedMessages: Boolean,
 )
 
@@ -123,7 +124,7 @@ data class ForwardTarget(
     val chatId: Long,
     val title: String,
     val photoFileId: Int?,
-    val minithumbnail: TdApi.Minithumbnail?,
+    val minithumbnail: ByteArray?,
     val isSavedMessages: Boolean,
 )
 
@@ -233,7 +234,7 @@ class ChatViewModel @Inject constructor(
                 isGroup = chat.isGroup,
                 subtitle = if (saved) null else subtitle(chat),
                 photoFileId = chat.photo?.small?.id,
-                minithumbnail = chat.photo?.minithumbnail,
+                minithumbnail = chat.photo?.minithumbnail?.data,
                 isSavedMessages = saved,
             )
         }
@@ -325,8 +326,7 @@ class ChatViewModel @Inject constructor(
         val document = message.media as? MessageMedia.Document ?: return
         action {
             notice = "Downloading ${document.name}…"
-            val file = files.downloadNow(document.fileId)
-            downloads.save(File(file.local.path), document.name, document.mimeType)
+            downloads.save(File(files.downloadNow(document.fileId)), document.name, document.mimeType)
             notice = "Saved to Downloads"
         }
     }
@@ -342,7 +342,7 @@ class ChatViewModel @Inject constructor(
         action { session.setReaction(message.id, emoji, chosen = !chip.isChosen) }
     }
 
-    fun sendSticker(sticker: TdApi.Sticker) {
+    fun sendSticker(sticker: Sticker) {
         stickers.close()
         action { session.sendSticker(sticker) }
     }
@@ -478,7 +478,7 @@ class ChatViewModel @Inject constructor(
                     chatId = it.chat.id,
                     title = if (it.isSavedMessages) "Saved Messages" else it.chat.title,
                     photoFileId = it.chat.photo?.small?.id,
-                    minithumbnail = it.chat.photo?.minithumbnail,
+                    minithumbnail = it.chat.photo?.minithumbnail?.data,
                     isSavedMessages = it.isSavedMessages,
                 )
             }

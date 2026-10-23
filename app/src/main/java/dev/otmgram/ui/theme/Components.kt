@@ -80,7 +80,6 @@ import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import org.drinkless.tdlib.TdApi
 import dev.otmgram.ui.media.TdImage
 
 /** Dialogs and sheets are separate windows; each exposes its test tags for UI Automator. */
@@ -558,7 +557,7 @@ fun ChatAvatar(
     chatId: Long,
     title: String,
     photoFileId: Int?,
-    minithumbnail: TdApi.Minithumbnail?,
+    minithumbnail: ByteArray?,
     size: Dp = 52.dp,
     savedMessages: Boolean = false,
 ) {

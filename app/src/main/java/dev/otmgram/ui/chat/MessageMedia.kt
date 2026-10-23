@@ -1,6 +1,9 @@
 package dev.otmgram.ui.chat
 
 import dev.otmgram.core.media.Waveform
+import dev.otmgram.data.Sticker
+import dev.otmgram.data.StickerKind
+import dev.otmgram.data.toSticker
 import org.drinkless.tdlib.TdApi
 
 /** Media of a message that Otmgram can show. Sizes are in pixels, durations in seconds. */
@@ -9,7 +12,7 @@ sealed interface MessageMedia {
         val fileId: Int,
         val width: Int,
         val height: Int,
-        val minithumbnail: TdApi.Minithumbnail?,
+        val minithumbnail: ByteArray?,
     ) : MessageMedia
 
     data class Video(
@@ -18,7 +21,7 @@ sealed interface MessageMedia {
         val width: Int,
         val height: Int,
         val duration: Int,
-        val minithumbnail: TdApi.Minithumbnail?,
+        val minithumbnail: ByteArray?,
     ) : MessageMedia
 
     /** GIF-like silent looping video. */
@@ -27,7 +30,7 @@ sealed interface MessageMedia {
         val thumbnailFileId: Int?,
         val width: Int,
         val height: Int,
-        val minithumbnail: TdApi.Minithumbnail?,
+        val minithumbnail: ByteArray?,
     ) : MessageMedia
 
     data class VoiceNote(
@@ -42,7 +45,7 @@ sealed interface MessageMedia {
         val fileId: Int,
         val thumbnailFileId: Int?,
         val duration: Int,
-        val minithumbnail: TdApi.Minithumbnail?,
+        val minithumbnail: ByteArray?,
     ) : MessageMedia
 
     data class Sticker(
@@ -63,7 +66,6 @@ sealed interface MessageMedia {
     data class LiveInfo(val updatedAt: Int, val expiresAt: Int)
 }
 
-enum class StickerKind { Image, Lottie, Video }
 
 /** Media of a message; live locations need the message's dates. */
 fun TdApi.Message.toMedia(): MessageMedia? = when (val content = content) {
@@ -87,7 +89,7 @@ fun TdApi.MessageContent.toMedia(): MessageMedia? = when (this) {
         // The largest size up to ~1280 px is plenty for a bubble.
         val size = photo.sizes.filter { maxOf(it.width, it.height) <= BUBBLE_PHOTO_MAX }.maxByOrNull { it.width }
             ?: photo.sizes.minByOrNull { it.width }
-        size?.let { MessageMedia.Photo(it.photo.id, it.width, it.height, photo.minithumbnail) }
+        size?.let { MessageMedia.Photo(it.photo.id, it.width, it.height, photo.minithumbnail?.data) }
     }
     is TdApi.MessageVideo -> MessageMedia.Video(
         fileId = video.video.id,
@@ -95,18 +97,18 @@ fun TdApi.MessageContent.toMedia(): MessageMedia? = when (this) {
         width = video.width,
         height = video.height,
         duration = video.duration,
-        minithumbnail = video.minithumbnail,
+        minithumbnail = video.minithumbnail?.data,
     )
     is TdApi.MessageAnimation -> MessageMedia.Animation(
-        animation.animation.id, animation.thumbnail?.file?.id, animation.width, animation.height, animation.minithumbnail,
+        animation.animation.id, animation.thumbnail?.file?.id, animation.width, animation.height, animation.minithumbnail?.data,
     )
     is TdApi.MessageVoiceNote -> MessageMedia.VoiceNote(
         voiceNote.voice.id, voiceNote.duration, Waveform.decode(voiceNote.waveform),
     )
     is TdApi.MessageVideoNote -> MessageMedia.VideoNote(
-        videoNote.video.id, videoNote.thumbnail?.file?.id, videoNote.duration, videoNote.minithumbnail,
+        videoNote.video.id, videoNote.thumbnail?.file?.id, videoNote.duration, videoNote.minithumbnail?.data,
     )
-    is TdApi.MessageSticker -> sticker.toMedia()
+    is TdApi.MessageSticker -> sticker.toSticker().toMedia()
     is TdApi.MessageLocation -> MessageMedia.Location(location.latitude, location.longitude, live = null)
     is TdApi.MessageDocument -> MessageMedia.Document(
         document.document.id, document.fileName.ifEmpty { "File" }, document.document.size, document.mimeType,
@@ -121,17 +123,7 @@ fun TdApi.MessageContent.toMedia(): MessageMedia? = when (this) {
     else -> null
 }
 
-fun TdApi.Sticker.toMedia() = MessageMedia.Sticker(
-    fileId = sticker.id,
-    kind = when (format) {
-        is TdApi.StickerFormatTgs -> StickerKind.Lottie
-        is TdApi.StickerFormatWebm -> StickerKind.Video
-        else -> StickerKind.Image
-    },
-    width = width,
-    height = height,
-    thumbnailFileId = thumbnail?.file?.id,
-)
+fun Sticker.toMedia() = MessageMedia.Sticker(fileId, kind, width, height, thumbnailFileId)
 
 /** Caption of media messages, empty if none. */
 fun TdApi.MessageContent.caption(): String = when (this) {

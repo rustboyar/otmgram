@@ -62,6 +62,8 @@ import dev.otmgram.core.media.AudioState
 import dev.otmgram.core.td.TdException
 import dev.otmgram.ui.media.LocalFileRepository
 import dev.otmgram.ui.media.LoopingVideo
+import dev.otmgram.data.FileState
+import dev.otmgram.data.StickerKind
 import dev.otmgram.ui.media.OnDemandFile
 import dev.otmgram.ui.media.TdImage
 import dev.otmgram.ui.media.formatSize
@@ -76,7 +78,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.drinkless.tdlib.TdApi
 import java.io.File
 import java.util.zip.GZIPInputStream
 
@@ -135,9 +136,8 @@ private fun DocumentContent(media: MessageMedia.Document, onLongClick: () -> Uni
     val files = LocalFileRepository.current
     val scope = rememberCoroutineScope()
     val file = rememberFileState(media.fileId)
-    val local = file?.local
-    val done = local?.isDownloadingCompleted == true
-    val downloading = local?.isDownloadingActive == true
+    val path = file?.path
+    val downloading = file?.isDownloading == true
     if (onCancelUpload != null && file != null) {
         UploadingDocument(media, file, onCancelUpload, onLongClick)
         return
@@ -147,7 +147,7 @@ private fun DocumentContent(media: MessageMedia.Document, onLongClick: () -> Uni
             .widthIn(max = MEDIA_WIDTH)
             .combinedClickable(onLongClick = onLongClick) {
                 when {
-                    done -> openFile(context, local.path, media.mimeType)
+                    path != null -> openFile(context, path, media.mimeType)
                     downloading -> scope.launch { files.cancelDownload(media.fileId) }
                     else -> scope.launch {
                         try {
@@ -168,7 +168,7 @@ private fun DocumentContent(media: MessageMedia.Document, onLongClick: () -> Uni
             contentAlignment = Alignment.Center,
         ) {
             if (downloading) {
-                val progress = if (media.size > 0) local.downloadedSize.toFloat() / media.size else 0f
+                val progress = if (media.size > 0) file.downloaded.toFloat() / media.size else 0f
                 CircularProgressIndicator(
                     progress = { progress },
                     modifier = Modifier.matchParentSize().padding(2.dp),
@@ -178,15 +178,15 @@ private fun DocumentContent(media: MessageMedia.Document, onLongClick: () -> Uni
                 )
                 Icon(OtmIcons.Close, "Cancel download", tint = Otm.SlateDeep, modifier = Modifier.size(16.dp))
             } else {
-                Icon(if (done) OtmIcons.File else OtmIcons.Download, null, tint = Otm.SlateDeep, modifier = Modifier.size(22.dp))
+                Icon(if (path != null) OtmIcons.File else OtmIcons.Download, null, tint = Otm.SlateDeep, modifier = Modifier.size(22.dp))
             }
         }
         Column(Modifier.weight(1f, fill = false)) {
             Text(media.name, style = OtmType.Body.copy(fontWeight = FontWeight.Medium), color = Otm.Ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
                 when {
-                    downloading -> "${formatSize(local.downloadedSize)} of ${formatSize(media.size)}"
-                    done -> "${formatSize(media.size)} · tap to open"
+                    downloading -> "${formatSize(file.downloaded)} of ${formatSize(media.size)}"
+                    path != null -> "${formatSize(media.size)} · tap to open"
                     else -> "${formatSize(media.size)} · tap to download"
                 },
                 style = OtmType.Secondary,
@@ -199,9 +199,9 @@ private fun DocumentContent(media: MessageMedia.Document, onLongClick: () -> Uni
 
 /** A file of yours being sent: upload progress, tap to stop. */
 @Composable
-private fun UploadingDocument(media: MessageMedia.Document, file: TdApi.File, onCancel: () -> Unit, onLongClick: () -> Unit) {
-    val total = file.expectedSize.takeIf { it > 0 } ?: media.size
-    val sent = file.remote.uploadedSize
+private fun UploadingDocument(media: MessageMedia.Document, file: FileState, onCancel: () -> Unit, onLongClick: () -> Unit) {
+    val total = file.size.takeIf { it > 0 } ?: media.size
+    val sent = file.uploaded
     Row(
         modifier = Modifier.widthIn(max = MEDIA_WIDTH).combinedClickable(onLongClick = onLongClick, onClick = onCancel).padding(vertical = 2.dp).testTag("cancelUpload"),
         verticalAlignment = Alignment.CenterVertically,
@@ -227,9 +227,7 @@ private fun UploadingDocument(media: MessageMedia.Document, file: TdApi.File, on
 /** Over a photo or video being sent: how much is uploaded, and a cross to stop it. */
 @Composable
 private fun UploadRing(fileId: Int, onCancel: () -> Unit) {
-    val file = rememberFileState(fileId)
-    val total = file?.expectedSize?.takeIf { it > 0 } ?: file?.size ?: 0L
-    val progress = if (file != null && total > 0) file.remote.uploadedSize.toFloat() / total else 0f
+    val progress = rememberFileState(fileId)?.uploadProgress ?: 0f
     Box(
         modifier = Modifier
             .size(52.dp)
@@ -338,13 +336,10 @@ private fun VideoPreview(media: MessageMedia.Video, onOpen: () -> Unit, onLongCl
                 Icon(OtmIcons.Play, "Play video", tint = Otm.Ink, modifier = Modifier.size(18.dp))
             }
         }
-        val local = file?.local
-        val size = file?.size?.takeIf { it > 0 } ?: file?.expectedSize ?: 0L
         val status = when {
-            local == null || uploading -> null
-            local.isDownloadingCompleted -> null
-            local.isDownloadingActive && size > 0 -> "${local.downloadedSize * 100 / size}%"
-            size > 0 -> formatSize(size)
+            file == null || uploading || file.isDownloaded -> null
+            file.isDownloading && file.size > 0 -> "${(file.downloadProgress * 100).toInt()}%"
+            file.size > 0 -> formatSize(file.size)
             else -> null
         }
         Label(listOfNotNull(formatDuration(media.duration), status).joinToString(" · "), Modifier.align(Alignment.TopStart))

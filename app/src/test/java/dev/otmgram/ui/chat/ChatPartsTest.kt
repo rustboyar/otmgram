@@ -1,6 +1,7 @@
 package dev.otmgram.ui.chat
 
 import dev.otmgram.data.SizeEstimate
+import dev.otmgram.data.Sticker
 import dev.otmgram.data.StickerTab
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
@@ -129,7 +130,7 @@ class ChatPartsTest {
         runCurrent()
         assertTrue(panel.isOpen)
         assertEquals(recent, panel.selected)
-        assertEquals(emptyList<TdApi.Sticker>(), panel.stickers)
+        assertEquals(emptyList<Sticker>(), panel.stickers)
         panel.toggle()
         assertFalse(panel.isOpen)
     }

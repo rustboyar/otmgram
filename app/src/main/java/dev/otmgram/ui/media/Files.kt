@@ -37,9 +37,9 @@ import coil3.compose.AsyncImage
 import dev.otmgram.core.launchLogged
 import dev.otmgram.core.media.SoftwareFirstCodecSelector
 import dev.otmgram.data.FileRepository
+import dev.otmgram.data.FileState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.emptyFlow
-import org.drinkless.tdlib.TdApi
 import java.io.File
 
 /** Player for a local file, playing once prepared. */
@@ -58,7 +58,7 @@ val LocalFileRepository = staticCompositionLocalOf<FileRepository> { error("No F
 
 /** State of a TDLib file, downloading it while in composition; null until known. */
 @Composable
-fun rememberFile(fileId: Int?, priority: Int = FileRepository.PRIORITY_VISIBLE): TdApi.File? {
+fun rememberFile(fileId: Int?, priority: Int = FileRepository.PRIORITY_VISIBLE): FileState? {
     val files = LocalFileRepository.current
     val flow = remember(fileId, priority) { fileId?.let { files.download(it, priority) } ?: emptyFlow() }
     val file by flow.collectAsState(initial = null)
@@ -67,7 +67,7 @@ fun rememberFile(fileId: Int?, priority: Int = FileRepository.PRIORITY_VISIBLE):
 
 /** State of a TDLib file without downloading it; null until known. */
 @Composable
-fun rememberFileState(fileId: Int): TdApi.File? {
+fun rememberFileState(fileId: Int): FileState? {
     val files = LocalFileRepository.current
     val flow = remember(fileId) { files.observe(fileId) }
     val file by flow.collectAsState(initial = null)
@@ -75,20 +75,16 @@ fun rememberFileState(fileId: Int): TdApi.File? {
 }
 
 /** A file downloaded only when the user asks: its state, and a toggle to start or cancel it. */
-class OnDemandFile(val file: TdApi.File?, val toggle: () -> Unit) {
+class OnDemandFile(val file: FileState?, val toggle: () -> Unit) {
     /** Local path once fully downloaded. */
-    val path: String? get() = file?.local?.takeIf { it.isDownloadingCompleted }?.path
-    val downloading: Boolean get() = file?.local?.isDownloadingActive == true
+    val path: String? get() = file?.path
+    val downloading: Boolean get() = file?.isDownloading == true
 
     /** Downloaded fraction, 0..1. */
-    val progress: Float
-        get() {
-            val total = file?.expectedSize?.takeIf { it > 0 } ?: file?.size ?: 0L
-            return if (total > 0) file!!.local.downloadedSize.toFloat() / total else 0f
-        }
+    val progress: Float get() = file?.downloadProgress ?: 0f
 
     /** Size in bytes, 0 if unknown. */
-    val size: Long get() = file?.size?.takeIf { it > 0 } ?: file?.expectedSize ?: 0L
+    val size: Long get() = file?.size ?: 0L
 }
 
 /** State of a file that downloads on tap (videos, voice, GIFs); see [OnDemandFile]. */
@@ -98,10 +94,9 @@ fun rememberOnDemandFile(fileId: Int): OnDemandFile {
     val scope = rememberCoroutineScope()
     val file = rememberFileState(fileId)
     return OnDemandFile(file) {
-        val local = file?.local
-        if (local?.isDownloadingCompleted == true) return@OnDemandFile
+        if (file?.isDownloaded == true) return@OnDemandFile
         scope.launchLogged("OnDemandFile") {
-            if (local?.isDownloadingActive == true) files.cancelDownload(fileId) else files.startDownload(fileId)
+            if (file?.isDownloading == true) files.cancelDownload(fileId) else files.startDownload(fileId)
         }
     }
 }
@@ -109,13 +104,13 @@ fun rememberOnDemandFile(fileId: Int): OnDemandFile {
 /** Local path of a TDLib file once fully downloaded. */
 @Composable
 fun rememberDownloadedPath(fileId: Int?, priority: Int = FileRepository.PRIORITY_VISIBLE): String? =
-    rememberFile(fileId, priority)?.local?.takeIf { it.isDownloadingCompleted }?.path
+    rememberFile(fileId, priority)?.path
 
-/** Image from a TDLib file; shows the blurred [minithumbnail] until it's downloaded. */
+/** Image from a TDLib file; shows the blurred [minithumbnail] (JPEG bytes) until it's downloaded. */
 @Composable
 fun TdImage(
     fileId: Int?,
-    minithumbnail: TdApi.Minithumbnail?,
+    minithumbnail: ByteArray?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
 ) {
@@ -130,9 +125,9 @@ fun TdImage(
 }
 
 @Composable
-fun Minithumbnail(minithumbnail: TdApi.Minithumbnail?, modifier: Modifier = Modifier) {
+fun Minithumbnail(minithumbnail: ByteArray?, modifier: Modifier = Modifier) {
     val bitmap = remember(minithumbnail) {
-        minithumbnail?.data?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }
+        minithumbnail?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }
     } ?: return
     Image(bitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = modifier.blur(8.dp))
 }

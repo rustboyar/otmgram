@@ -3,18 +3,18 @@ package dev.otmgram.ui.chat
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import dev.otmgram.data.Sticker
 import dev.otmgram.data.StickerTab
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import org.drinkless.tdlib.TdApi
 
 /** The sticker picker: its tabs, the chosen one, and that tab's stickers. */
 class StickerPanel(
     private val scope: CoroutineScope,
     private val loadTabs: suspend () -> List<StickerTab>,
-    private val loadStickers: suspend (StickerTab) -> List<TdApi.Sticker>,
+    private val loadStickers: suspend (StickerTab) -> List<Sticker>,
     private val onError: (Exception) -> Unit,
 ) {
     /** Tabs of the picker, or null while it's closed. */
@@ -25,7 +25,7 @@ class StickerPanel(
         private set
 
     /** Stickers of [selected], or null while loading. */
-    var stickers by mutableStateOf<List<TdApi.Sticker>?>(null)
+    var stickers by mutableStateOf<List<Sticker>?>(null)
         private set
 
     val isOpen: Boolean get() = tabs != null

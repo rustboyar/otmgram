@@ -103,14 +103,14 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
             modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(14.dp).navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            me?.let { user ->
+            me?.let { account ->
                 Card {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        ChatAvatar(user.id, user.firstName, user.profilePhoto?.small?.id, user.profilePhoto?.minithumbnail)
+                        ChatAvatar(account.id, account.name, account.photoFileId, account.minithumbnail)
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(listOf(user.firstName, user.lastName).filter { it.isNotEmpty() }.joinToString(" "), style = OtmType.Name, color = Otm.Ink)
+                            Text(account.name, style = OtmType.Name, color = Otm.Ink)
                             Text(
-                                listOfNotNull(user.phoneNumber.takeIf { it.isNotEmpty() }?.let { "+$it" }, folderName?.let { "folder $it" }).joinToString(" · "),
+                                listOfNotNull(account.phone, folderName?.let { "folder $it" }).joinToString(" · "),
                                 style = OtmType.Secondary,
                                 color = Otm.InkSoft,
                             )
@@ -305,6 +305,9 @@ private val STORAGE_COLORS = mapOf(
     StorageKind.Other to Color(0xFFE2DCD3),
 )
 
+/** The logged-in account, for the card on top. */
+data class Account(val id: Long, val name: String, val phone: String?, val photoFileId: Int?, val minithumbnail: ByteArray?)
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -315,8 +318,8 @@ class SettingsViewModel @Inject constructor(
     private val storage: StorageRepository,
 ) : ViewModel() {
 
-    private val _me = MutableStateFlow<TdApi.User?>(null)
-    val me: StateFlow<TdApi.User?> = _me.asStateFlow()
+    private val _me = MutableStateFlow<Account?>(null)
+    val me: StateFlow<Account?> = _me.asStateFlow()
 
     /** The picked folder's own name in Telegram. */
     val folderName: StateFlow<String?> = combine(folders.folders, folders.selectedFolderId) { all, id ->
@@ -342,7 +345,16 @@ class SettingsViewModel @Inject constructor(
         private set
 
     init {
-        viewModelScope.launchLogged(TAG) { _me.value = td.send(TdApi.GetMe()) }
+        viewModelScope.launchLogged(TAG) {
+            val user = td.send(TdApi.GetMe())
+            _me.value = Account(
+                id = user.id,
+                name = listOf(user.firstName, user.lastName).filter { it.isNotEmpty() }.joinToString(" "),
+                phone = user.phoneNumber.takeIf { it.isNotEmpty() }?.let { "+$it" },
+                photoFileId = user.profilePhoto?.small?.id,
+                minithumbnail = user.profilePhoto?.minithumbnail?.data,
+            )
+        }
         viewModelScope.launch { header = folders.displayName.first() }
         loadUsage()
     }

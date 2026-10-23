@@ -26,7 +26,7 @@ data class ChatItem(
     val title: String,
     /** Small chat photo, null if the chat has none. */
     val photoFileId: Int?,
-    val photoMinithumbnail: TdApi.Minithumbnail?,
+    val photoMinithumbnail: ByteArray?,
     val preview: String,
     /** Unix time of the last message, or null if the chat has none. */
     val date: Int?,
@@ -77,7 +77,7 @@ private fun FolderChat.toItem() = ChatItem(
     id = chat.id,
     title = if (isSavedMessages) "Saved Messages" else chat.title,
     photoFileId = chat.photo?.small?.id,
-    photoMinithumbnail = chat.photo?.minithumbnail,
+    photoMinithumbnail = chat.photo?.minithumbnail?.data,
     preview = chat.lastMessage?.let { message ->
         val text = message.summary()
         when {

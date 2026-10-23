@@ -157,9 +157,9 @@ private fun ZoomablePhoto(photo: ViewerContent.Photo) {
 @Composable
 private fun FullVideo(video: ViewerContent.Video) {
     val file = rememberFile(video.fileId, FileRepository.PRIORITY_VIEWER)
-    val local = file?.local
-    if (local?.isDownloadingCompleted != true) {
-        val percent = if (file == null || file.size == 0L) 0 else local!!.downloadedSize * 100 / file.size
+    val path = file?.path
+    if (path == null) {
+        val percent = ((file?.downloadProgress ?: 0f) * 100).toInt()
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Downloading $percent%", style = OtmType.Body, color = Otm.NightSoft)
         }
@@ -168,7 +168,7 @@ private fun FullVideo(video: ViewerContent.Video) {
     val context = LocalContext.current
     // Hardware decoders first; if one fails (as on the emulator), retry with software ones.
     var softwareDecoders by remember { mutableStateOf(false) }
-    val player = remember(local.path, softwareDecoders) { buildPlayer(context, local.path, softwareDecoders) }
+    val player = remember(path, softwareDecoders) { buildPlayer(context, path, softwareDecoders) }
     DisposableEffect(player) {
         val listener = object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
@@ -191,8 +191,8 @@ private fun VideoStill(video: ViewerContent.Video) {
 }
 
 sealed interface ViewerContent {
-    data class Photo(val fileId: Int, val minithumbnail: TdApi.Minithumbnail?) : ViewerContent
-    data class Video(val fileId: Int, val thumbnailFileId: Int?, val minithumbnail: TdApi.Minithumbnail?) : ViewerContent
+    data class Photo(val fileId: Int, val minithumbnail: ByteArray?) : ViewerContent
+    data class Video(val fileId: Int, val thumbnailFileId: Int?, val minithumbnail: ByteArray?) : ViewerContent
 }
 
 /** One photo or video of the album; [saveAs] is the file name and type for Downloads. */
@@ -242,11 +242,11 @@ class MediaViewerViewModel @Inject constructor(
 
     private fun page(message: TdApi.Message): ViewerPage? = when (val media = message.content) {
         is TdApi.MessagePhoto -> media.photo.sizes.maxByOrNull { it.width }?.let {
-            ViewerPage(message.id, ViewerContent.Photo(it.photo.id, media.photo.minithumbnail), media.caption.text, "photo-${message.id}.jpg" to "image/jpeg")
+            ViewerPage(message.id, ViewerContent.Photo(it.photo.id, media.photo.minithumbnail?.data), media.caption.text, "photo-${message.id}.jpg" to "image/jpeg")
         }
         is TdApi.MessageVideo -> ViewerPage(
             message.id,
-            ViewerContent.Video(media.video.video.id, media.video.thumbnail?.file?.id, media.video.minithumbnail),
+            ViewerContent.Video(media.video.video.id, media.video.thumbnail?.file?.id, media.video.minithumbnail?.data),
             media.caption.text,
             media.video.fileName.ifEmpty { "video-${message.id}.mp4" } to media.video.mimeType.ifEmpty { "video/mp4" },
         )
@@ -260,8 +260,7 @@ class MediaViewerViewModel @Inject constructor(
         }
         val (name, mimeType) = page.saveAs
         viewModelScope.launchLogged(TAG, onError = { notice = "Couldn't save: ${it.userMessage()}" }) {
-            val file = files.downloadNow(fileId)
-            downloads.save(File(file.local.path), name, mimeType)
+            downloads.save(File(files.downloadNow(fileId)), name, mimeType)
             notice = "Saved to Downloads"
         }
     }

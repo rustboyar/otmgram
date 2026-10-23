@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.otmgram.data.Sticker
 import dev.otmgram.data.StickerTab
 import dev.otmgram.ui.auth.LoadingScreen
 import dev.otmgram.ui.theme.Hairline
@@ -36,16 +37,15 @@ import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmType
 import dev.otmgram.ui.theme.SectionLabel
-import org.drinkless.tdlib.TdApi
 
 /** Panel in the keyboard's place: recent stickers and installed sets, a tab each. */
 @Composable
 fun StickerPicker(
     tabs: List<StickerTab>,
     selected: StickerTab?,
-    stickers: List<TdApi.Sticker>?,
+    stickers: List<Sticker>?,
     onSelectTab: (StickerTab) -> Unit,
-    onSend: (TdApi.Sticker) -> Unit,
+    onSend: (Sticker) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().height(PICKER_HEIGHT).background(Otm.Sheet).navigationBarsPadding()) {
         Hairline()
@@ -83,9 +83,9 @@ fun StickerPicker(
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     SectionLabel(selected?.title ?: "", Modifier.padding(start = 6.dp, top = 6.dp, bottom = 6.dp))
                 }
-                items(stickers, key = { it.sticker.id }) { sticker ->
+                items(stickers, key = { it.fileId }) { sticker ->
                     Box(
-                        Modifier.height(80.dp).clip(RoundedCornerShape(14.dp)).clickable { onSend(sticker) }.testTag("pick-${sticker.sticker.id}"),
+                        Modifier.height(80.dp).clip(RoundedCornerShape(14.dp)).clickable { onSend(sticker) }.testTag("pick-${sticker.fileId}"),
                         contentAlignment = Alignment.Center,
                     ) {
                         StickerView(sticker.toMedia(), Modifier.size(STICKER_CELL))

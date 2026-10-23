@@ -116,8 +116,8 @@ class ChatSession internal constructor(
         send(textContent(text), replyToMessageId)
     }
 
-    suspend fun sendSticker(sticker: TdApi.Sticker) {
-        val input = TdApi.InputSticker(TdApi.InputFileId(sticker.sticker.id), null, sticker.width, sticker.height)
+    suspend fun sendSticker(sticker: Sticker) {
+        val input = TdApi.InputSticker(TdApi.InputFileId(sticker.fileId), null, sticker.width, sticker.height)
         send(TdApi.InputMessageSticker(input, sticker.emoji))
     }
 

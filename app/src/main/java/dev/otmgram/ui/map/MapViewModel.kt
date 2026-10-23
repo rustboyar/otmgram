@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
 
-data class MapSender(val id: Long, val name: String, val photoFileId: Int?, val minithumbnail: TdApi.Minithumbnail?)
+data class MapSender(val id: Long, val name: String, val photoFileId: Int?, val minithumbnail: ByteArray?)
 
 @HiltViewModel
 class MapViewModel @Inject constructor(
@@ -93,10 +93,10 @@ class MapViewModel @Inject constructor(
 
     private suspend fun senderOf(message: TdApi.Message): MapSender? = when (val id = message.senderId) {
         is TdApi.MessageSenderUser -> td.send(TdApi.GetUser(id.userId)).let { user ->
-            MapSender(user.id, listOf(user.firstName, user.lastName).filter(String::isNotEmpty).joinToString(" "), user.profilePhoto?.small?.id, user.profilePhoto?.minithumbnail)
+            MapSender(user.id, listOf(user.firstName, user.lastName).filter(String::isNotEmpty).joinToString(" "), user.profilePhoto?.small?.id, user.profilePhoto?.minithumbnail?.data)
         }
         is TdApi.MessageSenderChat -> td.send(TdApi.GetChat(id.chatId)).let { chat ->
-            MapSender(chat.id, chat.title, chat.photo?.small?.id, chat.photo?.minithumbnail)
+            MapSender(chat.id, chat.title, chat.photo?.small?.id, chat.photo?.minithumbnail?.data)
         }
         else -> null
     }
