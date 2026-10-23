@@ -17,10 +17,12 @@ import dev.otmgram.data.isGroup
 import dev.otmgram.data.isSavedMessages
 import dev.otmgram.ui.isService
 import dev.otmgram.ui.summary
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
@@ -34,6 +36,11 @@ data class ChatHeader(val title: String, val isGroup: Boolean)
 enum class MessageStatus { Sending, Sent, Read, Failed }
 
 data class ReplyPreview(val senderName: String?, val text: String)
+
+/** A reaction under a message. [emoji] is null for kinds Otmgram can't add (custom emoji, paid). */
+data class ReactionChip(val label: String, val emoji: String?, val count: Int, val isChosen: Boolean)
+
+data class SearchResult(val messageId: Long, val senderName: String?, val text: String, val date: Int)
 
 data class MessageItem(
     val id: Long,
@@ -52,6 +59,7 @@ data class MessageItem(
     val isEdited: Boolean,
     /** Null for incoming messages. */
     val status: MessageStatus?,
+    val reactions: List<ReactionChip>,
 )
 
 /** What the input bar does with the next send. */
@@ -64,6 +72,8 @@ sealed interface Composer {
 /** Long-press menu of a message, with the actions it allows. */
 data class MessageMenu(
     val message: MessageItem,
+    /** Emoji reactions that can be added. */
+    val reactions: List<String>,
     val canReply: Boolean,
     val canForward: Boolean,
     val canEdit: Boolean,
@@ -111,6 +121,20 @@ class ChatViewModel @Inject constructor(
     var notice by mutableStateOf<String?>(null)
         private set
 
+    /** Search text, or null when not searching. */
+    var searchQuery by mutableStateOf<String?>(null)
+        private set
+
+    /** Results for [searchQuery], or null while searching or not searching. */
+    var searchResults by mutableStateOf<List<SearchResult>?>(null)
+        private set
+
+    /** Message to scroll to, consumed by the screen. */
+    var scrollTarget by mutableStateOf<Long?>(null)
+        private set
+
+    private val searchQueries = MutableStateFlow("")
+
     private val viewedIds = mutableSetOf<Long>()
 
     init {
@@ -121,6 +145,21 @@ class ChatViewModel @Inject constructor(
                 title = if (chat.isSavedMessages(myId)) "Saved Messages" else chat.title,
                 isGroup = chat.isGroup,
             )
+        }
+        viewModelScope.launch {
+            searchQueries.collectLatest { query ->
+                searchResults = null
+                if (query.isBlank()) return@collectLatest
+                delay(SEARCH_DELAY_MS)
+                try {
+                    val names = session.history.value.senderNames
+                    searchResults = session.search(query.trim()).map {
+                        SearchResult(it.id, names[it.senderKey()], it.summary(), it.date)
+                    }
+                } catch (e: TdException) {
+                    notice = e.error.message
+                }
+            }
         }
     }
 
@@ -149,8 +188,14 @@ class ChatViewModel @Inject constructor(
         if (message.isService) return
         action {
             val properties = session.properties(message.id)
+            val reactions = try {
+                session.availableReactions(message.id)
+            } catch (e: TdException) {
+                emptyList() // Reactions disabled in this chat.
+            }
             menu = MessageMenu(
                 message = message,
+                reactions = reactions,
                 canReply = properties.canBeReplied,
                 canForward = properties.canBeForwarded,
                 canEdit = properties.canBeEdited && !message.isMediaPlaceholder,
@@ -162,6 +207,43 @@ class ChatViewModel @Inject constructor(
 
     fun closeMenu() {
         menu = null
+    }
+
+    fun react(message: MessageItem, emoji: String) {
+        menu = null
+        val chosen = message.reactions.any { it.emoji == emoji && it.isChosen }
+        action { session.setReaction(message.id, emoji, chosen = !chosen) }
+    }
+
+    fun toggleReaction(message: MessageItem, chip: ReactionChip) {
+        val emoji = chip.emoji ?: return
+        action { session.setReaction(message.id, emoji, chosen = !chip.isChosen) }
+    }
+
+    fun startSearch() {
+        searchQuery = ""
+    }
+
+    fun setSearch(query: String) {
+        searchQuery = query
+        searchQueries.value = query
+    }
+
+    fun closeSearch() {
+        searchQuery = null
+        searchQueries.value = ""
+    }
+
+    /** Leaves search and scrolls to [messageId], loading older history as needed. */
+    fun jumpTo(messageId: Long) {
+        closeSearch()
+        action {
+            if (session.loadUntil(messageId)) scrollTarget = messageId else notice = "Message not found"
+        }
+    }
+
+    fun scrolled() {
+        scrollTarget = null
     }
 
     fun reply(message: MessageItem) {
@@ -232,6 +314,8 @@ class ChatViewModel @Inject constructor(
     }
 }
 
+private const val SEARCH_DELAY_MS = 300L
+
 private fun ChatHistory.toItems(isGroup: Boolean): List<MessageItem> {
     val byId = messages.associateBy { it.id }
     return messages.mapIndexed { index, message ->
@@ -261,6 +345,13 @@ private fun ChatHistory.toItems(isGroup: Boolean): List<MessageItem> {
                 message.sendingState is TdApi.MessageSendingStatePending -> MessageStatus.Sending
                 message.id <= lastReadOutboxMessageId -> MessageStatus.Read
                 else -> MessageStatus.Sent
+            },
+            reactions = message.interactionInfo?.reactions?.reactions.orEmpty().map { reaction ->
+                when (val type = reaction.type) {
+                    is TdApi.ReactionTypeEmoji -> ReactionChip(type.emoji, type.emoji, reaction.totalCount, reaction.isChosen)
+                    is TdApi.ReactionTypePaid -> ReactionChip("⭐", null, reaction.totalCount, reaction.isChosen)
+                    else -> ReactionChip("✨", null, reaction.totalCount, reaction.isChosen)
+                }
             },
         )
     }

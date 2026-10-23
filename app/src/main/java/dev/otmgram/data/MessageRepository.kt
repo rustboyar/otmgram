@@ -33,6 +33,11 @@ data class ChatHistory(
     val lastReadOutboxMessageId: Long = 0,
     /** True once the beginning of the chat is loaded. */
     val reachedStart: Boolean = false,
+    /**
+     * Incremented on every change. Messages are TDLib objects updated in place, so without
+     * it a changed history could equal the previous one and StateFlow would drop it.
+     */
+    val version: Long = 0,
 )
 
 /**
@@ -52,6 +57,7 @@ class ChatSession internal constructor(
     private var lastReadOutboxMessageId = 0L
     private var reachedStart = false
     private var loading = false
+    private var version = 0L
 
     private val _history = MutableStateFlow(ChatHistory())
     val history: StateFlow<ChatHistory> = _history.asStateFlow()
@@ -116,6 +122,38 @@ class ChatSession internal constructor(
 
     suspend fun properties(messageId: Long): TdApi.MessageProperties =
         td.send(TdApi.GetMessageProperties(chatId, messageId))
+
+    /** Emoji reactions that can be added to the message, most used first. */
+    suspend fun availableReactions(messageId: Long): List<String> {
+        val available = td.send(TdApi.GetMessageAvailableReactions(chatId, messageId, REACTION_ROW_SIZE))
+        return (available.topReactions + available.recentReactions + available.popularReactions)
+            .filter { !it.needsPremium }
+            .mapNotNull { (it.type as? TdApi.ReactionTypeEmoji)?.emoji }
+            .distinct()
+    }
+
+    suspend fun setReaction(messageId: Long, emoji: String, chosen: Boolean) {
+        val type = TdApi.ReactionTypeEmoji(emoji)
+        if (chosen) {
+            td.send(TdApi.AddMessageReaction(chatId, messageId, type, false, true))
+        } else {
+            td.send(TdApi.RemoveMessageReaction(chatId, messageId, type))
+        }
+    }
+
+    /** Messages of this chat containing [query], newest first. */
+    suspend fun search(query: String): List<TdApi.Message> =
+        td.send(TdApi.SearchChatMessages(chatId, null, query, null, 0, 0, SEARCH_LIMIT, null)).messages.toList()
+
+    /** Loads older pages until [messageId] is loaded; false if it couldn't be reached. */
+    suspend fun loadUntil(messageId: Long): Boolean {
+        while (messageId !in messages && !reachedStart) {
+            val before = messages.size
+            loadOlder()
+            if (messages.size == before) break // Another load is running, or nothing new.
+        }
+        return messageId in messages
+    }
 
     /** Marks messages shown on screen as read. */
     suspend fun markViewed(messageIds: List<Long>) {
@@ -209,6 +247,7 @@ class ChatSession internal constructor(
             repliedMessages = repliedMessages.toMap(),
             lastReadOutboxMessageId = lastReadOutboxMessageId,
             reachedStart = reachedStart,
+            version = ++version,
         )
     }
 
@@ -217,5 +256,7 @@ class ChatSession internal constructor(
 
     private companion object {
         const val PAGE_SIZE = 50
+        const val SEARCH_LIMIT = 100
+        const val REACTION_ROW_SIZE = 8
     }
 }

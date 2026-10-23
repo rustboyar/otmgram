@@ -2,8 +2,12 @@ package dev.otmgram.ui.chat
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -25,9 +29,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
-fun MessageBubble(message: MessageItem, onLongClick: () -> Unit) {
+fun MessageBubble(message: MessageItem, onLongClick: () -> Unit, onReactionClick: (ReactionChip) -> Unit) {
     val outgoing = message.isOutgoing
     Box(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
@@ -66,6 +70,17 @@ fun MessageBubble(message: MessageItem, onLongClick: () -> Unit) {
                 style = MaterialTheme.typography.bodyLarge,
                 fontStyle = if (message.isMediaPlaceholder) FontStyle.Italic else FontStyle.Normal,
             )
+            if (message.reactions.isNotEmpty()) {
+                FlowRow(
+                    modifier = Modifier.padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    message.reactions.forEach { chip ->
+                        Reaction(chip, onClick = { onReactionClick(chip) })
+                    }
+                }
+            }
             Text(
                 listOfNotNull(
                     "edited".takeIf { message.isEdited },
@@ -78,6 +93,23 @@ fun MessageBubble(message: MessageItem, onLongClick: () -> Unit) {
             )
         }
     }
+}
+
+@Composable
+private fun Reaction(chip: ReactionChip, onClick: () -> Unit) {
+    Text(
+        "${chip.label} ${chip.count}",
+        style = MaterialTheme.typography.labelLarge,
+        color = if (chip.isChosen) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier
+            .background(
+                if (chip.isChosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                RoundedCornerShape(12.dp),
+            )
+            .clickable(enabled = chip.emoji != null, onClick = onClick)
+            .testTag("reaction-${chip.label}")
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+    )
 }
 
 /** Quoted message with a bar on the left, in bubbles and above the input. */

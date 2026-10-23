@@ -1,5 +1,6 @@
 package dev.otmgram.ui.chat
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,8 +11,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -19,6 +22,8 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,10 +35,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.otmgram.ui.auth.LoadingScreen
 import kotlinx.coroutines.flow.distinctUntilChanged
 import java.time.Instant
 import java.time.LocalDate
@@ -48,6 +58,7 @@ fun ChatScreen(onBack: () -> Unit, viewModel: ChatViewModel = hiltViewModel()) {
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val snackbar = remember { SnackbarHostState() }
+    val rows = remember(messages) { buildRows(messages) }
 
     // Load older messages when scrolled close to the oldest loaded one.
     LaunchedEffect(listState) {
@@ -67,6 +78,15 @@ fun ChatScreen(onBack: () -> Unit, viewModel: ChatViewModel = hiltViewModel()) {
     LaunchedEffect(newestId) {
         if (listState.firstVisibleItemIndex <= 1) listState.animateScrollToItem(0)
     }
+    viewModel.scrollTarget?.let { target ->
+        LaunchedEffect(target, rows) {
+            val index = rows.indexOfFirst { it is ListRow.Message && it.message.id == target }
+            if (index >= 0) {
+                listState.scrollToItem(index)
+                viewModel.scrolled()
+            }
+        }
+    }
     viewModel.notice?.let { notice ->
         LaunchedEffect(notice) {
             snackbar.showSnackbar(notice)
@@ -76,35 +96,49 @@ fun ChatScreen(onBack: () -> Unit, viewModel: ChatViewModel = hiltViewModel()) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(header?.title.orEmpty()) },
-                navigationIcon = {
-                    TextButton(onClick = onBack, modifier = Modifier.testTag("back")) { Text("←") }
-                },
-            )
+            val query = viewModel.searchQuery
+            if (query != null) {
+                SearchBar(query, onQueryChange = viewModel::setSearch, onClose = viewModel::closeSearch)
+            } else {
+                TopAppBar(
+                    title = { Text(header?.title.orEmpty()) },
+                    navigationIcon = {
+                        TextButton(onClick = onBack, modifier = Modifier.testTag("back")) { Text("←") }
+                    },
+                    actions = {
+                        TextButton(onClick = viewModel::startSearch, modifier = Modifier.testTag("search")) {
+                            Text("Search")
+                        }
+                    },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         // The scaffold padding already includes the navigation bar, which the keyboard inset overlaps.
         Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding()) {
+            if (viewModel.searchQuery != null) {
+                SearchResults(viewModel.searchQuery.orEmpty(), viewModel.searchResults, onClick = viewModel::jumpTo)
+                return@Column
+            }
             LazyColumn(
                 state = listState,
                 reverseLayout = true,
                 modifier = Modifier.weight(1f).fillMaxWidth().testTag("messages"),
                 verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Bottom),
             ) {
-                messages.forEachIndexed { index, message ->
-                    item(key = message.id) {
-                        if (message.isService) {
-                            ServiceNote(message.text)
+                items(rows, key = { it.key }) { row ->
+                    when (row) {
+                        is ListRow.Day -> DayHeader(row.date)
+                        is ListRow.Message -> if (row.message.isService) {
+                            ServiceNote(row.message.text)
                         } else {
-                            MessageBubble(message, onLongClick = { viewModel.openMenu(message) })
+                            MessageBubble(
+                                row.message,
+                                onLongClick = { viewModel.openMenu(row.message) },
+                                onReactionClick = { viewModel.toggleReaction(row.message, it) },
+                            )
                         }
-                    }
-                    // reverseLayout: the item after a message is shown above it.
-                    val older = messages.getOrNull(index + 1)
-                    if (older == null || day(older.date) != day(message.date)) {
-                        item(key = "day-${message.id}") { DayHeader(message.date) }
                     }
                 }
             }
@@ -119,6 +153,7 @@ fun ChatScreen(onBack: () -> Unit, viewModel: ChatViewModel = hiltViewModel()) {
     viewModel.menu?.let { menu ->
         MessageMenuDialog(
             menu = menu,
+            onReact = { viewModel.react(menu.message, it) },
             onReply = { viewModel.reply(menu.message) },
             onForward = { viewModel.startForward(menu.message) },
             onEdit = { viewModel.edit(menu.message) },
@@ -131,6 +166,72 @@ fun ChatScreen(onBack: () -> Unit, viewModel: ChatViewModel = hiltViewModel()) {
     }
     viewModel.forwarding?.let { (_, targets) ->
         ForwardDialog(targets, onForward = viewModel::forward, onDismiss = viewModel::cancelForward)
+    }
+}
+
+/** Rows of the message list, newest first: messages and the day headers above them. */
+private sealed interface ListRow {
+    val key: Any
+
+    data class Message(val message: MessageItem) : ListRow {
+        override val key get() = message.id
+    }
+
+    data class Day(val date: Int, override val key: String) : ListRow
+}
+
+private fun buildRows(messages: List<MessageItem>): List<ListRow> = buildList {
+    messages.forEachIndexed { index, message ->
+        add(ListRow.Message(message))
+        // reverseLayout: the row after a message is shown above it.
+        val older = messages.getOrNull(index + 1)
+        if (older == null || day(older.date) != day(message.date)) add(ListRow.Day(message.date, "day-${message.id}"))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SearchBar(query: String, onQueryChange: (String) -> Unit, onClose: () -> Unit) {
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    TopAppBar(
+        title = {
+            TextField(
+                value = query,
+                onValueChange = onQueryChange,
+                placeholder = { Text("Search messages") },
+                singleLine = true,
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                ),
+                modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).testTag("query"),
+            )
+        },
+        actions = {
+            TextButton(onClick = onClose, modifier = Modifier.testTag("closeSearch")) { Text("Close") }
+        },
+    )
+}
+
+@Composable
+private fun SearchResults(query: String, results: List<SearchResult>?, onClick: (Long) -> Unit) {
+    when {
+        query.isBlank() -> Unit
+        results == null -> LoadingScreen()
+        results.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("No messages found")
+        }
+        else -> LazyColumn(Modifier.fillMaxSize().testTag("results")) {
+            items(results, key = { it.messageId }) { result ->
+                ListItem(
+                    overlineContent = result.senderName?.let { { Text(it) } },
+                    headlineContent = { Text(result.text, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                    trailingContent = { Text(formatTime(result.date), style = MaterialTheme.typography.labelSmall) },
+                    modifier = Modifier.clickable { onClick(result.messageId) }.testTag("result-${result.messageId}"),
+                )
+            }
+        }
     }
 }
 
