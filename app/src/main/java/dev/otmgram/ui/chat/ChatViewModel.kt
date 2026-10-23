@@ -358,15 +358,24 @@ class ChatViewModel @Inject constructor(
         pendingMedia = uris
     }
 
+    /** True while picked media is being prepared (compressed) for sending. */
+    var preparingMedia by mutableStateOf(false)
+        private set
+
     /** Sends the picked media; an album gets the caption on its first item. */
-    fun sendPendingMedia(caption: String) {
+    fun sendPendingMedia(caption: String, compress: Boolean) {
         val uris = pendingMedia
         pendingMedia = emptyList()
+        preparingMedia = true
         action {
-            val contents = uris.mapIndexedNotNull { index, uri ->
-                outgoingMedia.fromGallery(uri, caption = if (index == 0) caption else "")
+            try {
+                val contents = uris.mapIndexedNotNull { index, uri ->
+                    outgoingMedia.fromGallery(uri, caption = if (index == 0) caption else "", compress = compress)
+                }
+                session.sendMedia(contents)
+            } finally {
+                preparingMedia = false
             }
-            session.sendMedia(contents)
         }
     }
 

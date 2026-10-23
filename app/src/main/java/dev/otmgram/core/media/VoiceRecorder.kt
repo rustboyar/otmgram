@@ -5,7 +5,7 @@ import android.media.MediaRecorder
 import android.os.Build
 import android.os.SystemClock
 import dagger.hilt.android.qualifiers.ApplicationContext
-import dev.otmgram.data.OutgoingMedia
+import dev.otmgram.data.OutgoingFiles
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -30,7 +30,7 @@ data class RecorderState(val elapsedMs: Long, val level: Float)
 @Singleton
 class VoiceRecorder @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val outgoing: OutgoingMedia,
+    private val outgoing: OutgoingFiles,
 ) {
     private val _state = MutableStateFlow<RecorderState?>(null)
 

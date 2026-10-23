@@ -7,8 +7,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dev.otmgram.core.media.VideoNoteProcessor
+import dev.otmgram.core.media.MediaTranscoder
 import dev.otmgram.data.MessageRepository
+import dev.otmgram.data.OutgoingFiles
 import dev.otmgram.data.OutgoingMedia
 import kotlinx.coroutines.launch
 import java.io.File
@@ -20,8 +21,9 @@ enum class VideoNoteState { Recording, Processing, Sent }
 class VideoNoteViewModel @Inject constructor(
     savedState: SavedStateHandle,
     private val messages: MessageRepository,
-    private val processor: VideoNoteProcessor,
+    private val transcoder: MediaTranscoder,
     private val outgoing: OutgoingMedia,
+    private val files: OutgoingFiles,
 ) : ViewModel() {
 
     private val chatId: Long = checkNotNull(savedState["chatId"])
@@ -32,16 +34,16 @@ class VideoNoteViewModel @Inject constructor(
     var error by mutableStateOf<String?>(null)
         private set
 
-    fun newRecordingFile(): File = outgoing.newFile("mp4")
+    fun newRecordingFile(): File = files.newFile("mp4")
 
     /** Crops the recording to a square and sends it. */
     fun send(recording: File) {
         state = VideoNoteState.Processing
         viewModelScope.launch {
             try {
-                val videoNote = processor.process(recording)
+                val videoNote = transcoder.videoNote(recording)
                 val duration = outgoing.videoInfo(videoNote).duration.coerceAtLeast(1)
-                messages.sendVideoNote(chatId, videoNote, duration, VideoNoteProcessor.SIZE)
+                messages.sendVideoNote(chatId, videoNote, duration, MediaTranscoder.VIDEO_NOTE_SIZE)
                 state = VideoNoteState.Sent
             } catch (e: Exception) {
                 error = "Couldn't send: ${e.message}"

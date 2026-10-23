@@ -207,6 +207,12 @@ fun ChatScreen(
                 if (period != null && located) viewModel.startLiveLocation(period)
                 pendingLivePeriod = null
             }
+            if (viewModel.preparingMedia) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).testTag("preparing")) {
+                    Text("Preparing media…", style = MaterialTheme.typography.labelMedium)
+                    LinearProgressIndicator(Modifier.fillMaxWidth())
+                }
+            }
             liveShare?.takeIf { it.chatId == viewModel.chatId }?.let { share ->
                 LiveShareBanner(share, onStop = viewModel::stopLiveLocation)
             }
