@@ -39,12 +39,13 @@ class StorageRepository @Inject constructor(
     suspend fun clear() {
         td.send(TdApi.OptimizeStorage(0, 0, 0, 0, null, null, null, false, 0))
     }
+}
 
-    private fun kindOf(type: TdApi.FileType): StorageKind = when (type) {
-        is TdApi.FileTypeVideo, is TdApi.FileTypeVideoNote, is TdApi.FileTypeAnimation -> StorageKind.Videos
-        is TdApi.FileTypePhoto, is TdApi.FileTypeThumbnail, is TdApi.FileTypeProfilePhoto -> StorageKind.Photos
-        is TdApi.FileTypeVoiceNote, is TdApi.FileTypeAudio -> StorageKind.Voice
-        is TdApi.FileTypeDocument -> StorageKind.Files
-        else -> StorageKind.Other
-    }
+/** Which part of the storage bar a file type belongs to. */
+internal fun kindOf(type: TdApi.FileType): StorageKind = when (type) {
+    is TdApi.FileTypeVideo, is TdApi.FileTypeVideoNote, is TdApi.FileTypeAnimation -> StorageKind.Videos
+    is TdApi.FileTypePhoto, is TdApi.FileTypeThumbnail, is TdApi.FileTypeProfilePhoto -> StorageKind.Photos
+    is TdApi.FileTypeVoiceNote, is TdApi.FileTypeAudio -> StorageKind.Voice
+    is TdApi.FileTypeDocument -> StorageKind.Files
+    else -> StorageKind.Other
 }

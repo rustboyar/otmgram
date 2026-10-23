@@ -475,7 +475,7 @@ fun MediaPreviewScreen(
 }
 
 /** "About 2.4 MB instead of 31 MB", or the size as it goes. */
-private fun sizeLine(sizes: SizeEstimate?, compress: Boolean): String = when {
+internal fun sizeLine(sizes: SizeEstimate?, compress: Boolean): String = when {
     sizes == null -> if (compress) "Smaller and faster to send" else "Sent at full quality"
     !compress -> "${formatSize(sizes.original)}, sent at full quality"
     sizes.compressed < sizes.original * 9 / 10 -> "About ${formatSize(sizes.compressed)} instead of ${formatSize(sizes.original)}"

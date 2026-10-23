@@ -1,9 +1,12 @@
 package dev.otmgram.di
 
+import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dev.otmgram.core.td.TdClient
+import dev.otmgram.core.td.TelegramClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -14,6 +17,14 @@ import javax.inject.Singleton
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class ApplicationScope
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class TelegramModule {
+
+    @Binds
+    abstract fun telegramClient(td: TdClient): TelegramClient
+}
 
 @Module
 @InstallIn(SingletonComponent::class)

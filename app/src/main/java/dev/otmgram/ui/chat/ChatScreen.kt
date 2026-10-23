@@ -73,11 +73,9 @@ import dev.otmgram.ui.theme.SoftButton
 import dev.otmgram.ui.theme.paper
 import kotlinx.coroutines.flow.distinctUntilChanged
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import java.util.Locale
 
 @Composable
 fun ChatScreen(
@@ -382,34 +380,6 @@ fun ChatScreen(
     }
 }
 
-/** Rows of the message list, newest first: messages and the dividers above them. */
-private sealed interface ListRow {
-    val key: Any
-
-    data class Message(val message: MessageItem) : ListRow {
-        override val key get() = message.id
-    }
-
-    data class Day(val date: Int, override val key: String) : ListRow
-
-    /** "4 new since you left", above the first message that was unread. */
-    data class Unread(val count: Int) : ListRow {
-        override val key get() = "unread"
-    }
-}
-
-private fun buildRows(messages: List<MessageItem>, unread: UnreadMark?): List<ListRow> = buildList {
-    messages.forEachIndexed { index, message ->
-        add(ListRow.Message(message))
-        // reverseLayout: the row after a message is shown above it.
-        val older = messages.getOrNull(index + 1)
-        if (unread != null && older != null && message.id > unread.afterMessageId && older.id <= unread.afterMessageId) {
-            add(ListRow.Unread(unread.count))
-        }
-        if (older == null || day(older.date) != day(message.date)) add(ListRow.Day(message.date, "day-${message.id}"))
-    }
-}
-
 @Composable
 private fun ScreenBarRow(content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit) {
     Column(Modifier.fillMaxWidth().statusBarsPadding()) {
@@ -666,16 +636,6 @@ private fun RecordingBar(state: RecorderState, onCancel: () -> Unit, onSend: () 
             IconBtn(OtmIcons.Send, "Send voice message", onSend, tint = Color.White, background = Otm.Slate, tag = "sendRecording")
         }
     }
-}
-
-private fun day(unixTime: Int): LocalDate =
-    Instant.ofEpochSecond(unixTime.toLong()).atZone(ZoneId.systemDefault()).toLocalDate()
-
-/** "Thursday, 23 October"; with the year when it isn't this one. */
-private fun dayLabel(unixTime: Int): String {
-    val date = day(unixTime)
-    val pattern = if (date.year == LocalDate.now().year) "EEEE, d MMMM" else "d MMMM yyyy"
-    return date.format(DateTimeFormatter.ofPattern(pattern, Locale.getDefault()))
 }
 
 fun formatTime(unixTime: Int): String =

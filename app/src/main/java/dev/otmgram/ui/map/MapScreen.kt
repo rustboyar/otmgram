@@ -132,7 +132,7 @@ fun MapScreen(onBack: () -> Unit, viewModel: MapViewModel = hiltViewModel()) {
                 Column(Modifier.weight(1f)) {
                     Text(sender?.name.orEmpty(), style = OtmType.Name, color = Otm.Ink)
                     val distance = location?.let { point ->
-                        viewModel.myLocation?.takeIf { !viewModel.isMine }?.let { formatDistance(it, point.latitude, point.longitude) }
+                        viewModel.myLocation?.takeIf { !viewModel.isMine }?.let { formatDistance(distanceMeters(it.latitude, it.longitude, point.latitude, point.longitude)) }
                     }
                     Text(
                         listOfNotNull(location?.live?.let { liveStatus(it, rememberNow()) } ?: "Location", distance).joinToString(" · "),
@@ -150,16 +150,6 @@ fun MapScreen(onBack: () -> Unit, viewModel: MapViewModel = hiltViewModel()) {
                 )
             }
         }
-    }
-}
-
-/** "340 m away", "2.1 km away", "23 km away". */
-private fun formatDistance(from: android.location.Location, latitude: Double, longitude: Double): String {
-    val meters = FloatArray(1).also { android.location.Location.distanceBetween(from.latitude, from.longitude, latitude, longitude, it) }[0]
-    return when {
-        meters < 1_000 -> "${(meters / 10).roundToInt() * 10} m away"
-        meters < 10_000 -> "%.1f km away".format(meters / 1_000)
-        else -> "${(meters / 1_000).roundToInt()} km away"
     }
 }
 

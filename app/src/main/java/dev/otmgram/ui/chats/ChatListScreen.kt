@@ -52,6 +52,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.otmgram.ui.auth.LoadingScreen
+import dev.otmgram.ui.highlightMatches
 import dev.otmgram.ui.theme.Banner
 import dev.otmgram.ui.theme.ChatAvatar
 import dev.otmgram.ui.theme.CountPill
@@ -198,7 +199,7 @@ private fun ChatRow(chat: ChatItem, highlight: String, onClick: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        highlighted(chat.title, highlight),
+                        highlightMatches(chat.title, highlight, Otm.Mark),
                         style = OtmType.Name,
                         color = Otm.Ink,
                         maxLines = 1,
@@ -225,22 +226,6 @@ private fun ChatRow(chat: ChatItem, highlight: String, onClick: () -> Unit) {
                 if (unread) CountPill(chat.unreadCount, quiet = chat.isMuted, Modifier.padding(start = 8.dp))
             }
         }
-    }
-}
-
-/** [text] with every occurrence of [part] tinted, ignoring case. */
-private fun highlighted(text: String, part: String): AnnotatedString {
-    if (part.isEmpty()) return AnnotatedString(text)
-    return buildAnnotatedString {
-        var from = 0
-        while (true) {
-            val at = text.indexOf(part, from, ignoreCase = true)
-            if (at < 0) break
-            append(text.substring(from, at))
-            withStyle(SpanStyle(background = Otm.Mark)) { append(text.substring(at, at + part.length)) }
-            from = at + part.length
-        }
-        append(text.substring(from))
     }
 }
 

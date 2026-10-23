@@ -1,6 +1,6 @@
 package dev.otmgram.data
 
-import dev.otmgram.core.td.TdClient
+import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.core.td.TdException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -38,7 +38,7 @@ data class FolderChat(
 
 @Singleton
 class ChatRepository @Inject constructor(
-    private val td: TdClient,
+    private val td: TelegramClient,
 ) {
     /**
      * Chats of a folder in display order.

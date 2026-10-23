@@ -3,6 +3,7 @@ package dev.otmgram.data
 import dev.otmgram.core.launchLogged
 import dev.otmgram.core.media.VoiceRecording
 import dev.otmgram.core.td.TdClient
+import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.core.td.TdException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -56,7 +57,7 @@ data class ChatHistory(
  * ends. Must be used from a single thread, like a ViewModel's scope.
  */
 class ChatSession internal constructor(
-    private val td: TdClient,
+    private val td: TelegramClient,
     val chatId: Long,
     private val scope: CoroutineScope,
 ) {

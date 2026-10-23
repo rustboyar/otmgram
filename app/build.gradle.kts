@@ -30,6 +30,7 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk { abiFilters += "arm64-v8a" }
 
@@ -60,6 +61,11 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    // Unit tests run on the JVM: Android calls like Log.w do nothing instead of throwing.
+    testOptions {
+        unitTests.isReturnDefaultValues = true
     }
 }
 
@@ -103,4 +109,15 @@ dependencies {
     ksp(libs.hilt.compiler)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+
+    // UI tests on a device: run scripts/ui-tests.sh, which keeps the app's data
+    // (Gradle's connectedAndroidTest uninstalls the app afterwards, logging it out).
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.junit)
+    // Compose testing brings Espresso 3.5, which can't inject input on Android 16+.
+    androidTestImplementation(libs.androidx.test.espresso)
+    debugImplementation(libs.compose.ui.test.manifest)
 }

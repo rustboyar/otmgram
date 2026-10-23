@@ -34,14 +34,14 @@ class TdException(val error: TdApi.Error) : Exception("TDLib error ${error.code}
 @Singleton
 class TdClient @Inject constructor(
     @ApplicationContext private val context: Context,
-) {
+) : TelegramClient {
     private val _updates = MutableSharedFlow<TdApi.Update>(extraBufferCapacity = Int.MAX_VALUE)
 
     /**
      * All updates from TDLib. Updates emitted while nobody is subscribed are dropped, so
      * long-lived collectors must subscribe before [start].
      */
-    val updates: SharedFlow<TdApi.Update> = _updates.asSharedFlow()
+    override val updates: SharedFlow<TdApi.Update> = _updates.asSharedFlow()
 
     private val _authorizationState = MutableStateFlow<TdApi.AuthorizationState?>(null)
 
@@ -73,7 +73,7 @@ class TdClient @Inject constructor(
     }
 
     /** Sends [function] to TDLib and returns its result, throwing [TdException] on error. */
-    suspend fun <R : TdApi.Object> send(function: TdApi.Function<R>): R {
+    override suspend fun <R : TdApi.Object> send(function: TdApi.Function<R>): R {
         val client = checkNotNull(client) { "TdClient is not started" }
         return suspendCancellableCoroutine { cont ->
             client.send(function) { result ->
@@ -132,7 +132,7 @@ class TdClient @Inject constructor(
     }
 
     /** Sends [function] without waiting for the result; errors are only logged. */
-    fun sendIgnoringResult(function: TdApi.Function<*>) {
+    override fun sendIgnoringResult(function: TdApi.Function<*>) {
         // The first updates can arrive before Client.create() returns in start();
         // the lock waits for the client to be assigned.
         val client = synchronized(this) { client }

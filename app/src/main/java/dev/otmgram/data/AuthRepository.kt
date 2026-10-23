@@ -59,7 +59,7 @@ class AuthRepository @Inject constructor(
     }
 }
 
-private fun TdApi.AuthorizationState?.toAuthState(): AuthState = when (this) {
+internal fun TdApi.AuthorizationState?.toAuthState(): AuthState = when (this) {
     is TdApi.AuthorizationStateWaitPhoneNumber -> AuthState.WaitPhoneNumber
     is TdApi.AuthorizationStateWaitCode -> AuthState.WaitCode(
         phoneNumber = codeInfo.phoneNumber,

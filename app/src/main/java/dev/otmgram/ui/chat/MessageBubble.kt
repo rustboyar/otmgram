@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import dev.otmgram.core.media.AudioState
+import dev.otmgram.ui.highlightMatches
 import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmType
@@ -314,19 +315,5 @@ fun ReplyQuote(reply: ReplyPreview, modifier: Modifier = Modifier) {
 }
 
 /** [text] with matches of the search marked. */
-private fun highlighted(text: String, highlight: Highlight?): AnnotatedString {
-    val query = highlight?.query?.trim().orEmpty()
-    if (query.isEmpty()) return AnnotatedString(text)
-    val style = if (highlight!!.current) SpanStyle(background = Otm.MarkNow) else SpanStyle(background = Otm.Mark)
-    return buildAnnotatedString {
-        var from = 0
-        while (true) {
-            val at = text.indexOf(query, from, ignoreCase = true)
-            if (at < 0) break
-            append(text.substring(from, at))
-            withStyle(style) { append(text.substring(at, at + query.length)) }
-            from = at + query.length
-        }
-        append(text.substring(from))
-    }
-}
+private fun highlighted(text: String, highlight: Highlight?): AnnotatedString =
+    if (highlight == null) AnnotatedString(text) else highlightMatches(text, highlight.query, if (highlight.current) Otm.MarkNow else Otm.Mark)

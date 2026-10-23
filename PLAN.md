@@ -120,6 +120,11 @@ app/
 - From the design, not built: forwarding from the viewer, a "my location" button on the map
 - Error states beyond offline
 
+## Testing
+
+- Unit tests (`./gradlew :app:testDebugUnitTest`): message mapping, list rows, media mapping, wording, login steps, storage, and the open chat and folder list against a fake TDLib (`testing/FakeTelegram`, behind the `TelegramClient` interface)
+- UI tests on a device (`scripts/ui-tests.sh`): bubble states, delete dialog. Not `connectedAndroidTest`, which uninstalls the app and so logs it out
+
 ## Open questions
 
 - Search across all folder chats' messages at once (fan-out `searchChatMessages`) — decide later
