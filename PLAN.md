@@ -90,11 +90,14 @@ app/
 - Not done: proximity alerts and heading. If the service is killed, sharing is ended in the chat (no resume)
 
 ### M7 — Notifications (periodic check)
-- `PeriodicWorkRequest` every X minutes (setting, minimum 15 — WorkManager limit), requires network
-- Worker uses the shared in-process TdClient (TDLib can't open the same database twice), keeps `online` option false so the check doesn't show you as online
-- Waits for TDLib to finish syncing, then for each folder chat compares the last message with the last one already notified (stored per chat) and notifies about new incoming ones
-- One notification per chat (MessagingStyle), tap opens the chat; skip muted chats and the chat currently open
-- Android Doze may delay checks beyond X while the phone is idle — acceptable for this app
+- `PeriodicWorkRequest` every 15 minutes (WorkManager minimum), requires network; scheduled while logged in with a folder picked, cancelled on logout
+- The worker uses the in-process TdClient (started with the process), waits for TDLib to be connected and caught up; the account stays offline
+- New = unread incoming messages in unmuted folder chats that arrived since the app was last open; checks while the app is open just record that
+- One notification: a single message shows chat and message; several are grouped ("4 new messages") with the messages of one chat, or a line per chat for several chats; updated on each check, alerting only when something is newer than the last notification, removed when nothing is unread anymore
+- Tap opens the chat list (fresh task); opening the app clears it
+- Debug builds: `adb shell am broadcast -n dev.otmgram/.debug.RunCheckReceiver [--ez renotify true]` runs the check now
+- Android Doze may delay checks beyond 15 min while the phone is idle — acceptable for this app
+- Interval setting: M8
 
 ### M8 — Polish
 - Settings: storage usage, cache limit, logout

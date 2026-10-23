@@ -1,5 +1,10 @@
 package dev.otmgram.ui.chats
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -38,12 +43,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.otmgram.ui.auth.LoadingScreen
@@ -65,6 +72,7 @@ fun ChatListScreen(onOpenChat: (Long) -> Unit, viewModel: ChatListViewModel = hi
     var searching by rememberSaveable { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     var confirmLogout by rememberSaveable { mutableStateOf(false) }
+    RequestNotificationPermission()
 
     Scaffold(
         topBar = {
@@ -129,6 +137,19 @@ fun ChatListScreen(onOpenChat: (Long) -> Unit, viewModel: ChatListViewModel = hi
             },
             dismissButton = { TextButton(onClick = { confirmLogout = false }) { Text("Cancel") } },
         )
+    }
+}
+
+/** Asks once for the permission to notify about new messages (Android 13+). */
+@Composable
+private fun RequestNotificationPermission() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    LaunchedEffect(Unit) {
+        val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (!granted) launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 }
 

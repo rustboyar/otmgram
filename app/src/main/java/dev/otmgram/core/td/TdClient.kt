@@ -56,6 +56,11 @@ class TdClient @Inject constructor(
      */
     val chatFolders: StateFlow<List<TdApi.ChatFolderInfo>?> = _chatFolders.asStateFlow()
 
+    private val _connectionState = MutableStateFlow<TdApi.ConnectionState?>(null)
+
+    /** Connection to Telegram; ready once TDLib has caught up with what happened offline. */
+    val connectionState: StateFlow<TdApi.ConnectionState?> = _connectionState.asStateFlow()
+
     @Volatile
     private var client: Client? = null
 
@@ -86,6 +91,7 @@ class TdClient @Inject constructor(
         when (update) {
             is TdApi.UpdateAuthorizationState -> onAuthorizationState(update.authorizationState)
             is TdApi.UpdateChatFolders -> _chatFolders.value = update.chatFolders.toList()
+            is TdApi.UpdateConnectionState -> _connectionState.value = update.state
         }
         if (update is TdApi.Update) {
             _updates.tryEmit(update)

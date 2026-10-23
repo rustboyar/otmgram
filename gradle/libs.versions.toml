@@ -15,6 +15,8 @@ junit = "4.13.2"
 media3 = "1.11.1"
 camerax = "1.6.2"
 maplibre = "13.7.1"
+work = "2.12.0"
+androidxHilt = "1.4.0"
 coil = "3.6.3"
 lottie = "6.7.1"
 
@@ -45,6 +47,10 @@ camerax-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref =
 camerax-video = { module = "androidx.camera:camera-video", version.ref = "camerax" }
 camerax-view = { module = "androidx.camera:camera-view", version.ref = "camerax" }
 maplibre = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre" }
+work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
+hilt-work = { module = "androidx.hilt:hilt-work", version.ref = "androidxHilt" }
+hilt-androidx-compiler = { module = "androidx.hilt:hilt-compiler", version.ref = "androidxHilt" }
+androidx-lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", version.ref = "lifecycle" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-video = { module = "io.coil-kt.coil3:coil-video", version.ref = "coil" }
 lottie-compose = { module = "com.airbnb.android:lottie-compose", version.ref = "lottie" }
