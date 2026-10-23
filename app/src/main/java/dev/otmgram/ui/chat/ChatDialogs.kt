@@ -2,6 +2,7 @@ package dev.otmgram.ui.chat
 
 import android.net.Uri
 import android.provider.OpenableColumns
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,7 +49,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -59,6 +64,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
 import dev.otmgram.core.location.LiveLocationSharing
+import dev.otmgram.core.location.MapSnapshots
+import kotlin.math.roundToInt
+import dev.otmgram.data.SizeEstimate
 import dev.otmgram.ui.media.formatSize
 import dev.otmgram.ui.theme.ChatAvatar
 import dev.otmgram.ui.theme.Chip
@@ -310,8 +318,15 @@ private fun androidx.compose.foundation.layout.RowScope.AttachOption(icon: Image
 /** Send the current location once, or share it live for a while. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LocationSheet(chatTitle: String, onSendCurrent: () -> Unit, onShareLive: (periodSeconds: Int) -> Unit, onDismiss: () -> Unit) {
+fun LocationSheet(
+    chatTitle: String,
+    here: android.location.Location?,
+    onSendCurrent: () -> Unit,
+    onShareLive: (periodSeconds: Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
     OtmSheet(onDismiss) {
+        here?.let { HereMap(it) }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -326,7 +341,11 @@ fun LocationSheet(chatTitle: String, onSendCurrent: () -> Unit, onShareLive: (pe
             RoundIcon(OtmIcons.Pin)
             Column {
                 Text("Send my current location", style = OtmType.Name, color = Otm.Ink)
-                Text("Once, as it is now", style = OtmType.Secondary, color = Otm.InkSoft)
+                Text(
+                    here?.takeIf { it.hasAccuracy() }?.let { "Accurate to ${it.accuracy.roundToInt()} m" } ?: "Once, as it is now",
+                    style = OtmType.Secondary,
+                    color = Otm.InkSoft,
+                )
             }
         }
         Box(Modifier.padding(horizontal = 24.dp, vertical = 4.dp).fillMaxWidth().height(1.dp).background(Otm.Line))
@@ -335,7 +354,7 @@ fun LocationSheet(chatTitle: String, onSendCurrent: () -> Unit, onShareLive: (pe
                 RoundIcon(OtmIcons.LiveLocation)
                 Column {
                     Text("Share live location", style = OtmType.Name, color = Otm.Ink)
-                    Text("$chatTitle sees you move until it ends or you stop", style = OtmType.Secondary, color = Otm.InkSoft)
+                    Text("Shown in $chatTitle until it ends or you stop", style = OtmType.Secondary, color = Otm.InkSoft)
                 }
             }
             Row(Modifier.padding(start = 62.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -346,6 +365,33 @@ fun LocationSheet(chatTitle: String, onSendCurrent: () -> Unit, onShareLive: (pe
         }
     }
 }
+
+/** A small map of where you are, on top of the location sheet. */
+@Composable
+private fun HereMap(here: android.location.Location) {
+    val context = LocalContext.current
+    val density = LocalDensity.current.density
+    val map by produceState<ImageBitmap?>(null, here.latitude, here.longitude) {
+        value = MapSnapshots.get(context, here.latitude, here.longitude, HERE_MAP_WIDTH, HERE_MAP_HEIGHT, density)?.asImageBitmap()
+    }
+    Box(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 8.dp)
+            .fillMaxWidth()
+            .height(HERE_MAP_HEIGHT.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color(0xFFEFEDE6))
+            .testTag("hereMap"),
+        contentAlignment = Alignment.Center,
+    ) {
+        map?.let { Image(it, contentDescription = "Map of where you are", contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize()) }
+        MapPin()
+    }
+}
+
+private const val HERE_MAP_WIDTH = 360
+private const val HERE_MAP_HEIGHT = 150
 
 @Composable
 private fun RoundIcon(icon: ImageVector) {
@@ -379,6 +425,7 @@ fun MediaPreviewScreen(
     uris: List<Uri>,
     chatTitle: String,
     compressByDefault: Boolean,
+    sizes: SizeEstimate?,
     onSend: (caption: String, compress: Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -420,11 +467,19 @@ fun MediaPreviewScreen(
         ) {
             Column(Modifier.weight(1f)) {
                 Text("Compress", style = OtmType.Body.copy(fontWeight = FontWeight.SemiBold), color = Otm.Ink)
-                Text(if (compress) "Smaller and faster to send" else "Sent at full quality", style = OtmType.Secondary, color = Otm.InkSoft)
+                Text(sizeLine(sizes, compress), style = OtmType.Secondary, color = Otm.InkSoft, modifier = Modifier.testTag("sizeEstimate"))
             }
             OtmSwitch(compress, onCheckedChange = null)
         }
     }
+}
+
+/** "About 2.4 MB instead of 31 MB", or the size as it goes. */
+private fun sizeLine(sizes: SizeEstimate?, compress: Boolean): String = when {
+    sizes == null -> if (compress) "Smaller and faster to send" else "Sent at full quality"
+    !compress -> "${formatSize(sizes.original)}, sent at full quality"
+    sizes.compressed < sizes.original * 9 / 10 -> "About ${formatSize(sizes.compressed)} instead of ${formatSize(sizes.original)}"
+    else -> "Already small: ${formatSize(sizes.original)}"
 }
 
 /** Picked files (sent as they are) with a caption field, before sending. */

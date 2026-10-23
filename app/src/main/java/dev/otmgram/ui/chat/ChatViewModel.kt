@@ -26,6 +26,7 @@ import dev.otmgram.data.ChatRepository
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.MessageRepository
 import dev.otmgram.data.OutgoingMedia
+import dev.otmgram.data.SizeEstimate
 import dev.otmgram.data.StickerRepository
 import dev.otmgram.data.StickerTab
 import dev.otmgram.data.isGroup
@@ -457,6 +458,17 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /** Where you are, for the map in the location sheet; null until known. */
+    var myLocation by mutableStateOf<android.location.Location?>(null)
+        private set
+
+    /** Shows the last known position at once, then a fresh one; the location permission must be granted. */
+    @SuppressLint("MissingPermission")
+    fun locateMe() {
+        myLocation = locationSource.lastKnown()
+        viewModelScope.launch { locationSource.current()?.let { myLocation = it } }
+    }
+
     /** Shares live location here; the location permission must be granted. */
     fun startLiveLocation(periodSeconds: Int) {
         liveLocation.start(chatId, header.value?.title.orEmpty(), periodSeconds)
@@ -468,8 +480,14 @@ class ChatViewModel @Inject constructor(
     var pendingMedia by mutableStateOf<List<Uri>>(emptyList())
         private set
 
+    /** Size of [pendingMedia] now and after compression, once estimated. */
+    var pendingSizes by mutableStateOf<SizeEstimate?>(null)
+        private set
+
     fun pickedMedia(uris: List<Uri>) {
         pendingMedia = uris
+        pendingSizes = null
+        if (uris.isNotEmpty()) viewModelScope.launch { pendingSizes = outgoingMedia.estimate(uris) }
     }
 
     /** True while picked media is being prepared (compressed) for sending. */

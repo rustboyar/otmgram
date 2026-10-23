@@ -58,6 +58,10 @@ class LocationSource @Inject constructor(
         } ?: manager.getLastKnownLocation(provider)
     }
 
+    /** The last position any app got, without waiting for a new one; null if none or location is off. */
+    @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
+    fun lastKnown(): Location? = provider()?.let(manager::getLastKnownLocation)
+
     /** Accurate position updates, at most every [intervalMs] and after moving [minDistanceMeters]. */
     @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     fun requestUpdates(intervalMs: Long, minDistanceMeters: Float, listener: LocationListenerCompat): Boolean {

@@ -7,6 +7,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -34,6 +36,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -71,6 +76,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.drinkless.tdlib.TdApi
 import java.io.File
 import java.util.zip.GZIPInputStream
 
@@ -92,19 +98,27 @@ fun MediaContent(
     onLongClick: () -> Unit,
     onPlayVoice: (fileId: Int, path: String) -> Unit,
     onVideoNoteSound: () -> Unit,
+    /** Set while the message is being sent: stops the upload. */
+    onCancelUpload: (() -> Unit)? = null,
 ) {
     when (media) {
-        is MessageMedia.Photo -> TdImage(
-            fileId = media.fileId,
-            minithumbnail = media.minithumbnail,
-            modifier = Modifier
-                .width(MEDIA_WIDTH)
-                .aspectRatio(aspect(media.width, media.height))
-                .clip(RoundedCornerShape(13.dp))
-                .combinedClickable(onClick = onOpen, onLongClick = onLongClick)
-                .testTag("photo"),
-        )
-        is MessageMedia.Video -> VideoPreview(media, onOpen, onLongClick)
+        is MessageMedia.Photo -> Box(contentAlignment = Alignment.Center) {
+            TdImage(
+                fileId = media.fileId,
+                minithumbnail = media.minithumbnail,
+                modifier = Modifier
+                    .width(MEDIA_WIDTH)
+                    .aspectRatio(aspect(media.width, media.height))
+                    .clip(RoundedCornerShape(13.dp))
+                    .combinedClickable(onClick = onOpen, onLongClick = onLongClick)
+                    .testTag("photo"),
+            )
+            onCancelUpload?.let { UploadRing(media.fileId, it) }
+        }
+        is MessageMedia.Video -> Box(contentAlignment = Alignment.Center) {
+            VideoPreview(media, onOpen, onLongClick, uploading = onCancelUpload != null)
+            onCancelUpload?.let { UploadRing(media.fileId, it) }
+        }
         is MessageMedia.Animation -> {
             val path = rememberDownloadedPath(media.fileId)
             val modifier = Modifier
@@ -117,19 +131,24 @@ fun MediaContent(
         is MessageMedia.VideoNote -> VideoNote(media, onVideoNoteSound, onLongClick)
         is MessageMedia.Sticker -> StickerView(media, Modifier.size(STICKER_SIZE).testTag("sticker-${media.kind}"))
         is MessageMedia.Location -> LocationPreview(media, outgoing, onOpen, onLongClick)
-        is MessageMedia.Document -> DocumentContent(media, onLongClick)
+        is MessageMedia.Document -> DocumentContent(media, onLongClick, onCancelUpload)
     }
 }
 
 /** A file: tap downloads it, tap again (once downloaded) opens it in another app. */
 @Composable
-private fun DocumentContent(media: MessageMedia.Document, onLongClick: () -> Unit) {
+private fun DocumentContent(media: MessageMedia.Document, onLongClick: () -> Unit, onCancelUpload: (() -> Unit)?) {
     val context = LocalContext.current
     val files = LocalFileRepository.current
     val scope = rememberCoroutineScope()
-    val local = rememberFileState(media.fileId)?.local
+    val file = rememberFileState(media.fileId)
+    val local = file?.local
     val done = local?.isDownloadingCompleted == true
     val downloading = local?.isDownloadingActive == true
+    if (onCancelUpload != null && file != null) {
+        UploadingDocument(media, file, onCancelUpload, onLongClick)
+        return
+    }
     Row(
         modifier = Modifier
             .widthIn(max = MEDIA_WIDTH)
@@ -182,6 +201,59 @@ private fun DocumentContent(media: MessageMedia.Document, onLongClick: () -> Uni
                 modifier = Modifier.testTag("documentStatus"),
             )
         }
+    }
+}
+
+/** A file of yours being sent: upload progress, tap to stop. */
+@Composable
+private fun UploadingDocument(media: MessageMedia.Document, file: TdApi.File, onCancel: () -> Unit, onLongClick: () -> Unit) {
+    val total = file.expectedSize.takeIf { it > 0 } ?: media.size
+    val sent = file.remote.uploadedSize
+    Row(
+        modifier = Modifier.widthIn(max = MEDIA_WIDTH).combinedClickable(onLongClick = onLongClick, onClick = onCancel).padding(vertical = 2.dp).testTag("cancelUpload"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(Modifier.size(44.dp).clip(CircleShape).background(Otm.Haze), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(
+                progress = { if (total > 0) sent.toFloat() / total else 0f },
+                modifier = Modifier.matchParentSize().padding(2.dp),
+                color = Otm.Slate,
+                trackColor = Otm.Slate.copy(alpha = 0.18f),
+                strokeWidth = 3.dp,
+            )
+            Icon(OtmIcons.Close, "Stop sending", tint = Otm.SlateDeep, modifier = Modifier.size(16.dp))
+        }
+        Column(Modifier.weight(1f, fill = false)) {
+            Text(media.name, style = OtmType.Body.copy(fontWeight = FontWeight.Medium), color = Otm.Ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text("${formatSize(sent)} of ${formatSize(total)}", style = OtmType.Secondary, color = Otm.InkSoft)
+        }
+    }
+}
+
+/** Over a photo or video being sent: how much is uploaded, and a cross to stop it. */
+@Composable
+private fun UploadRing(fileId: Int, onCancel: () -> Unit) {
+    val file = rememberFileState(fileId)
+    val total = file?.expectedSize?.takeIf { it > 0 } ?: file?.size ?: 0L
+    val progress = if (file != null && total > 0) file.remote.uploadedSize.toFloat() / total else 0f
+    Box(
+        modifier = Modifier
+            .size(52.dp)
+            .clip(CircleShape)
+            .background(Otm.Ink.copy(alpha = 0.5f))
+            .clickable(onClick = onCancel, onClickLabel = "Stop sending")
+            .testTag("cancelUpload"),
+        contentAlignment = Alignment.Center,
+    ) {
+        CircularProgressIndicator(
+            progress = { progress },
+            modifier = Modifier.matchParentSize().padding(3.dp),
+            color = Color.White,
+            trackColor = Color.White.copy(alpha = 0.25f),
+            strokeWidth = 3.dp,
+        )
+        Icon(OtmIcons.Close, null, tint = Color.White, modifier = Modifier.size(16.dp))
     }
 }
 
@@ -255,7 +327,7 @@ fun liveStatus(live: MessageMedia.LiveInfo, now: Int): String {
 }
 
 @Composable
-private fun VideoPreview(media: MessageMedia.Video, onOpen: () -> Unit, onLongClick: () -> Unit) {
+private fun VideoPreview(media: MessageMedia.Video, onOpen: () -> Unit, onLongClick: () -> Unit, uploading: Boolean) {
     // Auto-download: the video itself downloads in the background, behind visible thumbnails.
     val file = rememberFile(media.fileId, priority = FileRepository.PRIORITY_BACKGROUND)
     Box(
@@ -268,8 +340,10 @@ private fun VideoPreview(media: MessageMedia.Video, onOpen: () -> Unit, onLongCl
         contentAlignment = Alignment.Center,
     ) {
         TdImage(media.thumbnailFileId, media.minithumbnail, Modifier.matchParentSize())
-        Box(Modifier.size(48.dp).background(Otm.Sheet.copy(alpha = 0.88f), CircleShape), contentAlignment = Alignment.Center) {
-            Icon(OtmIcons.Play, "Play video", tint = Otm.Ink, modifier = Modifier.size(18.dp))
+        if (!uploading) {
+            Box(Modifier.size(48.dp).background(Otm.Sheet.copy(alpha = 0.88f), CircleShape), contentAlignment = Alignment.Center) {
+                Icon(OtmIcons.Play, "Play video", tint = Otm.Ink, modifier = Modifier.size(18.dp))
+            }
         }
         val local = file?.local
         val progress = if (local == null || local.isDownloadingCompleted || file.size == 0L) {
@@ -348,9 +422,29 @@ fun Waveform(levels: List<Int>, progress: Float, played: Color, rest: Color, mod
 private fun VideoNote(media: MessageMedia.VideoNote, onSound: () -> Unit, onLongClick: () -> Unit) {
     val path = rememberDownloadedPath(media.fileId)
     var withSound by remember { mutableStateOf(false) }
+    var progress by remember { mutableFloatStateOf(0f) }
     Box(
         modifier = Modifier
             .size(VIDEO_NOTE_SIZE)
+            .drawWithContent {
+                drawContent()
+                // While playing with sound, a ring shows how much has played.
+                if (withSound) {
+                    val stroke = 3.dp.toPx()
+                    drawCircle(Otm.Haze, radius = size.minDimension / 2 - stroke / 2, style = Stroke(stroke))
+                    drawArc(
+                        Otm.Slate,
+                        startAngle = -90f,
+                        sweepAngle = 360f * progress,
+                        useCenter = false,
+                        topLeft = Offset(stroke / 2, stroke / 2),
+                        size = Size(size.width - stroke, size.height - stroke),
+                        style = Stroke(stroke, cap = StrokeCap.Round),
+                    )
+                }
+            }
+            // Room for the ring around the video.
+            .padding(6.dp)
             .clip(CircleShape)
             .combinedClickable(enabled = path != null, onLongClick = onLongClick) {
                 withSound = !withSound
@@ -359,7 +453,13 @@ private fun VideoNote(media: MessageMedia.VideoNote, onSound: () -> Unit, onLong
             .testTag("videoNote"),
     ) {
         if (path != null) {
-            LoopingVideo(path, Modifier.matchParentSize(), muted = !withSound, onEnded = { withSound = false })
+            LoopingVideo(
+                path,
+                Modifier.matchParentSize(),
+                muted = !withSound,
+                onEnded = { withSound = false },
+                onProgress = { progress = it },
+            )
         } else {
             TdImage(media.thumbnailFileId, media.minithumbnail, Modifier.matchParentSize())
         }

@@ -116,7 +116,8 @@ app/
 
 ### M10 — Polish
 - Settings (done): name on top of the chat list (display only, up to 20 characters, shrinks to fit one line, empty allowed, back to the folder's name; forgotten on logout), how often to check (15 min / 30 min / 1 h / 3 h / never, as the periodic work's interval), Compress on by default or not, storage usage by kind of file, cache limit (500 MB / 1 GB / 2 GB / none; `optimizeStorage` by size at start and after each check), clear downloaded media
-- From the design, not built yet: estimated size after compression in the send preview, swiping through an album in the viewer and forwarding from it, distance and "my location" on the map, a map preview in the location sheet, playback ring on video circles, upload progress with cancel on photos being sent
+- From the design (done): estimated size after compression in the send preview, swiping through an album in the viewer ("1 of 3"), distance on the map to someone else's location, a map of where you are in the location sheet, playback ring on video circles, upload progress with cancel on photos, videos and files being sent
+- From the design, not built: forwarding from the viewer, a "my location" button on the map
 - Error states beyond offline
 
 ## Open questions

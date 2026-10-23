@@ -3,6 +3,8 @@ package dev.otmgram.ui.media
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -73,11 +75,18 @@ fun MediaViewerScreen(onBack: () -> Unit, viewModel: MediaViewerViewModel = hilt
         }
     }
     DarkSystemBars()
+    val pages = viewModel.pages
+    val pager = rememberPagerState(initialPage = viewModel.startIndex) { pages.size }
+    // The album loads after the pager is created: start on the opened message.
+    LaunchedEffect(viewModel.startIndex) { pager.scrollToPage(viewModel.startIndex) }
+    val current = pages.getOrNull(pager.currentPage)
     Box(Modifier.fillMaxSize().background(Otm.Night)) {
-        when (val content = viewModel.content) {
-            is ViewerContent.Photo -> ZoomablePhoto(content)
-            is ViewerContent.Video -> FullVideo(content)
-            null -> Unit
+        HorizontalPager(pager, Modifier.fillMaxSize(), key = { pages[it].messageId }) { index ->
+            when (val content = pages[index].content) {
+                is ViewerContent.Photo -> ZoomablePhoto(content)
+                // Only the page on screen plays.
+                is ViewerContent.Video -> if (index == pager.currentPage) FullVideo(content) else VideoStill(content)
+            }
         }
         val info = viewModel.info
         Row(
@@ -92,14 +101,19 @@ fun MediaViewerScreen(onBack: () -> Unit, viewModel: MediaViewerViewModel = hilt
             Column(Modifier.weight(1f).padding(start = 6.dp)) {
                 info?.let {
                     Text(it.sender, style = OtmType.Name, color = Otm.NightText, maxLines = 1)
-                    Text(it.time, style = OtmType.Secondary, color = Otm.NightSoft)
+                    Text(
+                        if (pages.size > 1) "${it.time} · ${pager.currentPage + 1} of ${pages.size}" else it.time,
+                        style = OtmType.Secondary,
+                        color = Otm.NightSoft,
+                        modifier = Modifier.testTag("viewerPosition"),
+                    )
                 }
             }
-            if (viewModel.content != null) {
-                IconBtn(OtmIcons.Save, "Save to Downloads", viewModel::saveToDownloads, tint = Otm.NightText, tag = "saveMedia")
+            if (current != null) {
+                IconBtn(OtmIcons.Save, "Save to Downloads", { viewModel.saveToDownloads(current) }, tint = Otm.NightText, tag = "saveMedia")
             }
         }
-        info?.caption?.takeIf { it.isNotEmpty() && viewModel.content is ViewerContent.Photo }?.let { caption ->
+        current?.caption?.takeIf { it.isNotEmpty() && current.content is ViewerContent.Photo }?.let { caption ->
             Text(
                 caption,
                 style = OtmType.Body,
@@ -132,7 +146,7 @@ private fun ZoomablePhoto(photo: ViewerContent.Photo) {
         contentScale = ContentScale.Fit,
         modifier = Modifier
             .fillMaxSize()
-            .transformable(state)
+            .transformable(state, canPan = { scale > 1f })
             .graphicsLayer(scaleX = scale, scaleY = scale, translationX = offset.x, translationY = offset.y)
             .testTag("viewerPhoto"),
     )
@@ -169,13 +183,21 @@ private fun FullVideo(video: ViewerContent.Video) {
     )
 }
 
-sealed interface ViewerContent {
-    data class Photo(val fileId: Int, val minithumbnail: TdApi.Minithumbnail?) : ViewerContent
-    data class Video(val fileId: Int) : ViewerContent
+@Composable
+private fun VideoStill(video: ViewerContent.Video) {
+    TdImage(video.thumbnailFileId, video.minithumbnail, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
 }
 
+sealed interface ViewerContent {
+    data class Photo(val fileId: Int, val minithumbnail: TdApi.Minithumbnail?) : ViewerContent
+    data class Video(val fileId: Int, val thumbnailFileId: Int?, val minithumbnail: TdApi.Minithumbnail?) : ViewerContent
+}
+
+/** One photo or video of the album; [saveAs] is the file name and type for Downloads. */
+data class ViewerPage(val messageId: Long, val content: ViewerContent, val caption: String, val saveAs: Pair<String, String>)
+
 /** Who sent it and when: "Rustem", "Today, 19:01". */
-data class ViewerInfo(val sender: String, val time: String, val caption: String)
+data class ViewerInfo(val sender: String, val time: String)
 
 @HiltViewModel
 class MediaViewerViewModel @Inject constructor(
@@ -185,7 +207,11 @@ class MediaViewerViewModel @Inject constructor(
     private val downloads: DownloadsFolder,
 ) : ViewModel() {
 
-    var content by mutableStateOf<ViewerContent?>(null)
+    /** The opened photo or video, and the rest of its album around it. */
+    var pages by mutableStateOf<List<ViewerPage>>(emptyList())
+        private set
+
+    var startIndex by mutableStateOf(0)
         private set
 
     var info by mutableStateOf<ViewerInfo?>(null)
@@ -194,35 +220,43 @@ class MediaViewerViewModel @Inject constructor(
     var notice by mutableStateOf<String?>(null)
         private set
 
-    /** File name and type for saving. */
-    private var saveAs: Pair<String, String>? = null
-
     init {
         val chatId: Long = checkNotNull(savedState["chatId"])
         val messageId: Long = checkNotNull(savedState["messageId"])
         viewModelScope.launch {
             val message = td.send(TdApi.GetMessage(chatId, messageId))
-            when (val media = message.content) {
-                is TdApi.MessagePhoto -> {
-                    content = media.photo.sizes.maxByOrNull { it.width }?.let { ViewerContent.Photo(it.photo.id, media.photo.minithumbnail) }
-                    saveAs = "photo-$messageId.jpg" to "image/jpeg"
-                }
-                is TdApi.MessageVideo -> {
-                    content = ViewerContent.Video(media.video.video.id)
-                    saveAs = media.video.fileName.ifEmpty { "video-$messageId.mp4" } to media.video.mimeType.ifEmpty { "video/mp4" }
-                }
-            }
-            info = ViewerInfo(sender(message), postedAt(message.date), caption(message.content))
+            info = ViewerInfo(sender(message), postedAt(message.date))
+            val album = if (message.mediaAlbumId == 0L) listOf(message) else albumOf(message)
+            pages = album.mapNotNull(::page)
+            startIndex = pages.indexOfFirst { it.messageId == messageId }.coerceAtLeast(0)
         }
     }
 
-    fun saveToDownloads() {
-        val fileId = when (val c = content) {
+    /** Messages of the album, in order; albums have at most 10, all next to each other. */
+    private suspend fun albumOf(message: TdApi.Message): List<TdApi.Message> {
+        val around = td.send(TdApi.GetChatHistory(message.chatId, message.id, -ALBUM_MAX, 2 * ALBUM_MAX, false)).messages
+        return (around.filter { it.mediaAlbumId == message.mediaAlbumId } + message).distinctBy { it.id }.sortedBy { it.id }
+    }
+
+    private fun page(message: TdApi.Message): ViewerPage? = when (val media = message.content) {
+        is TdApi.MessagePhoto -> media.photo.sizes.maxByOrNull { it.width }?.let {
+            ViewerPage(message.id, ViewerContent.Photo(it.photo.id, media.photo.minithumbnail), media.caption.text, "photo-${message.id}.jpg" to "image/jpeg")
+        }
+        is TdApi.MessageVideo -> ViewerPage(
+            message.id,
+            ViewerContent.Video(media.video.video.id, media.video.thumbnail?.file?.id, media.video.minithumbnail),
+            media.caption.text,
+            media.video.fileName.ifEmpty { "video-${message.id}.mp4" } to media.video.mimeType.ifEmpty { "video/mp4" },
+        )
+        else -> null
+    }
+
+    fun saveToDownloads(page: ViewerPage) {
+        val fileId = when (val c = page.content) {
             is ViewerContent.Photo -> c.fileId
             is ViewerContent.Video -> c.fileId
-            null -> return
         }
-        val (name, mimeType) = saveAs ?: return
+        val (name, mimeType) = page.saveAs
         viewModelScope.launch {
             try {
                 val file = files.downloadNow(fileId)
@@ -245,11 +279,7 @@ class MediaViewerViewModel @Inject constructor(
     }
 }
 
-private fun caption(content: TdApi.MessageContent): String = when (content) {
-    is TdApi.MessagePhoto -> content.caption.text
-    is TdApi.MessageVideo -> content.caption.text
-    else -> ""
-}
+private const val ALBUM_MAX = 10
 
 /** "Today, 19:01", or the date. */
 private fun postedAt(unixTime: Int): String {

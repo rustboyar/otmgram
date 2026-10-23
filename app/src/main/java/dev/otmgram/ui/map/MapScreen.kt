@@ -1,6 +1,10 @@
 package dev.otmgram.ui.map
 
+import android.Manifest
 import android.content.ActivityNotFoundException
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import kotlin.math.roundToInt
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -62,6 +66,11 @@ fun MapScreen(onBack: () -> Unit, viewModel: MapViewModel = hiltViewModel()) {
     val location by viewModel.location.collectAsStateWithLifecycle()
     val mapView = rememberMapViewWithLifecycle()
     val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        val granted = listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+            .any { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }
+        if (granted) viewModel.locateMe()
+    }
     var loadedMap by remember { mutableStateOf<Pair<MapLibreMap, Style>?>(null) }
 
     LaunchedEffect(mapView) {
@@ -122,8 +131,11 @@ fun MapScreen(onBack: () -> Unit, viewModel: MapViewModel = hiltViewModel()) {
                 sender?.let { ChatAvatar(it.id, it.name, it.photoFileId, it.minithumbnail) }
                 Column(Modifier.weight(1f)) {
                     Text(sender?.name.orEmpty(), style = OtmType.Name, color = Otm.Ink)
+                    val distance = location?.let { point ->
+                        viewModel.myLocation?.takeIf { !viewModel.isMine }?.let { formatDistance(it, point.latitude, point.longitude) }
+                    }
                     Text(
-                        location?.live?.let { liveStatus(it, rememberNow()) } ?: "Location",
+                        listOfNotNull(location?.live?.let { liveStatus(it, rememberNow()) } ?: "Location", distance).joinToString(" · "),
                         style = OtmType.Secondary,
                         color = if (location?.live != null) Otm.SlateDeep else Otm.InkSoft,
                         modifier = Modifier.testTag("mapLiveStatus"),
@@ -138,6 +150,16 @@ fun MapScreen(onBack: () -> Unit, viewModel: MapViewModel = hiltViewModel()) {
                 )
             }
         }
+    }
+}
+
+/** "340 m away", "2.1 km away", "23 km away". */
+private fun formatDistance(from: android.location.Location, latitude: Double, longitude: Double): String {
+    val meters = FloatArray(1).also { android.location.Location.distanceBetween(from.latitude, from.longitude, latitude, longitude, it) }[0]
+    return when {
+        meters < 1_000 -> "${(meters / 10).roundToInt() * 10} m away"
+        meters < 10_000 -> "%.1f km away".format(meters / 1_000)
+        else -> "${(meters / 1_000).roundToInt()} km away"
     }
 }
 

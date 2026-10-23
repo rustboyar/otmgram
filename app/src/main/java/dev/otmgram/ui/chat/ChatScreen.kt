@@ -312,8 +312,10 @@ fun ChatScreen(
         )
     }
     if (choosingLocation) {
+        LaunchedEffect(Unit) { if (hasLocationPermission(context)) viewModel.locateMe() }
         LocationSheet(
             chatTitle = title,
+            here = viewModel.myLocation,
             onSendCurrent = {
                 choosingLocation = false
                 if (hasLocationPermission(context)) {
@@ -350,7 +352,10 @@ fun ChatScreen(
     }
     if (viewModel.pendingMedia.isNotEmpty()) {
         val compress by viewModel.compressByDefault.collectAsStateWithLifecycle()
-        MediaPreviewScreen(viewModel.pendingMedia, title, compress, onSend = viewModel::sendPendingMedia, onDismiss = viewModel::cancelPendingMedia)
+        MediaPreviewScreen(
+            viewModel.pendingMedia, title, compress, viewModel.pendingSizes,
+            onSend = viewModel::sendPendingMedia, onDismiss = viewModel::cancelPendingMedia,
+        )
     }
     viewModel.menu?.let { menu ->
         MessageMenuOverlay(

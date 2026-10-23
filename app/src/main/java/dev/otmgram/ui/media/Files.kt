@@ -8,6 +8,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -28,6 +29,7 @@ import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
 import coil3.compose.AsyncImage
 import dev.otmgram.core.media.SoftwareFirstCodecSelector
 import dev.otmgram.data.FileRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.emptyFlow
 import org.drinkless.tdlib.TdApi
 import java.io.File
@@ -103,7 +105,14 @@ fun Minithumbnail(minithumbnail: TdApi.Minithumbnail?, modifier: Modifier = Modi
  */
 @OptIn(UnstableApi::class)
 @Composable
-fun LoopingVideo(path: String, modifier: Modifier = Modifier, muted: Boolean = true, onEnded: () -> Unit = {}) {
+fun LoopingVideo(
+    path: String,
+    modifier: Modifier = Modifier,
+    muted: Boolean = true,
+    onEnded: () -> Unit = {},
+    /** Called about 20 times a second with the played fraction, 0..1. */
+    onProgress: ((Float) -> Unit)? = null,
+) {
     val context = LocalContext.current
     val player = remember(path) { buildPlayer(context, path, softwareDecoders = true) }
     // Muted: loop silently. With sound: play once from the start, then report the end.
@@ -121,6 +130,17 @@ fun LoopingVideo(path: String, modifier: Modifier = Modifier, muted: Boolean = t
         onDispose { player.removeListener(listener) }
     }
     DisposableEffect(player) { onDispose { player.release() } }
+    if (onProgress != null) {
+        LaunchedEffect(player) {
+            while (true) {
+                val duration = player.duration
+                if (duration > 0) onProgress((player.currentPosition.toFloat() / duration).coerceIn(0f, 1f))
+                delay(PROGRESS_INTERVAL_MS)
+            }
+        }
+    }
     // A texture view, unlike a surface view, can be clipped, e.g. to a circle.
     PlayerSurface(player, modifier, surfaceType = SURFACE_TYPE_TEXTURE_VIEW)
 }
+
+private const val PROGRESS_INTERVAL_MS = 50L

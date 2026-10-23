@@ -94,6 +94,7 @@ fun MessageBubble(
                     onOpenMedia = if (selecting) onToggleSelected else onOpenMedia,
                     onPlayVoice = onPlayVoice,
                     onVideoNoteSound = onVideoNoteSound,
+                    onCancelUpload = if (message.status == MessageStatus.Sending && !selecting) onDiscard else null,
                 )
             }
         }
@@ -123,6 +124,7 @@ private fun Bubble(
     onOpenMedia: () -> Unit,
     onPlayVoice: (fileId: Int, path: String) -> Unit,
     onVideoNoteSound: () -> Unit,
+    onCancelUpload: (() -> Unit)?,
 ) {
     val outgoing = message.isOutgoing
     val media = message.media
@@ -180,6 +182,7 @@ private fun Bubble(
                 onLongClick = onLongClick,
                 onPlayVoice = onPlayVoice,
                 onVideoNoteSound = onVideoNoteSound,
+                onCancelUpload = onCancelUpload,
             )
         }
         if (message.text.isNotEmpty()) {

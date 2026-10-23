@@ -18,6 +18,9 @@ import javax.inject.Singleton
 import kotlin.math.max
 import kotlin.math.roundToInt
 
+/** Total size of picked media as it is, and roughly after compression. */
+data class SizeEstimate(val original: Long, val compressed: Long)
+
 /** Turns picked or recorded media into message content TDLib can send. */
 @Singleton
 class OutgoingMedia @Inject constructor(
@@ -46,6 +49,60 @@ class OutgoingMedia @Inject constructor(
             else -> null
         }
     }
+
+    /**
+     * How big the picked media is, and about how big it gets compressed: photos by their
+     * pixels after scaling, videos by their duration at the compressed bitrate. Nothing is
+     * actually compressed here.
+     */
+    suspend fun estimate(uris: List<Uri>): SizeEstimate = withContext(Dispatchers.IO) {
+        var original = 0L
+        var compressed = 0L
+        uris.forEach { uri ->
+            val size = fileSize(uri)
+            val type = context.contentResolver.getType(uri).orEmpty()
+            original += size
+            compressed += try {
+                when {
+                    type.startsWith("image/") -> estimatePhoto(uri, type, size)
+                    type.startsWith("video/") -> estimateVideo(uri, size)
+                    else -> size
+                }
+            } catch (e: Exception) {
+                size // Can't read it: assume it stays as it is.
+            }
+        }
+        SizeEstimate(original, compressed)
+    }
+
+    private fun estimatePhoto(uri: Uri, type: String, size: Long): Long {
+        var width = 0
+        var height = 0
+        ImageDecoder.decodeDrawable(ImageDecoder.createSource(context.contentResolver, uri)) { decoder, info, _ ->
+            width = info.size.width
+            height = info.size.height
+            decoder.setTargetSize(1, 1) // Only the header is needed.
+        }
+        if (type == "image/jpeg" && max(width, height) <= MAX_PHOTO_SIDE && size <= SMALL_PHOTO_BYTES) return size
+        val scale = minOf(1.0, MAX_PHOTO_SIDE.toDouble() / max(width, height))
+        return (width * height * scale * scale * JPEG_BYTES_PER_PIXEL).toLong()
+    }
+
+    private fun estimateVideo(uri: Uri, size: Long): Long = MediaMetadataRetriever().use { retriever ->
+        retriever.setDataSource(context, uri)
+        fun int(key: Int) = retriever.extractMetadata(key)?.toIntOrNull() ?: 0
+        val shortSide = minOf(int(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH), int(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT))
+        val worth = shortSide > MediaTranscoder.COMPRESSED_SHORT_SIDE ||
+            int(MediaMetadataRetriever.METADATA_KEY_BITRATE) > MediaTranscoder.COMPRESSED_BITRATE * 3 / 2
+        if (!worth) return size
+        val seconds = int(MediaMetadataRetriever.METADATA_KEY_DURATION) / 1000.0
+        minOf(size, (seconds * (MediaTranscoder.COMPRESSED_BITRATE + AUDIO_BITRATE) / 8).toLong())
+    }
+
+    private fun fileSize(uri: Uri): Long =
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getLong(0) else 0L
+        } ?: 0L
 
     /** Any file, sent as is under its own name. */
     suspend fun document(uri: Uri, caption: String = ""): TdApi.InputMessageContent = withContext(Dispatchers.IO) {
@@ -141,6 +198,12 @@ class OutgoingMedia @Inject constructor(
         const val MAX_PHOTO_SIDE = 2560
         const val SMALL_PHOTO_BYTES = 1_500_000L
         const val JPEG_QUALITY = 87
+
+        /** Typical for photos at [JPEG_QUALITY]; screenshots and flat images come out smaller. */
+        const val JPEG_BYTES_PER_PIXEL = 0.3
+
+        /** Roughly what the transcoder's AAC audio takes. */
+        const val AUDIO_BITRATE = 128_000
     }
 }
 

@@ -7,6 +7,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import android.annotation.SuppressLint
+import dev.otmgram.core.location.LocationSource
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.ui.chat.MessageMedia
 import dev.otmgram.ui.chat.toMedia
@@ -24,6 +26,7 @@ data class MapSender(val id: Long, val name: String, val photoFileId: Int?, val 
 class MapViewModel @Inject constructor(
     savedState: SavedStateHandle,
     private val td: TdClient,
+    private val locationSource: LocationSource,
 ) : ViewModel() {
 
     private val chatId: Long = checkNotNull(savedState["chatId"])
@@ -33,6 +36,21 @@ class MapViewModel @Inject constructor(
 
     /** The message's location; live locations update as the sender moves. */
     val location: StateFlow<MessageMedia.Location?> = _location.asStateFlow()
+
+    /** Your own position, for the distance; null until known or without permission. */
+    var myLocation by mutableStateOf<android.location.Location?>(null)
+        private set
+
+    /** The location is your own message: no distance to it. */
+    var isMine by mutableStateOf(false)
+        private set
+
+    /** The location permission must be granted. */
+    @SuppressLint("MissingPermission")
+    fun locateMe() {
+        myLocation = locationSource.lastKnown()
+        viewModelScope.launch { locationSource.current()?.let { myLocation = it } }
+    }
 
     /** Who shared the location, for the card under the map. */
     var sender by mutableStateOf<MapSender?>(null)
@@ -55,6 +73,7 @@ class MapViewModel @Inject constructor(
 
     private suspend fun reload() {
         val message = td.send(TdApi.GetMessage(chatId, messageId))
+        isMine = message.isOutgoing
         _location.value = message.toMedia() as? MessageMedia.Location
         if (sender == null) sender = senderOf(message)
     }
