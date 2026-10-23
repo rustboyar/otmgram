@@ -132,6 +132,7 @@ app/
 - TDLib's database and login are encrypted with a random 32-byte key (without one, TDLib uses a built-in key, i.e. none). The key is stored encrypted by an Android Keystore key, which never leaves the device (`core/td/DatabaseKey`)
 - Existing databases are encrypted once logged in; if a start fails with a key (stopped mid-switch), it opens without and encrypts again; if the key is lost, the local database is deleted and the app asks to log in again
 - Session backups (`scripts/session.sh`) include the key file, so encrypted ones only restore into the same installation
+- Release builds are signed with a dedicated key (`~/.local/share/otmgram/release.jks`, password in `local.properties`, both outside git): back both up. Android installs updates only with the same key, so losing it means reinstalling and logging in again
 
 ## Logging
 

@@ -19,6 +19,10 @@ val telegramApiId = localProperties.getProperty("telegram.apiId") ?: "0"
 val telegramApiHash = localProperties.getProperty("telegram.apiHash") ?: ""
 val telegramTestDc = localProperties.getProperty("telegram.testDc")?.toBoolean() ?: false
 
+// Release signing key, outside the repo (see local.properties); without it, the debug key.
+// Keep using the same key: Android only installs updates signed like the installed app.
+val releaseStoreFile = localProperties.getProperty("release.storeFile")?.let(::file)?.takeIf { it.exists() }
+
 android {
     namespace = "dev.otmgram"
     compileSdk = 37
@@ -38,6 +42,17 @@ android {
         buildConfigField("String", "TELEGRAM_API_HASH", "\"$telegramApiHash\"")
     }
 
+    signingConfigs {
+        if (releaseStoreFile != null) {
+            create("release") {
+                storeFile = releaseStoreFile
+                storePassword = localProperties.getProperty("release.storePassword")
+                keyAlias = localProperties.getProperty("release.keyAlias")
+                keyPassword = localProperties.getProperty("release.keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             // x86_64 for the emulator.
@@ -48,8 +63,7 @@ android {
             buildConfigField("boolean", "TELEGRAM_TEST_DC", "false")
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Personal sideload build: sign release with the debug key.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 
