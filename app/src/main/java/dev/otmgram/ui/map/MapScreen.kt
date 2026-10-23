@@ -1,14 +1,30 @@
 package dev.otmgram.ui.map
 
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.shadow
+import dev.otmgram.ui.theme.ChatAvatar
+import dev.otmgram.ui.theme.IconBtn
+import dev.otmgram.ui.theme.Otm
+import dev.otmgram.ui.theme.OtmIcons
+import dev.otmgram.ui.theme.OtmType
+import dev.otmgram.ui.theme.SoftButton
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -45,6 +61,7 @@ import org.maplibre.geojson.Point
 fun MapScreen(onBack: () -> Unit, viewModel: MapViewModel = hiltViewModel()) {
     val location by viewModel.location.collectAsStateWithLifecycle()
     val mapView = rememberMapViewWithLifecycle()
+    val context = LocalContext.current
     var loadedMap by remember { mutableStateOf<Pair<MapLibreMap, Style>?>(null) }
 
     LaunchedEffect(mapView) {
@@ -55,7 +72,7 @@ fun MapScreen(onBack: () -> Unit, viewModel: MapViewModel = hiltViewModel()) {
                 style.addLayer(
                     CircleLayer(PIN_LAYER, PIN_SOURCE).withProperties(
                         PropertyFactory.circleRadius(9f),
-                        PropertyFactory.circleColor("#E53935"),
+                        PropertyFactory.circleColor("#4A6B80"),
                         PropertyFactory.circleStrokeWidth(3f),
                         PropertyFactory.circleStrokeColor("#FFFFFF"),
                     ),
@@ -81,26 +98,57 @@ fun MapScreen(onBack: () -> Unit, viewModel: MapViewModel = hiltViewModel()) {
 
     Box(Modifier.fillMaxSize()) {
         AndroidView({ mapView }, Modifier.fillMaxSize().testTag("map"))
-        TextButton(
-            onClick = onBack,
+        IconBtn(
+            OtmIcons.Back, "Back", onBack,
             modifier = Modifier
-                .safeDrawingPadding()
-                .padding(8.dp)
-                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
-                .testTag("closeMap"),
-        ) { Text("←") }
-        location?.live?.let { live ->
-            Text(
-                liveStatus(live, rememberNow()),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .safeDrawingPadding()
-                    .padding(16.dp)
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                    .testTag("mapLiveStatus"),
-            )
+                .statusBarsPadding()
+                .padding(12.dp)
+                .shadow(4.dp, CircleShape),
+            background = Otm.Sheet,
+            tag = "closeMap",
+        )
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .shadow(12.dp, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                .background(Otm.Sheet, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                .navigationBarsPadding()
+                .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            val sender = viewModel.sender
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                sender?.let { ChatAvatar(it.id, it.name, it.photoFileId, it.minithumbnail) }
+                Column(Modifier.weight(1f)) {
+                    Text(sender?.name.orEmpty(), style = OtmType.Name, color = Otm.Ink)
+                    Text(
+                        location?.live?.let { liveStatus(it, rememberNow()) } ?: "Location",
+                        style = OtmType.Secondary,
+                        color = if (location?.live != null) Otm.SlateDeep else Otm.InkSoft,
+                        modifier = Modifier.testTag("mapLiveStatus"),
+                    )
+                }
+            }
+            location?.let { point ->
+                SoftButton(
+                    "Open in another app",
+                    onClick = { openInMaps(context, point.latitude, point.longitude, sender?.name) },
+                    modifier = Modifier.fillMaxWidth().testTag("openInMaps"),
+                )
+            }
         }
+    }
+}
+
+/** Hands the point to whichever maps app is installed. */
+private fun openInMaps(context: Context, latitude: Double, longitude: Double, label: String?) {
+    val query = "$latitude,$longitude" + (label?.let { "(${Uri.encode(it)})" } ?: "")
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:$latitude,$longitude?q=$query"))
+    try {
+        context.startActivity(Intent.createChooser(intent, null))
+    } catch (e: ActivityNotFoundException) {
+        Toast.makeText(context, "No maps app installed", Toast.LENGTH_SHORT).show()
     }
 }
 

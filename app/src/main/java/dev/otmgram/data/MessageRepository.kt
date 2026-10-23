@@ -152,13 +152,19 @@ class ChatSession internal constructor(
         td.send(TdApi.EditMessageCaption(chatId, messageId, null, TdApi.FormattedText(caption, emptyArray()), false))
     }
 
-    /** [forEveryone] deletes the message for all chat members, not just for you. */
-    suspend fun delete(messageId: Long, forEveryone: Boolean) {
-        td.send(TdApi.DeleteMessages(chatId, longArrayOf(messageId), forEveryone))
+    /** [forEveryone] deletes the messages for all chat members, not just for you. */
+    suspend fun delete(messageIds: List<Long>, forEveryone: Boolean) {
+        td.send(TdApi.DeleteMessages(chatId, messageIds.toLongArray(), forEveryone))
     }
 
-    suspend fun forward(messageId: Long, toChatId: Long) {
-        td.send(TdApi.ForwardMessages(toChatId, null, chatId, longArrayOf(messageId), null, false, false))
+    /** Forwards messages in chat order. */
+    suspend fun forward(messageIds: List<Long>, toChatId: Long) {
+        td.send(TdApi.ForwardMessages(toChatId, null, chatId, messageIds.sorted().toLongArray(), null, false, false))
+    }
+
+    /** Sends failed messages again. */
+    suspend fun resend(messageIds: List<Long>) {
+        td.send(TdApi.ResendMessages(chatId, messageIds.toLongArray(), null, 0))
     }
 
     suspend fun properties(messageId: Long): TdApi.MessageProperties =

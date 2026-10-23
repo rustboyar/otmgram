@@ -31,6 +31,11 @@ class FileRepository @Inject constructor(
         td.send(TdApi.DownloadFile(fileId, PRIORITY_VIEWER, 0, 0, false))
     }
 
+    /** Stops a download started with [startDownload]; the part already loaded is kept. */
+    suspend fun cancelDownload(fileId: Int) {
+        td.send(TdApi.CancelDownloadFile(fileId, false))
+    }
+
     /** Downloads [fileId] completely and returns it. */
     suspend fun downloadNow(fileId: Int): TdApi.File =
         td.send(TdApi.DownloadFile(fileId, PRIORITY_VIEWER, 0, 0, true))

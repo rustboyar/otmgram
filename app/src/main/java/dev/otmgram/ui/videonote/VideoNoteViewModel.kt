@@ -8,10 +8,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.otmgram.core.media.MediaTranscoder
+import dev.otmgram.core.td.TdClient
 import dev.otmgram.data.MessageRepository
+import dev.otmgram.data.isSavedMessages
 import dev.otmgram.data.OutgoingFiles
 import dev.otmgram.data.OutgoingMedia
 import kotlinx.coroutines.launch
+import org.drinkless.tdlib.TdApi
 import java.io.File
 import javax.inject.Inject
 
@@ -24,9 +27,21 @@ class VideoNoteViewModel @Inject constructor(
     private val transcoder: MediaTranscoder,
     private val outgoing: OutgoingMedia,
     private val files: OutgoingFiles,
+    td: TdClient,
 ) : ViewModel() {
 
     private val chatId: Long = checkNotNull(savedState["chatId"])
+
+    /** Who the circle goes to, shown above the camera. */
+    var chatTitle by mutableStateOf("")
+        private set
+
+    init {
+        viewModelScope.launch {
+            val chat = td.send(TdApi.GetChat(chatId))
+            chatTitle = if (chat.isSavedMessages(td.send(TdApi.GetMe()).id)) "Saved Messages" else chat.title
+        }
+    }
 
     var state by mutableStateOf(VideoNoteState.Recording)
         private set

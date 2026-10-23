@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.otmgram.core.td.TdClient
+import dev.otmgram.core.td.TdException
 import dev.otmgram.di.ApplicationScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -24,7 +25,7 @@ private val SELECTED_FOLDER_ID = intPreferencesKey("selected_folder_id")
 @Singleton
 class FolderRepository @Inject constructor(
     @ApplicationContext private val context: Context,
-    td: TdClient,
+    private val td: TdClient,
     @ApplicationScope scope: CoroutineScope,
 ) {
     /** All chat folders, or null until TDLib sends them. */
@@ -44,6 +45,13 @@ class FolderRepository @Inject constructor(
                 }
             }
         }
+    }
+
+    /** How many chats the folder has, channels included; null if TDLib can't tell. */
+    suspend fun chatCount(id: Int): Int? = try {
+        td.send(TdApi.GetChatFolderChatCount(td.send(TdApi.GetChatFolder(id)))).count
+    } catch (e: TdException) {
+        null
     }
 
     suspend fun selectFolder(id: Int) {

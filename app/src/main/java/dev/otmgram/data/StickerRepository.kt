@@ -5,8 +5,8 @@ import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** A tab of the sticker picker: recently used stickers, or an installed set. */
-data class StickerTab(val setId: Long?, val title: String)
+/** A tab of the sticker picker: recently used stickers, or an installed set with its [cover]. */
+data class StickerTab(val setId: Long?, val title: String, val cover: TdApi.Sticker? = null)
 
 @Singleton
 class StickerRepository @Inject constructor(
@@ -15,7 +15,7 @@ class StickerRepository @Inject constructor(
     /** "Recent" followed by the installed sticker sets. */
     suspend fun tabs(): List<StickerTab> {
         val sets = td.send(TdApi.GetInstalledStickerSets(TdApi.StickerTypeRegular())).sets
-        return listOf(StickerTab(null, "Recent")) + sets.map { StickerTab(it.id, it.title) }
+        return listOf(StickerTab(null, "Recent")) + sets.map { StickerTab(it.id, it.title, it.covers.firstOrNull()) }
     }
 
     suspend fun stickers(tab: StickerTab): List<TdApi.Sticker> =

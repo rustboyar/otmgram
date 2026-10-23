@@ -108,13 +108,16 @@ app/
 - Received files: bubble with name, size, progress; download only when tapped; open in another app (FileProvider); "Save to Downloads" in the message menu; audio files are shown as files
 
 ### M9 — Design
-- Design artifact in Claude: screen mockups and tokens (colours, type, spacing, shapes), starting from screenshots of the current screens
-- Translated by hand into the Compose theme and components (no code export)
-- Before M10, so the settings screen is built once in the new design
+- Design artifact in Claude ("Otmgram design", page "Otmgram · final"): every screen, plus colour, type, shape tokens and the icon
+- Direction "misty sunrise": warm paper with a faint grain, a sky band with slate ridges over the chat list, apricot bubbles for your messages, slate as the one accent, soft unread pills; Fraunces only for the folder name, Inter for everything else (both OFL, bundled, Latin + Cyrillic for Inter; Fraunces has no Cyrillic)
+- Light only, no colour or font customization
+- Built by hand in Compose: `ui/theme` (palette, type, line icons from the design's SVG paths, components: sky band, hero, buttons, pills, fields, generated pattern avatars for chats without a photo, sheets, dialogs), every screen restyled
+- Came with the design: Settings screen (account, log out; ⋮ opens it), offline/connecting line, mute icon, folder chat counts, code boxes with resend timer, show-password, chat subtitle (members, last seen), "N new since you left", postmark read marks, failed messages with Retry/Delete, floating message menu with Copy text and Select, multi-select with Forward/Delete, find-in-chat stepping through highlighted matches, attach sheet (voice moved there; the round button records circles), location sheet, full-screen send preview, viewer with sender, time, caption and Save, circle camera with progress ring and camera switch, map card with "Open in another app", sunrise launcher icon, notifications as "5 new in highhopes"
 
 ### M10 — Polish
-- Settings: storage usage, cache limit, logout
-- Error and offline states
+- Settings: how often to check (15 min / 30 min / 1 h / 3 h / never), Compress by default, storage usage by type, cache limit (`optimizeStorage`), clear downloaded media
+- From the design, not built yet: estimated size after compression in the send preview, swiping through an album in the viewer and forwarding from it, distance and "my location" on the map, a map preview in the location sheet, playback ring on video circles, upload progress with cancel on photos being sent
+- Error states beyond offline
 
 ## Open questions
 

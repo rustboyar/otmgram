@@ -47,7 +47,18 @@ import org.drinkless.tdlib.TdApi
 import java.io.File
 import javax.inject.Inject
 
-data class ChatHeader(val title: String, val isGroup: Boolean)
+data class ChatHeader(
+    val title: String,
+    val isGroup: Boolean,
+    /** "3 members", "last seen recently"; null if there's nothing to say. */
+    val subtitle: String?,
+    val photoFileId: Int?,
+    val minithumbnail: TdApi.Minithumbnail?,
+    val isSavedMessages: Boolean,
+)
+
+/** Where the unread messages began when the chat was opened. */
+data class UnreadMark(val afterMessageId: Long, val count: Int)
 
 enum class MessageStatus { Sending, Sent, Read, Failed }
 
@@ -99,9 +110,25 @@ data class MessageMenu(
     val canDeleteForEveryone: Boolean,
     /** Files can be saved to the device's Downloads folder. */
     val canSave: Boolean,
+    val canCopy: Boolean,
 )
 
-data class ForwardTarget(val chatId: Long, val title: String)
+/** Messages waiting for a delete confirmation, with what the user may choose. */
+data class DeleteRequest(
+    val messageIds: List<Long>,
+    /** Text of a single message, quoted in the dialog. */
+    val quote: String?,
+    val canDeleteForSelf: Boolean,
+    val canDeleteForEveryone: Boolean,
+)
+
+data class ForwardTarget(
+    val chatId: Long,
+    val title: String,
+    val photoFileId: Int?,
+    val minithumbnail: TdApi.Minithumbnail?,
+    val isSavedMessages: Boolean,
+)
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
@@ -146,12 +173,20 @@ class ChatViewModel @Inject constructor(
     var menu by mutableStateOf<MessageMenu?>(null)
         private set
 
-    /** Message waiting for a delete confirmation. */
-    var deleting by mutableStateOf<MessageMenu?>(null)
+    /** Messages waiting for a delete confirmation. */
+    var deleting by mutableStateOf<DeleteRequest?>(null)
         private set
 
-    /** Message to forward, with the folder chats it can go to. */
-    var forwarding by mutableStateOf<Pair<MessageItem, List<ForwardTarget>>?>(null)
+    /** Messages to forward, with the folder chats they can go to. */
+    var forwarding by mutableStateOf<Pair<List<Long>, List<ForwardTarget>>?>(null)
+        private set
+
+    /** Selected messages; selection mode is on while it isn't empty. */
+    var selection by mutableStateOf<Set<Long>>(emptySet())
+        private set
+
+    /** Unread messages when the chat was opened, for the "new since you left" line. */
+    var unreadMark by mutableStateOf<UnreadMark?>(null)
         private set
 
     /** One-time message: an error or a confirmation. */
@@ -162,8 +197,12 @@ class ChatViewModel @Inject constructor(
     var searchQuery by mutableStateOf<String?>(null)
         private set
 
-    /** Results for [searchQuery], or null while searching or not searching. */
+    /** Results for [searchQuery], newest first, or null while searching or not searching. */
     var searchResults by mutableStateOf<List<SearchResult>?>(null)
+        private set
+
+    /** Index in [searchResults] of the match shown. */
+    var searchIndex by mutableStateOf(0)
         private set
 
     /** Message to scroll to, consumed by the screen. */
@@ -191,9 +230,15 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             val chat = td.send(TdApi.GetChat(chatId))
             val myId = td.send(TdApi.GetMe()).id
+            val saved = chat.isSavedMessages(myId)
+            if (chat.unreadCount > 0) unreadMark = UnreadMark(chat.lastReadInboxMessageId, chat.unreadCount)
             _header.value = ChatHeader(
-                title = if (chat.isSavedMessages(myId)) "Saved Messages" else chat.title,
+                title = if (saved) "Saved Messages" else chat.title,
                 isGroup = chat.isGroup,
+                subtitle = if (saved) null else subtitle(chat),
+                photoFileId = chat.photo?.small?.id,
+                minithumbnail = chat.photo?.minithumbnail,
+                isSavedMessages = saved,
             )
         }
         viewModelScope.launch {
@@ -203,9 +248,12 @@ class ChatViewModel @Inject constructor(
                 delay(SEARCH_DELAY_MS)
                 try {
                     val names = session.history.value.senderNames
-                    searchResults = session.search(query.trim()).map {
+                    val results = session.search(query.trim()).map {
                         SearchResult(it.id, names[it.senderKey()], it.summary(), it.date)
                     }
+                    searchResults = results
+                    searchIndex = 0
+                    results.firstOrNull()?.let { show(it.messageId) }
                 } catch (e: TdException) {
                     notice = e.error.message
                 }
@@ -240,8 +288,25 @@ class ChatViewModel @Inject constructor(
         if (new.isNotEmpty()) action { session.markViewed(new) }
     }
 
+    /** "3 members", "online", "last seen recently". */
+    private suspend fun subtitle(chat: TdApi.Chat): String? = when (val type = chat.type) {
+        is TdApi.ChatTypeBasicGroup -> members(td.send(TdApi.GetBasicGroup(type.basicGroupId)).memberCount)
+        is TdApi.ChatTypeSupergroup -> members(td.send(TdApi.GetSupergroup(type.supergroupId)).memberCount)
+        is TdApi.ChatTypePrivate -> {
+            val user = td.send(TdApi.GetUser(type.userId))
+            if (user.type is TdApi.UserTypeBot) "bot" else lastSeen(user.status)
+        }
+        else -> null
+    }
+
+    private fun members(count: Int) = if (count <= 0) null else if (count == 1) "1 member" else "$count members"
+
     fun openMenu(message: MessageItem) {
         if (message.isService) return
+        if (selection.isNotEmpty()) {
+            toggleSelected(message)
+            return
+        }
         action {
             val properties = session.properties(message.id)
             val reactions = try {
@@ -258,6 +323,7 @@ class ChatViewModel @Inject constructor(
                 canDeleteForSelf = properties.canBeDeletedOnlyForSelf,
                 canDeleteForEveryone = properties.canBeDeletedForAllUsers,
                 canSave = message.media is MessageMedia.Document,
+                canCopy = message.text.isNotEmpty() && !message.isMediaPlaceholder,
             )
         }
     }
@@ -437,12 +503,21 @@ class ChatViewModel @Inject constructor(
 
     fun closeSearch() {
         searchQuery = null
+        searchResults = null
         searchQueries.value = ""
     }
 
-    /** Leaves search and scrolls to [messageId], loading older history as needed. */
-    fun jumpTo(messageId: Long) {
-        closeSearch()
+    /** Steps to an older (+1) or newer (-1) match. */
+    fun stepSearch(direction: Int) {
+        val results = searchResults ?: return
+        val index = (searchIndex + direction).coerceIn(0, results.lastIndex)
+        if (index == searchIndex) return
+        searchIndex = index
+        show(results[index].messageId)
+    }
+
+    /** Scrolls to [messageId], loading older history as needed. */
+    private fun show(messageId: Long) {
         action {
             if (session.loadUntil(messageId)) scrollTarget = messageId else notice = "Message not found"
         }
@@ -468,13 +543,66 @@ class ChatViewModel @Inject constructor(
 
     fun askDelete(menu: MessageMenu) {
         this.menu = null
-        deleting = menu
+        deleting = DeleteRequest(
+            messageIds = listOf(menu.message.id),
+            quote = menu.message.text.takeIf { it.isNotEmpty() && !menu.message.isMediaPlaceholder },
+            canDeleteForSelf = menu.canDeleteForSelf,
+            canDeleteForEveryone = menu.canDeleteForEveryone,
+        )
+    }
+
+    /** Asks to delete the selected messages; "for everyone" only if all of them allow it. */
+    fun askDeleteSelected() {
+        val ids = selection.toList()
+        action {
+            val properties = ids.map { session.properties(it) }
+            if (properties.none { it.canBeDeletedOnlyForSelf || it.canBeDeletedForAllUsers }) {
+                notice = "These messages can't be deleted"
+                return@action
+            }
+            deleting = DeleteRequest(
+                messageIds = ids.filterIndexed { i, _ -> properties[i].canBeDeletedOnlyForSelf || properties[i].canBeDeletedForAllUsers },
+                quote = null,
+                canDeleteForSelf = properties.any { it.canBeDeletedOnlyForSelf },
+                canDeleteForEveryone = properties.all { it.canBeDeletedForAllUsers },
+            )
+        }
     }
 
     fun delete(forEveryone: Boolean) {
-        val message = deleting?.message ?: return
+        val request = deleting ?: return
         deleting = null
-        action { session.delete(message.id, forEveryone) }
+        selection = emptySet()
+        action { session.delete(request.messageIds, forEveryone) }
+    }
+
+    /** Sends a failed message again. */
+    fun retry(message: MessageItem) = action { session.resend(listOf(message.id)) }
+
+    /** Deletes a message that failed to send; it exists only on this device. */
+    fun discard(message: MessageItem) = action { session.delete(listOf(message.id), forEveryone = false) }
+
+    /** Starts selecting messages, with [message] selected. */
+    fun select(message: MessageItem) {
+        menu = null
+        selection = setOf(message.id)
+    }
+
+    fun toggleSelected(message: MessageItem) {
+        if (message.isService) return
+        selection = if (message.id in selection) selection - message.id else selection + message.id
+    }
+
+    fun clearSelection() {
+        selection = emptySet()
+    }
+
+    /** Text of the selected messages, oldest first, for the clipboard. */
+    fun selectedText(): String {
+        val byId = messages.value.associateBy { it.id }
+        return selection.sorted().mapNotNull { byId[it] }
+            .filter { it.text.isNotEmpty() && !it.isMediaPlaceholder }
+            .joinToString("\n\n") { message -> listOfNotNull(message.senderName?.let { "$it:" }, message.text).joinToString(" ") }
     }
 
     fun cancelDelete() {
@@ -483,20 +611,33 @@ class ChatViewModel @Inject constructor(
 
     fun startForward(message: MessageItem) {
         menu = null
+        forward(listOf(message.id))
+    }
+
+    fun forwardSelected() = forward(selection.toList())
+
+    private fun forward(ids: List<Long>) {
         action {
             val folderId = folders.selectedFolderId.filterNotNull().first()
             val targets = chats.folderChats(folderId).first().map {
-                ForwardTarget(it.chat.id, if (it.isSavedMessages) "Saved Messages" else it.chat.title)
+                ForwardTarget(
+                    chatId = it.chat.id,
+                    title = if (it.isSavedMessages) "Saved Messages" else it.chat.title,
+                    photoFileId = it.chat.photo?.small?.id,
+                    minithumbnail = it.chat.photo?.minithumbnail,
+                    isSavedMessages = it.isSavedMessages,
+                )
             }
-            forwarding = message to targets
+            forwarding = ids to targets
         }
     }
 
     fun forward(target: ForwardTarget) {
-        val message = forwarding?.first ?: return
+        val ids = forwarding?.first ?: return
         forwarding = null
+        selection = emptySet()
         action {
-            session.forward(message.id, target.chatId)
+            session.forward(ids, target.chatId)
             notice = "Forwarded to ${target.title}"
         }
     }
@@ -521,6 +662,19 @@ class ChatViewModel @Inject constructor(
 }
 
 private const val SEARCH_DELAY_MS = 300L
+
+private fun lastSeen(status: TdApi.UserStatus?): String? = when (status) {
+    is TdApi.UserStatusOnline -> "online"
+    is TdApi.UserStatusOffline -> {
+        val time = java.time.Instant.ofEpochSecond(status.wasOnline.toLong()).atZone(java.time.ZoneId.systemDefault())
+        if (time.toLocalDate() == java.time.LocalDate.now()) "last seen at ${formatTime(status.wasOnline)}"
+        else "last seen ${time.format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM))}"
+    }
+    is TdApi.UserStatusRecently -> "last seen recently"
+    is TdApi.UserStatusLastWeek -> "last seen within a week"
+    is TdApi.UserStatusLastMonth -> "last seen within a month"
+    else -> null
+}
 
 /** Text messages, and media that can carry a caption. */
 private val MessageItem.hasEditableText: Boolean

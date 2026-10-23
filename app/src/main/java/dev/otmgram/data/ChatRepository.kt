@@ -31,6 +31,8 @@ data class FolderChat(
     val isSavedMessages: Boolean,
     /** In groups, who sent the last message (null for your own messages). */
     val lastSenderName: String?,
+    /** Notifications are off, for this chat or by the default for its kind. */
+    val isMuted: Boolean = false,
 )
 
 @Singleton
@@ -52,6 +54,10 @@ class ChatRepository @Inject constructor(
         .debounce(RELOAD_DELAY_MS)
         .mapLatest {
             val myId = td.send(TdApi.GetMe()).id
+            val mutedByDefault = mapOf(
+                false to (td.send(TdApi.GetScopeNotificationSettings(TdApi.NotificationSettingsScopePrivateChats())).muteFor > 0),
+                true to (td.send(TdApi.GetScopeNotificationSettings(TdApi.NotificationSettingsScopeGroupChats())).muteFor > 0),
+            )
             val ids = td.send(TdApi.GetChats(TdApi.ChatListFolder(folderId), MAX_CHATS)).chatIds
             ids.map { id ->
                 val chat = td.send(TdApi.GetChat(id))
@@ -59,9 +65,13 @@ class ChatRepository @Inject constructor(
                     chat = chat,
                     isSavedMessages = chat.isSavedMessages(myId),
                     lastSenderName = lastSenderName(chat),
+                    isMuted = chat.isMuted(mutedByDefault.getValue(chat.isGroup)),
                 )
             }
         }
+
+    private fun TdApi.Chat.isMuted(mutedByDefault: Boolean): Boolean =
+        if (notificationSettings.useDefaultMuteFor) mutedByDefault else notificationSettings.muteFor > 0
 
     private suspend fun lastSenderName(chat: TdApi.Chat): String? {
         val message = chat.lastMessage ?: return null

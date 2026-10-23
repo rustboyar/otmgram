@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -20,7 +21,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -42,6 +44,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.airbnb.lottie.compose.LottieAnimation
@@ -61,6 +64,9 @@ import dev.otmgram.ui.media.formatSize
 import dev.otmgram.ui.media.openFile
 import dev.otmgram.ui.media.rememberFile
 import dev.otmgram.ui.media.rememberFileState
+import dev.otmgram.ui.theme.Otm
+import dev.otmgram.ui.theme.OtmIcons
+import dev.otmgram.ui.theme.OtmType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -72,10 +78,15 @@ import java.util.zip.GZIPInputStream
 val MessageMedia.isBare: Boolean
     get() = this is MessageMedia.Sticker || this is MessageMedia.VideoNote
 
+/** Pictures fill the bubble up to a thin margin. */
+val MessageMedia.isFramed: Boolean
+    get() = this is MessageMedia.Photo || this is MessageMedia.Video || this is MessageMedia.Animation || this is MessageMedia.Location
+
 @Composable
 fun MediaContent(
     media: MessageMedia,
     audio: AudioState?,
+    outgoing: Boolean,
     onOpen: () -> Unit,
     /** The message menu: media handles taps, so it must pass long presses on. */
     onLongClick: () -> Unit,
@@ -89,7 +100,7 @@ fun MediaContent(
             modifier = Modifier
                 .width(MEDIA_WIDTH)
                 .aspectRatio(aspect(media.width, media.height))
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(13.dp))
                 .combinedClickable(onClick = onOpen, onLongClick = onLongClick)
                 .testTag("photo"),
         )
@@ -99,13 +110,13 @@ fun MediaContent(
             val modifier = Modifier
                 .width(MEDIA_WIDTH)
                 .aspectRatio(aspect(media.width, media.height))
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(13.dp))
             if (path != null) LoopingVideo(path, modifier) else Minithumbnail(media.minithumbnail, modifier)
         }
-        is MessageMedia.VoiceNote -> VoiceNote(media, audio, onPlayVoice, onLongClick)
+        is MessageMedia.VoiceNote -> VoiceNote(media, audio, outgoing, onPlayVoice, onLongClick)
         is MessageMedia.VideoNote -> VideoNote(media, onVideoNoteSound, onLongClick)
         is MessageMedia.Sticker -> StickerView(media, Modifier.size(STICKER_SIZE).testTag("sticker-${media.kind}"))
-        is MessageMedia.Location -> LocationPreview(media, onOpen, onLongClick)
+        is MessageMedia.Location -> LocationPreview(media, outgoing, onOpen, onLongClick)
         is MessageMedia.Document -> DocumentContent(media, onLongClick)
     }
 }
@@ -125,7 +136,8 @@ private fun DocumentContent(media: MessageMedia.Document, onLongClick: () -> Uni
             .combinedClickable(onLongClick = onLongClick) {
                 when {
                     done -> openFile(context, local.path, media.mimeType)
-                    !downloading -> scope.launch {
+                    downloading -> scope.launch { files.cancelDownload(media.fileId) }
+                    else -> scope.launch {
                         try {
                             files.startDownload(media.fileId)
                         } catch (e: TdException) {
@@ -134,32 +146,39 @@ private fun DocumentContent(media: MessageMedia.Document, onLongClick: () -> Uni
                     }
                 }
             }
+            .padding(vertical = 2.dp)
             .testTag("document"),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box(
-            Modifier.size(44.dp).background(MaterialTheme.colorScheme.primary, CircleShape),
+            Modifier.size(44.dp).clip(if (downloading) CircleShape else RoundedCornerShape(12.dp)).background(Otm.Haze),
             contentAlignment = Alignment.Center,
         ) {
+            if (downloading) {
+                val progress = if (media.size > 0) local.downloadedSize.toFloat() / media.size else 0f
+                CircularProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.matchParentSize().padding(2.dp),
+                    color = Otm.Slate,
+                    trackColor = Otm.Slate.copy(alpha = 0.18f),
+                    strokeWidth = 3.dp,
+                )
+                Icon(OtmIcons.Close, "Cancel download", tint = Otm.SlateDeep, modifier = Modifier.size(16.dp))
+            } else {
+                Icon(if (done) OtmIcons.File else OtmIcons.Download, null, tint = Otm.SlateDeep, modifier = Modifier.size(22.dp))
+            }
+        }
+        Column(Modifier.weight(1f, fill = false)) {
+            Text(media.name, style = OtmType.Body.copy(fontWeight = FontWeight.Medium), color = Otm.Ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
                 when {
-                    done -> "📄"
-                    downloading -> "…"
-                    else -> "⬇"
+                    downloading -> "${formatSize(local.downloadedSize)} of ${formatSize(media.size)}"
+                    done -> "${formatSize(media.size)} · tap to open"
+                    else -> "${formatSize(media.size)} · tap to download"
                 },
-                color = MaterialTheme.colorScheme.onPrimary,
-            )
-        }
-        Column {
-            Text(media.name, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(
-                if (downloading && media.size > 0) {
-                    "${local.downloadedSize * 100 / media.size}% of ${formatSize(media.size)}"
-                } else {
-                    formatSize(media.size)
-                },
-                style = MaterialTheme.typography.labelMedium,
+                style = OtmType.Secondary,
+                color = Otm.InkSoft,
                 modifier = Modifier.testTag("documentStatus"),
             )
         }
@@ -167,7 +186,7 @@ private fun DocumentContent(media: MessageMedia.Document, onLongClick: () -> Uni
 }
 
 @Composable
-private fun LocationPreview(media: MessageMedia.Location, onOpen: () -> Unit, onLongClick: () -> Unit) {
+private fun LocationPreview(media: MessageMedia.Location, outgoing: Boolean, onOpen: () -> Unit, onLongClick: () -> Unit) {
     val context = LocalContext.current
     val density = LocalDensity.current.density
     val map by produceState<ImageBitmap?>(null, media.latitude, media.longitude) {
@@ -180,20 +199,39 @@ private fun LocationPreview(media: MessageMedia.Location, onOpen: () -> Unit, on
             modifier = Modifier
                 .width(MAP_WIDTH_DP.dp)
                 .height(MAP_HEIGHT_DP.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                .clip(RoundedCornerShape(13.dp))
+                .background(Color(0xFFEFEDE6)),
             contentAlignment = Alignment.Center,
         ) {
             map?.let { Image(it, contentDescription = null, modifier = Modifier.matchParentSize()) }
-            Text("📍", style = MaterialTheme.typography.headlineMedium)
+            MapPin()
         }
-        media.live?.let { live ->
-            Text(
-                liveStatus(live, rememberNow()),
-                style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.padding(top = 4.dp).testTag("liveStatus"),
-            )
+        val live = media.live
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 7.dp, end = 7.dp, top = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            if (live != null) {
+                Text(
+                    liveStatus(live, rememberNow()),
+                    style = OtmType.Time.copy(fontWeight = FontWeight.SemiBold),
+                    color = Otm.SlateDeep,
+                    modifier = Modifier.testTag("liveStatus"),
+                )
+            } else {
+                Text("Location", style = OtmType.Time, color = Color(0xFF56626B))
+            }
         }
+    }
+}
+
+/** A slate dot with a soft halo, where the location is. */
+@Composable
+fun MapPin(modifier: Modifier = Modifier) {
+    Canvas(modifier.size(44.dp)) {
+        drawCircle(Otm.Slate.copy(alpha = 0.18f))
+        drawCircle(Color.White, radius = 12.dp.toPx())
+        drawCircle(Otm.Slate, radius = 9.dp.toPx())
     }
 }
 
@@ -213,7 +251,7 @@ fun liveStatus(live: MessageMedia.LiveInfo, now: Int): String {
     if (now >= live.expiresAt) return "Live location ended"
     val minutes = (now - live.updatedAt).coerceAtLeast(0) / 60
     val updated = if (minutes == 0) "updated just now" else "updated $minutes min ago"
-    return "Live location · $updated"
+    return "Live · $updated"
 }
 
 @Composable
@@ -230,12 +268,9 @@ private fun VideoPreview(media: MessageMedia.Video, onOpen: () -> Unit, onLongCl
         contentAlignment = Alignment.Center,
     ) {
         TdImage(media.thumbnailFileId, media.minithumbnail, Modifier.matchParentSize())
-        Text(
-            "▶",
-            color = Color.White,
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.background(Color.Black.copy(alpha = 0.5f), CircleShape).padding(12.dp),
-        )
+        Box(Modifier.size(48.dp).background(Otm.Sheet.copy(alpha = 0.88f), CircleShape), contentAlignment = Alignment.Center) {
+            Icon(OtmIcons.Play, "Play video", tint = Otm.Ink, modifier = Modifier.size(18.dp))
+        }
         val local = file?.local
         val progress = if (local == null || local.isDownloadingCompleted || file.size == 0L) {
             null
@@ -247,48 +282,60 @@ private fun VideoPreview(media: MessageMedia.Video, onOpen: () -> Unit, onLongCl
 }
 
 @Composable
-private fun VoiceNote(media: MessageMedia.VoiceNote, audio: AudioState?, onPlay: (Int, String) -> Unit, onLongClick: () -> Unit) {
+private fun VoiceNote(
+    media: MessageMedia.VoiceNote,
+    audio: AudioState?,
+    outgoing: Boolean,
+    onPlay: (Int, String) -> Unit,
+    onLongClick: () -> Unit,
+) {
     val path = rememberDownloadedPath(media.fileId)
     val current = audio?.takeIf { it.fileId == media.fileId }
     val progress = if (current != null && current.durationMs > 0) current.positionMs.toFloat() / current.durationMs else 0f
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Box(
             modifier = Modifier
                 .size(40.dp)
-                .background(MaterialTheme.colorScheme.primary, CircleShape)
+                .clip(CircleShape)
+                .background(if (outgoing) Color(0xFFFBF1E7) else Otm.Haze)
                 .combinedClickable(enabled = path != null, onLongClick = onLongClick) { path?.let { onPlay(media.fileId, it) } }
                 .testTag("playVoice"),
             contentAlignment = Alignment.Center,
         ) {
+            val tint = if (outgoing) Color(0xFF8A5A3C) else Otm.SlateDeep
+            when {
+                path == null -> CircularProgressIndicator(Modifier.size(18.dp), color = tint, strokeWidth = 2.dp)
+                current?.isPlaying == true -> Icon(OtmIcons.Pause, "Pause", tint = tint, modifier = Modifier.size(16.dp))
+                else -> Icon(OtmIcons.Play, "Play voice message", tint = tint, modifier = Modifier.size(16.dp))
+            }
+        }
+        Column {
+            Waveform(
+                media.waveform,
+                progress,
+                played = if (outgoing) Color(0xFF8A5A3C) else Otm.Slate,
+                rest = if (outgoing) Otm.ApricotDeep else Otm.RidgeLight,
+                modifier = Modifier.width(140.dp).height(24.dp),
+            )
             Text(
-                when {
-                    path == null -> "…"
-                    current?.isPlaying == true -> "❚❚"
-                    else -> "▶"
-                },
-                color = MaterialTheme.colorScheme.onPrimary,
+                formatDuration(if (current != null) (current.positionMs / 1000).toInt() else media.duration),
+                style = OtmType.Time,
+                color = Color(0xFF56626B),
             )
         }
-        Waveform(media.waveform, progress, Modifier.width(140.dp).height(28.dp))
-        Text(
-            formatDuration(if (current != null) (current.positionMs / 1000).toInt() else media.duration),
-            style = MaterialTheme.typography.labelMedium,
-        )
     }
 }
 
 @Composable
-private fun Waveform(levels: List<Int>, progress: Float, modifier: Modifier) {
-    val played = MaterialTheme.colorScheme.primary
-    val rest = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-    val bars = remember(levels) { resample(levels.ifEmpty { listOf(0) }, WAVEFORM_BARS) }
+fun Waveform(levels: List<Int>, progress: Float, played: Color, rest: Color, modifier: Modifier, bars: Int = WAVEFORM_BARS) {
+    val samples = remember(levels, bars) { resample(levels.ifEmpty { listOf(0) }, bars) }
     Canvas(modifier) {
-        val step = size.width / bars.size
+        val step = size.width / samples.size
         val barWidth = step * 0.6f
-        bars.forEachIndexed { i, level ->
+        samples.forEachIndexed { i, level ->
             val height = size.height * (0.15f + 0.85f * level / 31f)
             drawRoundRect(
-                color = if ((i + 0.5f) / bars.size <= progress) played else rest,
+                color = if ((i + 0.5f) / samples.size <= progress) played else rest,
                 topLeft = Offset(i * step, (size.height - height) / 2),
                 size = Size(barWidth, height),
                 cornerRadius = CornerRadius(barWidth / 2),
@@ -316,7 +363,14 @@ private fun VideoNote(media: MessageMedia.VideoNote, onSound: () -> Unit, onLong
         } else {
             TdImage(media.thumbnailFileId, media.minithumbnail, Modifier.matchParentSize())
         }
-        Label(formatDuration(media.duration) + if (withSound) "" else " 🔇", Modifier.align(Alignment.BottomCenter))
+        Label(formatDuration(media.duration), Modifier.align(Alignment.BottomCenter))
+        if (!withSound) {
+            Icon(
+                OtmIcons.Muted, "Sound off",
+                tint = Color.White,
+                modifier = Modifier.align(Alignment.TopEnd).padding(14.dp).size(26.dp).background(Otm.Ink.copy(alpha = 0.45f), CircleShape).padding(5.dp),
+            )
+        }
     }
 }
 
@@ -353,11 +407,11 @@ private fun Label(text: String, modifier: Modifier) {
     Text(
         text,
         color = Color.White,
-        style = MaterialTheme.typography.labelSmall,
+        style = OtmType.Time,
         modifier = modifier
-            .padding(6.dp)
-            .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-            .padding(horizontal = 6.dp, vertical = 2.dp),
+            .padding(8.dp)
+            .background(Otm.Ink.copy(alpha = 0.55f), RoundedCornerShape(10.dp))
+            .padding(horizontal = 8.dp, vertical = 2.dp),
     )
 }
 
@@ -372,7 +426,7 @@ fun formatDuration(seconds: Int): String = "%d:%02d".format(seconds / 60, second
 
 private val MEDIA_WIDTH = 260.dp
 private const val MAP_WIDTH_DP = 260
-private const val MAP_HEIGHT_DP = 150
-private val VIDEO_NOTE_SIZE = 200.dp
-private val STICKER_SIZE = 160.dp
-private const val WAVEFORM_BARS = 40
+private const val MAP_HEIGHT_DP = 140
+private val VIDEO_NOTE_SIZE = 190.dp
+private val STICKER_SIZE = 140.dp
+private const val WAVEFORM_BARS = 32

@@ -4,42 +4,38 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -47,31 +43,42 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.testTagsAsResourceId
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import dev.otmgram.core.location.LiveLocationSharing
-import dev.otmgram.core.location.LiveShare
-import dev.otmgram.core.media.RecorderState
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.otmgram.ui.auth.LoadingScreen
+import dev.otmgram.core.location.LiveShare
+import dev.otmgram.core.media.RecorderState
+import dev.otmgram.ui.theme.Banner
+import dev.otmgram.ui.theme.ChatAvatar
+import dev.otmgram.ui.theme.Hairline
+import dev.otmgram.ui.theme.IconBtn
+import dev.otmgram.ui.theme.Otm
+import dev.otmgram.ui.theme.OtmField
+import dev.otmgram.ui.theme.OtmIcons
+import dev.otmgram.ui.theme.OtmType
+import dev.otmgram.ui.theme.ScreenBar
+import dev.otmgram.ui.theme.SoftButton
+import dev.otmgram.ui.theme.paper
 import kotlinx.coroutines.flow.distinctUntilChanged
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     onBack: () -> Unit,
@@ -85,10 +92,20 @@ fun ChatScreen(
     val audio by viewModel.audio.collectAsStateWithLifecycle()
     val recording by viewModel.recording.collectAsStateWithLifecycle()
     val liveShare by viewModel.liveShare.collectAsStateWithLifecycle()
-    var choosingLivePeriod by rememberSaveable { mutableStateOf(false) }
+    var attaching by rememberSaveable { mutableStateOf(false) }
+    var choosingLocation by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val snackbar = remember { SnackbarHostState() }
-    val rows = remember(messages) { buildRows(messages) }
+    val unreadMark = viewModel.unreadMark
+    val rows = remember(messages, unreadMark) { buildRows(messages, unreadMark) }
+    val selection = viewModel.selection
+    val selecting = selection.isNotEmpty()
+    val searching = viewModel.searchQuery != null
+    val clipboard = LocalClipboardManager.current
+    val title = header?.title.orEmpty()
+
+    BackHandler(enabled = selecting, onBack = viewModel::clearSelection)
+    BackHandler(enabled = searching && !selecting, onBack = viewModel::closeSearch)
 
     // Load older messages when scrolled close to the oldest loaded one.
     LaunchedEffect(listState) {
@@ -118,7 +135,8 @@ fun ChatScreen(
         LaunchedEffect(target, rows) {
             val index = rows.indexOfFirst { it is ListRow.Message && it.message.id == target }
             if (index >= 0) {
-                listState.scrollToItem(index)
+                // Center-ish: leave room above the match.
+                listState.scrollToItem(index, scrollOffset = -listState.layoutInfo.viewportSize.height / 3)
                 viewModel.scrolled()
             }
         }
@@ -130,206 +148,235 @@ fun ChatScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            val query = viewModel.searchQuery
-            if (query != null) {
-                SearchBar(query, onQueryChange = viewModel::setSearch, onClose = viewModel::closeSearch)
-            } else {
-                TopAppBar(
-                    title = { Text(header?.title.orEmpty()) },
-                    navigationIcon = {
-                        TextButton(onClick = onBack, modifier = Modifier.testTag("back")) { Text("←") }
-                    },
-                    actions = {
-                        TextButton(onClick = viewModel::startSearch, modifier = Modifier.testTag("search")) {
-                            Text("Search")
-                        }
+    val context = LocalContext.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments(), viewModel::pickedFiles)
+    val pickMedia = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MAX_PICKED_MEDIA), viewModel::pickedMedia)
+    val requestLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+        if (result.values.any { it }) viewModel.sendCurrentLocation()
+    }
+    var pendingLivePeriod by rememberSaveable { mutableStateOf<Int?>(null) }
+    val requestLiveLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+        val period = pendingLivePeriod
+        val located = result.filterKeys { it != Manifest.permission.POST_NOTIFICATIONS }.values.any { it } || hasLocationPermission(context)
+        if (period != null && located) viewModel.startLiveLocation(period)
+        pendingLivePeriod = null
+    }
+    val requestMicrophone = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) viewModel.startVoice()
+    }
+
+    Box(Modifier.fillMaxSize().paper()) {
+        Column(Modifier.fillMaxSize().imePadding()) {
+            when {
+                selecting -> SelectionBar(
+                    count = selection.size,
+                    onCancel = viewModel::clearSelection,
+                    onCopy = {
+                        clipboard.setText(AnnotatedString(viewModel.selectedText()))
+                        viewModel.clearSelection()
                     },
                 )
+                searching -> FindBar(viewModel.searchQuery.orEmpty(), viewModel::setSearch, viewModel::closeSearch)
+                else -> ScreenBar(
+                    title = title,
+                    subtitle = header?.subtitle,
+                    onBack = onBack,
+                    leading = header?.let { h ->
+                        { ChatAvatar(viewModel.chatId, h.title, h.photoFileId, h.minithumbnail, size = 38.dp, savedMessages = h.isSavedMessages) }
+                    },
+                    actions = { IconBtn(OtmIcons.Search, "Find in this chat", viewModel::startSearch, tag = "search") },
+                )
             }
-        },
-        snackbarHost = { SnackbarHost(snackbar) },
-    ) { padding ->
-        // The scaffold padding already includes the navigation bar, which the keyboard inset overlaps.
-        Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding()) {
-            if (viewModel.searchQuery != null) {
-                SearchResults(viewModel.searchQuery.orEmpty(), viewModel.searchResults, onClick = viewModel::jumpTo)
-                return@Column
+            liveShare?.takeIf { it.chatId == viewModel.chatId }?.let { share ->
+                LiveShareBanner(share, onStop = viewModel::stopLiveLocation)
             }
+            if (viewModel.preparingMedia) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).testTag("preparing"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Preparing media…", style = OtmType.Secondary, color = Otm.InkSoft)
+                    LinearProgressIndicator(Modifier.fillMaxWidth(), color = Otm.Slate, trackColor = Otm.Haze)
+                }
+            }
+
+            val results = viewModel.searchResults
+            val resultIds = remember(results) { results?.map { it.messageId }?.toSet().orEmpty() }
+            val currentMatch = results?.getOrNull(viewModel.searchIndex)?.messageId
             LazyColumn(
                 state = listState,
                 reverseLayout = true,
                 modifier = Modifier.weight(1f).fillMaxWidth().testTag("messages"),
                 verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Bottom),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 10.dp),
             ) {
                 items(rows, key = { it.key }) { row ->
                     when (row) {
-                        is ListRow.Day -> DayHeader(row.date)
+                        is ListRow.Day -> Divider(dayLabel(row.date))
+                        is ListRow.Unread -> Divider(
+                            if (row.count == 1) "1 new since you left" else "${row.count} new since you left",
+                            color = Otm.Slate,
+                            line = Otm.RidgeLight,
+                        )
                         is ListRow.Message -> if (row.message.isService) {
                             ServiceNote(row.message.text)
                         } else {
+                            val message = row.message
                             MessageBubble(
-                                row.message,
+                                message,
                                 audio = audio,
-                                onLongClick = { viewModel.openMenu(row.message) },
-                                onReactionClick = { viewModel.toggleReaction(row.message, it) },
+                                onLongClick = { viewModel.openMenu(message) },
+                                onReactionClick = { viewModel.toggleReaction(message, it) },
                                 onOpenMedia = {
-                                    if (row.message.media is MessageMedia.Location) {
-                                        onOpenMap(viewModel.chatId, row.message.id)
+                                    if (message.media is MessageMedia.Location) {
+                                        onOpenMap(viewModel.chatId, message.id)
                                     } else {
-                                        onOpenMedia(viewModel.chatId, row.message.id)
+                                        onOpenMedia(viewModel.chatId, message.id)
                                     }
                                 },
-                                onPlayVoice = { fileId, path -> viewModel.playVoice(row.message, fileId, path) },
-                                onVideoNoteSound = { viewModel.markContentOpened(row.message) },
+                                onPlayVoice = { fileId, path -> viewModel.playVoice(message, fileId, path) },
+                                onVideoNoteSound = { viewModel.markContentOpened(message) },
+                                highlight = if (searching && message.id in resultIds) {
+                                    Highlight(viewModel.searchQuery.orEmpty(), current = message.id == currentMatch)
+                                } else {
+                                    null
+                                },
+                                selecting = selecting,
+                                selected = message.id in selection,
+                                onToggleSelected = { viewModel.toggleSelected(message) },
+                                onRetry = { viewModel.retry(message) },
+                                onDiscard = { viewModel.discard(message) },
                             )
                         }
                     }
                 }
             }
-            val keyboard = LocalSoftwareKeyboardController.current
-            val pickFiles = rememberLauncherForActivityResult(
-                ActivityResultContracts.OpenMultipleDocuments(),
-                viewModel::pickedFiles,
-            )
-            val pickMedia = rememberLauncherForActivityResult(
-                ActivityResultContracts.PickMultipleVisualMedia(MAX_PICKED_MEDIA),
-                viewModel::pickedMedia,
-            )
-            val context = LocalContext.current
-            val requestLocation = rememberLauncherForActivityResult(
-                ActivityResultContracts.RequestMultiplePermissions(),
-            ) { result -> if (result.values.any { it }) viewModel.sendCurrentLocation() }
-            var pendingLivePeriod by rememberSaveable { mutableStateOf<Int?>(null) }
-            val requestLiveLocation = rememberLauncherForActivityResult(
-                ActivityResultContracts.RequestMultiplePermissions(),
-            ) { result ->
-                val period = pendingLivePeriod
-                val located = result.filterKeys { it != Manifest.permission.POST_NOTIFICATIONS }.values.any { it } ||
-                    hasLocationPermission(context)
-                if (period != null && located) viewModel.startLiveLocation(period)
-                pendingLivePeriod = null
-            }
-            if (viewModel.preparingMedia) {
-                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).testTag("preparing")) {
-                    Text("Preparing media…", style = MaterialTheme.typography.labelMedium)
-                    LinearProgressIndicator(Modifier.fillMaxWidth())
-                }
-            }
-            liveShare?.takeIf { it.chatId == viewModel.chatId }?.let { share ->
-                LiveShareBanner(share, onStop = viewModel::stopLiveLocation)
-            }
-            if (choosingLivePeriod) {
-                LivePeriodDialog(
-                    onChoose = { period ->
-                        choosingLivePeriod = false
-                        val needed = buildList {
-                            if (!hasLocationPermission(context)) {
-                                add(Manifest.permission.ACCESS_FINE_LOCATION)
-                                add(Manifest.permission.ACCESS_COARSE_LOCATION)
-                            }
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-                                PackageManager.PERMISSION_GRANTED
-                            ) {
-                                add(Manifest.permission.POST_NOTIFICATIONS)
-                            }
-                        }
-                        if (needed.isEmpty()) {
-                            viewModel.startLiveLocation(period)
-                        } else {
-                            pendingLivePeriod = period
-                            requestLiveLocation.launch(needed.toTypedArray())
-                        }
-                    },
-                    onDismiss = { choosingLivePeriod = false },
-                )
-            }
-            val requestMicrophone = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-                if (granted) viewModel.startVoice()
-            }
+
             val current = recording
-            if (current != null) {
-                RecordingBar(current, onCancel = viewModel::cancelVoice, onSend = viewModel::sendVoice)
-            } else {
-                InputBar(
+            when {
+                selecting -> SelectionActions(onForward = viewModel::forwardSelected, onDelete = viewModel::askDeleteSelected)
+                searching -> FindStepper(results, viewModel.searchIndex, viewModel.searchQuery.orEmpty(), onStep = viewModel::stepSearch)
+                current != null -> RecordingBar(current, onCancel = viewModel::cancelVoice, onSend = viewModel::sendVoice)
+                else -> InputBar(
                     composer = viewModel.composer,
+                    chatTitle = title,
+                    stickersOpen = viewModel.stickerTabs != null,
                     onCancel = viewModel::cancelComposer,
                     onSend = viewModel::send,
                     onStickers = {
                         keyboard?.hide()
                         viewModel.toggleStickers()
                     },
-                    onPickMedia = {
-                        pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
-                    },
-                    onShareLiveLocation = { choosingLivePeriod = true },
-                    onPickFiles = { pickFiles.launch(arrayOf("*/*")) },
-                    onSendLocation = {
-                        if (hasLocationPermission(context)) {
-                            viewModel.sendCurrentLocation()
-                        } else {
-                            requestLocation.launch(
-                                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
-                            )
-                        }
+                    onAttach = {
+                        keyboard?.hide()
+                        attaching = true
                     },
                     onRecordVideoNote = { onRecordVideoNote(viewModel.chatId) },
-                    onRecord = {
-                        val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
-                            PackageManager.PERMISSION_GRANTED
-                        if (granted) viewModel.startVoice() else requestMicrophone.launch(Manifest.permission.RECORD_AUDIO)
-                    },
                 )
             }
-            viewModel.stickerTabs?.let { tabs ->
-                StickerPicker(
-                    tabs = tabs,
-                    selected = viewModel.selectedStickerTab,
-                    stickers = viewModel.stickers,
-                    onSelectTab = viewModel::selectStickerTab,
-                    onSend = viewModel::sendSticker,
-                )
+            if (!selecting && !searching && current == null) {
+                viewModel.stickerTabs?.let { tabs ->
+                    StickerPicker(
+                        tabs = tabs,
+                        selected = viewModel.selectedStickerTab,
+                        stickers = viewModel.stickers,
+                        onSelectTab = viewModel::selectStickerTab,
+                        onSend = viewModel::sendSticker,
+                    )
+                }
             }
+        }
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 72.dp)) {
+            Snackbar(it, containerColor = Otm.Ink, contentColor = Otm.Paper, shape = RoundedCornerShape(14.dp))
         }
     }
 
-    if (viewModel.pendingFiles.isNotEmpty()) {
-        FilesPreviewDialog(
-            uris = viewModel.pendingFiles,
-            onSend = viewModel::sendPendingFiles,
-            onDismiss = viewModel::cancelPendingFiles,
+    if (attaching) {
+        AttachSheet(
+            onGallery = {
+                attaching = false
+                pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
+            },
+            onFile = {
+                attaching = false
+                pickFiles.launch(arrayOf("*/*"))
+            },
+            onLocation = {
+                attaching = false
+                choosingLocation = true
+            },
+            onVoice = {
+                attaching = false
+                val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                if (granted) viewModel.startVoice() else requestMicrophone.launch(Manifest.permission.RECORD_AUDIO)
+            },
+            onDismiss = { attaching = false },
         )
+    }
+    if (choosingLocation) {
+        LocationSheet(
+            chatTitle = title,
+            onSendCurrent = {
+                choosingLocation = false
+                if (hasLocationPermission(context)) {
+                    viewModel.sendCurrentLocation()
+                } else {
+                    requestLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                }
+            },
+            onShareLive = { period ->
+                choosingLocation = false
+                val needed = buildList {
+                    if (!hasLocationPermission(context)) {
+                        add(Manifest.permission.ACCESS_FINE_LOCATION)
+                        add(Manifest.permission.ACCESS_COARSE_LOCATION)
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        add(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                }
+                if (needed.isEmpty()) {
+                    viewModel.startLiveLocation(period)
+                } else {
+                    pendingLivePeriod = period
+                    requestLiveLocation.launch(needed.toTypedArray())
+                }
+            },
+            onDismiss = { choosingLocation = false },
+        )
+    }
+    if (viewModel.pendingFiles.isNotEmpty()) {
+        FilesPreviewScreen(viewModel.pendingFiles, title, onSend = viewModel::sendPendingFiles, onDismiss = viewModel::cancelPendingFiles)
     }
     if (viewModel.pendingMedia.isNotEmpty()) {
-        MediaPreviewDialog(
-            uris = viewModel.pendingMedia,
-            onSend = viewModel::sendPendingMedia,
-            onDismiss = viewModel::cancelPendingMedia,
-        )
+        MediaPreviewScreen(viewModel.pendingMedia, title, onSend = viewModel::sendPendingMedia, onDismiss = viewModel::cancelPendingMedia)
     }
     viewModel.menu?.let { menu ->
-        MessageMenuDialog(
+        MessageMenuOverlay(
             menu = menu,
             onReact = { viewModel.react(menu.message, it) },
             onReply = { viewModel.reply(menu.message) },
-            onForward = { viewModel.startForward(menu.message) },
             onEdit = { viewModel.edit(menu.message) },
+            onCopy = {
+                clipboard.setText(AnnotatedString(menu.message.text))
+                viewModel.closeMenu()
+            },
+            onForward = { viewModel.startForward(menu.message) },
             onSave = { viewModel.saveToDownloads(menu.message) },
+            onSelect = { viewModel.select(menu.message) },
             onDelete = { viewModel.askDelete(menu) },
             onDismiss = viewModel::closeMenu,
         )
     }
-    viewModel.deleting?.let { menu ->
-        DeleteDialog(menu, onDelete = viewModel::delete, onDismiss = viewModel::cancelDelete)
+    viewModel.deleting?.let { request ->
+        DeleteDialog(request, onDelete = viewModel::delete, onDismiss = viewModel::cancelDelete)
     }
     viewModel.forwarding?.let { (_, targets) ->
-        ForwardDialog(targets, onForward = viewModel::forward, onDismiss = viewModel::cancelForward)
+        ForwardSheet(targets, onForward = viewModel::forward, onDismiss = viewModel::cancelForward)
     }
 }
 
-/** Rows of the message list, newest first: messages and the day headers above them. */
+/** Rows of the message list, newest first: messages and the dividers above them. */
 private sealed interface ListRow {
     val key: Any
 
@@ -338,57 +385,218 @@ private sealed interface ListRow {
     }
 
     data class Day(val date: Int, override val key: String) : ListRow
+
+    /** "4 new since you left", above the first message that was unread. */
+    data class Unread(val count: Int) : ListRow {
+        override val key get() = "unread"
+    }
 }
 
-private fun buildRows(messages: List<MessageItem>): List<ListRow> = buildList {
+private fun buildRows(messages: List<MessageItem>, unread: UnreadMark?): List<ListRow> = buildList {
     messages.forEachIndexed { index, message ->
         add(ListRow.Message(message))
         // reverseLayout: the row after a message is shown above it.
         val older = messages.getOrNull(index + 1)
+        if (unread != null && older != null && message.id > unread.afterMessageId && older.id <= unread.afterMessageId) {
+            add(ListRow.Unread(unread.count))
+        }
         if (older == null || day(older.date) != day(message.date)) add(ListRow.Day(message.date, "day-${message.id}"))
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SearchBar(query: String, onQueryChange: (String) -> Unit, onClose: () -> Unit) {
+private fun ScreenBarRow(content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth().statusBarsPadding()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 10.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            content = content,
+        )
+        Hairline()
+    }
+}
+
+@Composable
+private fun SelectionBar(count: Int, onCancel: () -> Unit, onCopy: () -> Unit) {
+    ScreenBarRow {
+        IconBtn(OtmIcons.Close, "Cancel selection", onCancel, tag = "cancelSelection")
+        Text(if (count == 1) "1 selected" else "$count selected", style = OtmType.BarTitle, color = Otm.Ink, modifier = Modifier.weight(1f).padding(start = 4.dp).testTag("selectedCount"))
+        IconBtn(OtmIcons.Copy, "Copy text", onCopy, tint = Color(0xFF56626B), tag = "copySelected")
+    }
+}
+
+@Composable
+private fun SelectionActions(onForward: () -> Unit, onDelete: () -> Unit) {
+    Column(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.6f)).navigationBarsPadding()) {
+        Hairline()
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            SoftButton("Forward", onForward, Modifier.weight(1f).testTag("forwardSelected"), icon = OtmIcons.Forward, height = 52.dp)
+            SoftButton("Delete", onDelete, Modifier.weight(1f).testTag("deleteSelected"), icon = OtmIcons.Trash, background = Otm.ErrorSoft, color = Otm.Error, height = 52.dp)
+        }
+    }
+}
+
+@Composable
+private fun FindBar(query: String, onQueryChange: (String) -> Unit, onClose: () -> Unit) {
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
-    TopAppBar(
-        title = {
-            TextField(
-                value = query,
-                onValueChange = onQueryChange,
-                placeholder = { Text("Search messages") },
-                singleLine = true,
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                ),
-                modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).testTag("query"),
-            )
-        },
-        actions = {
-            TextButton(onClick = onClose, modifier = Modifier.testTag("closeSearch")) { Text("Close") }
-        },
+    ScreenBarRow {
+        IconBtn(OtmIcons.Back, "Close search", onClose, tag = "closeSearch")
+        OtmField(
+            value = query,
+            onValueChange = onQueryChange,
+            placeholder = "Find in this chat",
+            textStyle = OtmType.Body.copy(fontSize = OtmType.Name.fontSize),
+            shape = RoundedCornerShape(22.dp),
+            height = 44.dp,
+            outlined = false,
+            trailing = if (query.isEmpty()) null else {
+                { IconBtn(OtmIcons.Close, "Clear", { onQueryChange("") }, tint = Otm.InkSoft, size = 40.dp, iconSize = 20.dp) }
+            },
+            modifier = Modifier.weight(1f).focusRequester(focusRequester).testTag("query"),
+        )
+    }
+}
+
+/** "3 of 4" and arrows to step through matches, in the input bar's place. */
+@Composable
+private fun FindStepper(results: List<SearchResult>?, index: Int, query: String, onStep: (Int) -> Unit) {
+    Column(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.6f)).navigationBarsPadding()) {
+        Hairline()
+        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 10.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).testTag("matches")) {
+                Text(
+                    when {
+                        query.isBlank() -> "Type to search"
+                        results == null -> "Searching…"
+                        results.isEmpty() -> "No matches"
+                        // Counted from the oldest, as they read top to bottom.
+                        else -> "${results.size - index} of ${results.size}"
+                    },
+                    style = OtmType.Body.copy(fontWeight = FontWeight.SemiBold),
+                    color = Otm.Ink,
+                )
+            }
+            val any = !results.isNullOrEmpty()
+            IconBtn(OtmIcons.ChevronUp, "Earlier match", { onStep(1) }, tint = Otm.SlateDeep, background = Otm.Haze, enabled = any && index < results!!.lastIndex, tag = "olderMatch")
+            Box(Modifier.size(8.dp))
+            IconBtn(OtmIcons.ChevronDown, "Later match", { onStep(-1) }, tint = Otm.SlateDeep, background = Otm.Haze, enabled = any && index > 0, tag = "newerMatch")
+        }
+    }
+}
+
+@Composable
+private fun Divider(text: String, color: Color = Otm.InkSoft, line: Color = Otm.Line) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Box(Modifier.weight(1f).height(1.dp).background(line))
+        Text(text, style = OtmType.Secondary.copy(fontWeight = FontWeight.Medium), color = color)
+        Box(Modifier.weight(1f).height(1.dp).background(line))
+    }
+}
+
+@Composable
+private fun ServiceNote(text: String) {
+    Text(
+        text,
+        style = OtmType.Secondary,
+        color = Otm.InkSoft,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 6.dp),
     )
 }
 
 @Composable
-private fun SearchResults(query: String, results: List<SearchResult>?, onClick: (Long) -> Unit) {
-    when {
-        query.isBlank() -> Unit
-        results == null -> LoadingScreen()
-        results.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No messages found")
+private fun InputBar(
+    composer: Composer,
+    chatTitle: String,
+    stickersOpen: Boolean,
+    onCancel: () -> Unit,
+    onSend: (String) -> Unit,
+    onStickers: () -> Unit,
+    onAttach: () -> Unit,
+    onRecordVideoNote: () -> Unit,
+) {
+    var text by rememberSaveable { mutableStateOf("") }
+    // Editing starts from the message text.
+    LaunchedEffect(composer) {
+        if (composer is Composer.Edit) text = composer.message.text
+    }
+    Column(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.6f)).then(if (stickersOpen) Modifier else Modifier.navigationBarsPadding())) {
+        Hairline()
+        val banner = when (composer) {
+            Composer.New -> null
+            is Composer.Reply -> Triple(
+                OtmIcons.Reply,
+                "Reply to " + (composer.message.senderName ?: if (composer.message.isOutgoing) "yourself" else chatTitle),
+                composer.message.text.ifEmpty { composer.message.media?.label().orEmpty() },
+            )
+            is Composer.Edit -> Triple(OtmIcons.Edit, "Edit message", composer.message.text)
         }
-        else -> LazyColumn(Modifier.fillMaxSize().testTag("results")) {
-            items(results, key = { it.messageId }) { result ->
-                ListItem(
-                    overlineContent = result.senderName?.let { { Text(it) } },
-                    headlineContent = { Text(result.text, maxLines = 2, overflow = TextOverflow.Ellipsis) },
-                    trailingContent = { Text(formatTime(result.date), style = MaterialTheme.typography.labelSmall) },
-                    modifier = Modifier.clickable { onClick(result.messageId) }.testTag("result-${result.messageId}"),
+        banner?.let { (icon, label, quote) ->
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.Icon(icon, null, tint = Otm.Slate, modifier = Modifier.size(22.dp))
+                ReplyQuote(ReplyPreview(label, quote), Modifier.weight(1f).padding(start = 10.dp))
+                IconBtn(
+                    OtmIcons.Close, "Cancel",
+                    {
+                        if (composer is Composer.Edit) text = ""
+                        onCancel()
+                    },
+                    tint = Otm.InkSoft,
+                    tag = "cancelComposer",
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 6.dp, end = 8.dp, top = 8.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            IconBtn(OtmIcons.Attach, "Attach", onAttach, tint = Color(0xFF56626B), tag = "attach")
+            OtmField(
+                value = text,
+                onValueChange = { text = it },
+                placeholder = if (chatTitle.isEmpty()) "Message" else "Write to $chatTitle",
+                textStyle = OtmType.Body,
+                singleLine = false,
+                maxLines = 5,
+                shape = RoundedCornerShape(22.dp),
+                height = 44.dp,
+                outlined = false,
+                trailing = {
+                    IconBtn(
+                        if (stickersOpen) OtmIcons.Keyboard else OtmIcons.Smile,
+                        if (stickersOpen) "Keyboard" else "Stickers",
+                        onStickers,
+                        tint = if (stickersOpen) Otm.SlateDeep else Color(0xFF56626B),
+                        size = 40.dp,
+                        tag = "stickers",
+                    )
+                },
+                modifier = Modifier.weight(1f).border(1.dp, Otm.Line, RoundedCornerShape(22.dp)).testTag("input"),
+            )
+            Box(Modifier.size(4.dp))
+            if (text.isBlank() && composer !is Composer.Edit) {
+                IconBtn(OtmIcons.CircleCamera, "Record video circle", onRecordVideoNote, tint = Otm.SlateDeep, background = Color(0xFFDCE4E9), tag = "recordVideoNote")
+            } else {
+                // Editing a caption may leave it empty.
+                val canSend = text.isNotBlank() || (composer is Composer.Edit && composer.message.media != null)
+                IconBtn(
+                    if (composer is Composer.Edit) OtmIcons.Check else OtmIcons.Send,
+                    if (composer is Composer.Edit) "Save" else "Send",
+                    {
+                        onSend(text)
+                        text = ""
+                    },
+                    tint = Color.White,
+                    background = if (canSend) Otm.Slate else Otm.RidgeLight,
+                    enabled = canSend,
+                    tag = "send",
                 )
             }
         }
@@ -396,220 +604,73 @@ private fun SearchResults(query: String, results: List<SearchResult>?, onClick: 
 }
 
 @Composable
-private fun DayHeader(date: Int) {
-    ServiceNote(day(date).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)))
-}
-
-@Composable
-private fun ServiceNote(text: String) {
-    Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-        Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun InputBar(
-    composer: Composer,
-    onCancel: () -> Unit,
-    onSend: (String) -> Unit,
-    onStickers: () -> Unit,
-    onPickMedia: () -> Unit,
-    onPickFiles: () -> Unit,
-    onSendLocation: () -> Unit,
-    onShareLiveLocation: () -> Unit,
-    onRecordVideoNote: () -> Unit,
-    onRecord: () -> Unit,
-) {
-    var text by rememberSaveable { mutableStateOf("") }
-    // Editing starts from the message text.
-    LaunchedEffect(composer) {
-        if (composer is Composer.Edit) text = composer.message.text
-    }
-    Column(Modifier.fillMaxWidth()) {
-        val banner = when (composer) {
-            Composer.New -> null
-            is Composer.Reply -> ReplyPreview(
-                composer.message.senderName ?: if (composer.message.isOutgoing) "You" else null,
-                composer.message.text,
-            )
-            is Composer.Edit -> ReplyPreview("Edit message", composer.message.text)
-        }
-        banner?.let {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                ReplyQuote(it, Modifier.weight(1f))
-                TextButton(
-                    onClick = {
-                        if (composer is Composer.Edit) text = ""
-                        onCancel()
-                    },
-                    modifier = Modifier.testTag("cancelComposer"),
-                ) { Text("✕") }
-            }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            AttachMenu(
-                onPickMedia = onPickMedia,
-                onPickFiles = onPickFiles,
-                onSendLocation = onSendLocation,
-                onShareLiveLocation = onShareLiveLocation,
-            )
-            TextButton(onClick = onStickers, modifier = Modifier.testTag("stickers")) {
-                Text("☺", style = MaterialTheme.typography.titleLarge)
-            }
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                placeholder = { Text("Message") },
-                maxLines = 5,
-                modifier = Modifier.weight(1f).testTag("input"),
-            )
-            if (text.isBlank() && composer !is Composer.Edit) {
-                TextButton(onClick = onRecordVideoNote, modifier = Modifier.testTag("recordVideoNote")) {
-                    Text("⭕", style = MaterialTheme.typography.titleLarge)
-                }
-                TextButton(onClick = onRecord, modifier = Modifier.testTag("record")) {
-                    Text("🎤", style = MaterialTheme.typography.titleLarge)
-                }
-            } else {
-                TextButton(
-                    onClick = {
-                        onSend(text)
-                        text = ""
-                    },
-                    // Editing a caption may leave it empty.
-                    enabled = text.isNotBlank() || (composer is Composer.Edit && composer.message.media != null),
-                    modifier = Modifier.testTag("send"),
-                ) {
-                    Text(if (composer is Composer.Edit) "Save" else "Send")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AttachMenu(
-    onPickMedia: () -> Unit,
-    onPickFiles: () -> Unit,
-    onSendLocation: () -> Unit,
-    onShareLiveLocation: () -> Unit,
-) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        TextButton(onClick = { open = true }, modifier = Modifier.testTag("attach")) {
-            Text("📎", style = MaterialTheme.typography.titleLarge)
-        }
-        DropdownMenu(
-            expanded = open,
-            onDismissRequest = { open = false },
-            // Popups are separate windows; expose their test tags too.
-            modifier = Modifier.semantics { testTagsAsResourceId = true },
-        ) {
-            DropdownMenuItem(
-                text = { Text("Photo or video") },
-                onClick = {
-                    open = false
-                    onPickMedia()
-                },
-                modifier = Modifier.testTag("attachMedia"),
-            )
-            DropdownMenuItem(
-                text = { Text("File") },
-                onClick = {
-                    open = false
-                    onPickFiles()
-                },
-                modifier = Modifier.testTag("attachFile"),
-            )
-            DropdownMenuItem(
-                text = { Text("Location") },
-                onClick = {
-                    open = false
-                    onSendLocation()
-                },
-                modifier = Modifier.testTag("attachLocation"),
-            )
-            DropdownMenuItem(
-                text = { Text("Live location") },
-                onClick = {
-                    open = false
-                    onShareLiveLocation()
-                },
-                modifier = Modifier.testTag("attachLiveLocation"),
-            )
-        }
-    }
-}
-
-@Composable
-private fun LivePeriodDialog(onChoose: (Int) -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        modifier = Modifier.semantics { testTagsAsResourceId = true },
-        title = { Text("Share live location for") },
-        text = {
-            Column {
-                LiveLocationSharing.PERIODS.forEach { (seconds, label) ->
-                    ListItem(
-                        headlineContent = { Text(label) },
-                        modifier = Modifier.clickable { onChoose(seconds) }.testTag("live-$seconds"),
-                    )
-                }
-            }
-        },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
-}
-
-@Composable
 private fun LiveShareBanner(share: LiveShare, onStop: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.secondaryContainer)
-            .padding(start = 16.dp)
-            .testTag("liveShareBanner"),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            "📍 Sharing live location until ${formatTime(share.endsAt)}",
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.weight(1f),
-        )
-        TextButton(onClick = onStop, modifier = Modifier.testTag("stopLiveLocation")) { Text("Stop") }
-    }
+    val left = ((share.endsAt - rememberNow()) / 60).coerceAtLeast(0)
+    Banner(
+        OtmIcons.Pin,
+        "Sharing your live location",
+        Modifier.testTag("liveShareBanner"),
+        subtitle = when {
+            left >= 120 -> "${left / 60} hours left"
+            left >= 1 -> "$left min left"
+            else -> "ending"
+        },
+        action = { SoftButton("Stop", onStop, Modifier.testTag("stopLiveLocation"), height = 36.dp) },
+    )
 }
 
 private fun hasLocationPermission(context: Context) =
     ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
+/** Discard, a running timer with a live waveform, send. */
 @Composable
 private fun RecordingBar(state: RecorderState, onCancel: () -> Unit, onSend: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(8.dp).testTag("recording"),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("● ", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.titleLarge)
-        Text(formatDuration((state.elapsedMs / 1000).toInt()), style = MaterialTheme.typography.titleMedium)
-        LinearProgressIndicator(
-            progress = { state.level },
-            modifier = Modifier.weight(1f).padding(horizontal = 16.dp),
-        )
-        TextButton(onClick = onCancel, modifier = Modifier.testTag("cancelRecording")) { Text("Cancel") }
-        TextButton(onClick = onSend, modifier = Modifier.testTag("sendRecording")) { Text("Send") }
+    val levels = remember { mutableStateListOf<Int>() }
+    LaunchedEffect(state.elapsedMs) {
+        levels.add((state.level * 31).toInt().coerceIn(0, 31))
+        if (levels.size > LIVE_BARS) levels.removeAt(0)
+    }
+    Column(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.6f)).navigationBarsPadding()) {
+        Hairline()
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 10.dp).testTag("recording"),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            IconBtn(OtmIcons.Trash, "Discard recording", onCancel, tint = Otm.Error, tag = "cancelRecording")
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(Otm.Card)
+                    .border(1.dp, Otm.Line, RoundedCornerShape(22.dp))
+                    .padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Canvas(Modifier.size(10.dp)) {
+                    drawCircle(Otm.Rose.copy(alpha = 0.25f), radius = size.minDimension)
+                    drawCircle(Otm.Rose)
+                }
+                Text(formatDuration((state.elapsedMs / 1000).toInt()), style = OtmType.Body, color = Otm.Ink)
+                Waveform(levels.toList(), progress = 1f, played = Otm.Ridge, rest = Otm.Ridge, modifier = Modifier.weight(1f).height(24.dp), bars = LIVE_BARS)
+            }
+            IconBtn(OtmIcons.Send, "Send voice message", onSend, tint = Color.White, background = Otm.Slate, tag = "sendRecording")
+        }
     }
 }
 
 private fun day(unixTime: Int): LocalDate =
     Instant.ofEpochSecond(unixTime.toLong()).atZone(ZoneId.systemDefault()).toLocalDate()
+
+/** "Thursday, 23 October"; with the year when it isn't this one. */
+private fun dayLabel(unixTime: Int): String {
+    val date = day(unixTime)
+    val pattern = if (date.year == LocalDate.now().year) "EEEE, d MMMM" else "d MMMM yyyy"
+    return date.format(DateTimeFormatter.ofPattern(pattern, Locale.getDefault()))
+}
 
 fun formatTime(unixTime: Int): String =
     Instant.ofEpochSecond(unixTime.toLong()).atZone(ZoneId.systemDefault())
@@ -617,3 +678,4 @@ fun formatTime(unixTime: Int): String =
 
 private const val LOAD_MORE_THRESHOLD = 10
 private const val MAX_PICKED_MEDIA = 10
+private const val LIVE_BARS = 24

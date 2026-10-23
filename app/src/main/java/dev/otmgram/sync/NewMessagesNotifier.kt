@@ -14,6 +14,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.otmgram.MainActivity
 import dev.otmgram.R
 import dev.otmgram.core.td.TdClient
+import dev.otmgram.core.td.TdException
 import dev.otmgram.data.ChatRepository
 import dev.otmgram.data.FolderChat
 import dev.otmgram.data.isGroup
@@ -40,16 +41,12 @@ class NewMessagesNotifier @Inject constructor(
     suspend fun check(folderId: Int) {
         val seenUpTo = state.seenUpTo()
         val notifiedUpTo = state.notifiedUpTo()
-        val mutedByDefault = mapOf(
-            false to (td.send(TdApi.GetScopeNotificationSettings(TdApi.NotificationSettingsScopePrivateChats())).muteFor > 0),
-            true to (td.send(TdApi.GetScopeNotificationSettings(TdApi.NotificationSettingsScopeGroupChats())).muteFor > 0),
-        )
         val news = chats.folderChats(folderId).first()
-            .filter { !it.isMuted(mutedByDefault.getValue(it.chat.isGroup)) && it.chat.unreadCount > 0 }
+            .filter { !it.isMuted && it.chat.unreadCount > 0 }
             .mapNotNull { newMessages(it, since = seenUpTo) }
         when {
             news.isEmpty() -> cancel() // Read elsewhere, or nothing new.
-            news.any { it.newest > notifiedUpTo } -> show(news)
+            news.any { it.newest > notifiedUpTo } -> show(news, folderName(folderId))
             else -> Unit // Already notified about all of it.
         }
         state.markNotified()
@@ -92,7 +89,13 @@ class NewMessagesNotifier @Inject constructor(
         return unread.take(limit)
     }
 
-    private fun show(news: List<ChatNews>) {
+    private suspend fun folderName(folderId: Int): String? = try {
+        td.send(TdApi.GetChatFolder(folderId)).name.text.text
+    } catch (e: TdException) {
+        null
+    }
+
+    private fun show(news: List<ChatNews>, folderName: String?) {
         val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
         if (!granted) return
@@ -128,16 +131,11 @@ class NewMessagesNotifier @Inject constructor(
                     style.addLine("${chat.title}: ${chat.lines.first()}$more")
                 }
             }
-            builder.setContentTitle("$count new messages")
-                .setContentText("In $chatsText")
+            builder.setContentTitle(if (folderName != null) "$count new in $folderName" else "$count new messages")
+                .setContentText(news.joinToString(", ") { it.title })
                 .setStyle(style.setSummaryText(chatsText))
         }
         NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, builder.build())
-    }
-
-    private fun FolderChat.isMuted(mutedByDefault: Boolean): Boolean {
-        val settings = chat.notificationSettings
-        return if (settings.useDefaultMuteFor) mutedByDefault else settings.muteFor > 0
     }
 
     private companion object {

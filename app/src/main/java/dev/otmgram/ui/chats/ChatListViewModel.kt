@@ -1,11 +1,9 @@
 package dev.otmgram.ui.chats
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dev.otmgram.core.td.TdException
-import dev.otmgram.data.AuthRepository
+import dev.otmgram.core.td.TdClient
 import dev.otmgram.data.ChatRepository
 import dev.otmgram.data.FolderChat
 import dev.otmgram.ui.summary
@@ -18,8 +16,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
 
@@ -33,6 +31,8 @@ data class ChatItem(
     /** Unix time of the last message, or null if the chat has none. */
     val date: Int?,
     val unreadCount: Int,
+    val isSavedMessages: Boolean,
+    val isMuted: Boolean,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -40,7 +40,7 @@ data class ChatItem(
 class ChatListViewModel @Inject constructor(
     folders: FolderRepository,
     chats: ChatRepository,
-    private val auth: AuthRepository,
+    td: TdClient,
 ) : ViewModel() {
 
     val folderName: StateFlow<String> = combine(folders.folders, folders.selectedFolderId) { all, id ->
@@ -60,18 +60,17 @@ class ChatListViewModel @Inject constructor(
         all.map { it.toItem() }.filter { it.title.contains(query.trim(), ignoreCase = true) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /** What the connection is doing while it isn't ready, or null when it is. */
+    val connection: StateFlow<String?> = td.connectionState.map { state ->
+        when (state) {
+            is TdApi.ConnectionStateWaitingForNetwork -> "Waiting for network · showing what’s already here"
+            is TdApi.ConnectionStateConnecting, is TdApi.ConnectionStateConnectingToProxy -> "Connecting…"
+            else -> null
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     fun setQuery(query: String) {
         _query.value = query
-    }
-
-    fun logOut() {
-        viewModelScope.launch {
-            try {
-                auth.logOut()
-            } catch (e: TdException) {
-                Log.w("ChatListViewModel", "LogOut failed", e)
-            }
-        }
     }
 }
 
@@ -91,4 +90,6 @@ private fun FolderChat.toItem() = ChatItem(
     }.orEmpty(),
     date = chat.lastMessage?.date,
     unreadCount = chat.unreadCount,
+    isSavedMessages = isSavedMessages,
+    isMuted = isMuted,
 )

@@ -11,7 +11,17 @@ import javax.inject.Singleton
 sealed interface AuthState {
     data object Loading : AuthState
     data object WaitPhoneNumber : AuthState
-    data class WaitCode(val phoneNumber: String, val delivery: CodeDelivery, val length: Int?) : AuthState
+    /**
+     * [canResend]: another way to send the code exists; it may be asked for [resendAfter]
+     * seconds after this state arrived.
+     */
+    data class WaitCode(
+        val phoneNumber: String,
+        val delivery: CodeDelivery,
+        val length: Int?,
+        val canResend: Boolean = false,
+        val resendAfter: Int = 0,
+    ) : AuthState
     data class WaitPassword(val hint: String) : AuthState
     data object Ready : AuthState
 
@@ -65,6 +75,8 @@ private fun TdApi.AuthorizationState?.toAuthState(): AuthState = when (this) {
             is TdApi.AuthenticationCodeTypeCall -> type.length
             else -> null
         },
+        canResend = codeInfo.nextType != null,
+        resendAfter = codeInfo.timeout,
     )
     is TdApi.AuthorizationStateWaitPassword -> AuthState.WaitPassword(passwordHint)
     is TdApi.AuthorizationStateWaitRegistration -> AuthState.Unsupported("creating a new account")

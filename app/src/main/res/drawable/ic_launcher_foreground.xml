@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- The sun's glow, then the sun, just above the far ridge. -->
+    <path android:pathData="M42,60a20,20 0,1 0,40 0a20,20 0,1 0,-40 0z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="62"
+                android:centerY="60"
+                android:gradientRadius="20">
+                <item android:offset="0" android:color="#FFFFF6E8" />
+                <item android:offset="0.5" android:color="#CCFBDDBE" />
+                <item android:offset="1" android:color="#00FBDDBE" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path android:fillColor="#FFFFF6E8" android:pathData="M54,60a8,8 0,1 0,16 0a8,8 0,1 0,-16 0z" />
+    <path android:fillColor="#FF91A8B6" android:pathData="M0,68L18,59L32,64L50,51L66,62L82,55L108,66V108H0Z" />
+    <path android:fillColor="#FF62808F" android:pathData="M0,82C24,73 44,80 64,75C82,70 96,77 108,74V108H0Z" />
+</vector>

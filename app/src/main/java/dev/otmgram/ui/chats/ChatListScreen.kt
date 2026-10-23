@@ -3,33 +3,29 @@ package dev.otmgram.ui.chats
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,19 +38,31 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.testTagsAsResourceId
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.otmgram.ui.auth.LoadingScreen
-import dev.otmgram.ui.media.TdImage
+import dev.otmgram.ui.theme.Banner
+import dev.otmgram.ui.theme.ChatAvatar
+import dev.otmgram.ui.theme.CountPill
+import dev.otmgram.ui.theme.IconBtn
+import dev.otmgram.ui.theme.Otm
+import dev.otmgram.ui.theme.OtmField
+import dev.otmgram.ui.theme.OtmIcons
+import dev.otmgram.ui.theme.OtmType
+import dev.otmgram.ui.theme.SectionLabel
+import dev.otmgram.ui.theme.SkyBand
+import dev.otmgram.ui.theme.paper
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -63,80 +71,75 @@ import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatListScreen(onOpenChat: (Long) -> Unit, viewModel: ChatListViewModel = hiltViewModel()) {
+fun ChatListScreen(
+    onOpenChat: (Long) -> Unit,
+    onOpenSettings: () -> Unit,
+    viewModel: ChatListViewModel = hiltViewModel(),
+) {
     val folderName by viewModel.folderName.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
     val chats by viewModel.chats.collectAsStateWithLifecycle()
+    val connection by viewModel.connection.collectAsStateWithLifecycle()
     var searching by rememberSaveable { mutableStateOf(false) }
-    var menuOpen by remember { mutableStateOf(false) }
-    var confirmLogout by rememberSaveable { mutableStateOf(false) }
+    val closeSearch = {
+        searching = false
+        viewModel.setQuery("")
+    }
     RequestNotificationPermission()
+    BackHandler(enabled = searching, onBack = closeSearch)
 
-    Scaffold(
-        topBar = {
-            if (searching) {
-                SearchBar(
-                    query = query,
-                    onQueryChange = viewModel::setQuery,
-                    onClose = {
-                        searching = false
-                        viewModel.setQuery("")
-                    },
-                )
-            } else {
-                TopAppBar(
-                    title = { Text(folderName) },
-                    actions = {
-                        TextButton(onClick = { searching = true }, modifier = Modifier.testTag("search")) {
-                            Text("Search")
-                        }
-                        Box {
-                            TextButton(onClick = { menuOpen = true }, modifier = Modifier.testTag("menu")) {
-                                Text("⋮", style = MaterialTheme.typography.titleLarge)
-                            }
-                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                                DropdownMenuItem(
-                                    text = { Text("Log out") },
-                                    onClick = {
-                                        menuOpen = false
-                                        confirmLogout = true
-                                    },
-                                    modifier = Modifier.testTag("logout"),
-                                )
-                            }
-                        }
-                    },
-                )
-            }
-        },
-    ) { padding ->
+    Column(Modifier.fillMaxSize().paper()) {
+        if (searching) {
+            SkyBand(folderName, content = { SearchField(query, viewModel::setQuery, closeSearch) })
+        } else {
+            SkyBand(
+                folderName,
+                actions = {
+                    IconBtn(OtmIcons.Search, "Find in $folderName", { searching = true }, tag = "search")
+                    IconBtn(OtmIcons.More, "Settings", onOpenSettings, tag = "menu")
+                },
+            )
+        }
+        connection?.let { Banner(OtmIcons.Offline, it, Modifier.testTag("connection")) }
+
         val list = chats
+        val searchText = query.trim()
         when {
             list == null -> LoadingScreen()
-            list.isEmpty() -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text(if (query.isBlank()) "No chats in this folder" else "No chats found")
-            }
-            else -> LazyColumn(Modifier.fillMaxSize().padding(padding).testTag("chats")) {
-                items(list, key = { it.id }) { chat -> ChatRow(chat, onClick = { onOpenChat(chat.id) }) }
+            list.isEmpty() -> Empty(if (searchText.isEmpty()) "No chats in this folder yet." else "Nothing like that here.")
+            else -> LazyColumn(
+                modifier = Modifier.fillMaxSize().testTag("chats"),
+                contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 16.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+            ) {
+                if (searching && searchText.isNotEmpty()) {
+                    item(key = "count") {
+                        SectionLabel(if (list.size == 1) "1 chat" else "${list.size} chats", Modifier.padding(start = 12.dp, top = 6.dp, bottom = 4.dp))
+                    }
+                }
+                items(list, key = { it.id }) { chat ->
+                    ChatRow(chat, highlight = if (searching) searchText else "", onClick = { onOpenChat(chat.id) })
+                }
+                if (searching) {
+                    item(key = "hint") {
+                        Text(
+                            "Titles only. To find a message, search inside a chat.",
+                            style = OtmType.Secondary,
+                            color = Otm.InkSoft,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 40.dp, vertical = 28.dp),
+                        )
+                    }
+                }
             }
         }
     }
+}
 
-    if (confirmLogout) {
-        AlertDialog(
-            onDismissRequest = { confirmLogout = false },
-            modifier = Modifier.semantics { testTagsAsResourceId = true },
-            title = { Text("Log out?") },
-            text = { Text("All local data of this account will be deleted from the device.") },
-            confirmButton = {
-                TextButton(onClick = viewModel::logOut, modifier = Modifier.testTag("confirmLogout")) {
-                    Text("Log out")
-                }
-            },
-            dismissButton = { TextButton(onClick = { confirmLogout = false }) { Text("Cancel") } },
-        )
+@Composable
+private fun Empty(text: String) {
+    Box(Modifier.fillMaxSize().padding(40.dp), contentAlignment = Alignment.TopCenter) {
+        Text(text, style = OtmType.Body, color = Otm.InkSoft, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 32.dp))
     }
 }
 
@@ -153,105 +156,91 @@ private fun RequestNotificationPermission() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** The search field takes the folder name's place in the sky. */
 @Composable
-private fun SearchBar(query: String, onQueryChange: (String) -> Unit, onClose: () -> Unit) {
+private fun RowScope.SearchField(query: String, onQueryChange: (String) -> Unit, onClose: () -> Unit) {
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
-    TopAppBar(
-        title = {
-            TextField(
-                value = query,
-                onValueChange = onQueryChange,
-                placeholder = { Text("Search chats") },
-                singleLine = true,
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                ),
-                modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).testTag("query"),
-            )
+    IconBtn(OtmIcons.Back, "Close search", onClose, Modifier.padding(end = 4.dp), tag = "closeSearch")
+    OtmField(
+        value = query,
+        onValueChange = onQueryChange,
+        placeholder = "Find a chat",
+        textStyle = OtmType.Body.copy(fontSize = OtmType.Name.fontSize),
+        shape = RoundedCornerShape(23.dp),
+        height = 46.dp,
+        background = Otm.Card.copy(alpha = 0.85f),
+        outlined = false,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        leading = { Icon(OtmIcons.Search, null, tint = Otm.InkSoft, modifier = Modifier.size(20.dp)) },
+        trailing = if (query.isEmpty()) null else {
+            { IconBtn(OtmIcons.Close, "Clear", { onQueryChange("") }, tint = Otm.InkSoft, size = 40.dp, iconSize = 20.dp) }
         },
-        actions = {
-            TextButton(onClick = onClose, modifier = Modifier.testTag("closeSearch")) { Text("Close") }
-        },
+        modifier = Modifier.weight(1f).padding(end = 4.dp).focusRequester(focusRequester).testTag("query"),
     )
 }
 
 @Composable
-private fun ChatRow(chat: ChatItem, onClick: () -> Unit) {
+private fun ChatRow(chat: ChatItem, highlight: String, onClick: () -> Unit) {
+    val unread = chat.unreadCount > 0
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
             .testTag("chat-${chat.title}")
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Avatar(chat)
-        Column(Modifier.weight(1f)) {
+        ChatAvatar(chat.id, chat.title, chat.photoFileId, chat.photoMinithumbnail, savedMessages = chat.isSavedMessages)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    chat.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = if (chat.unreadCount > 0) FontWeight.Bold else FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        highlighted(chat.title, highlight),
+                        style = OtmType.Name,
+                        color = Otm.Ink,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (chat.isMuted) {
+                        Icon(OtmIcons.Muted, "Muted", tint = Otm.InkFaint, modifier = Modifier.padding(start = 5.dp).size(15.dp))
+                    }
+                }
                 chat.date?.let {
-                    Text(formatDate(it), style = MaterialTheme.typography.labelMedium)
+                    Text(formatDate(it), style = OtmType.Secondary, color = Otm.InkSoft, modifier = Modifier.padding(start = 8.dp))
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     chat.preview,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = OtmType.Preview,
+                    color = if (unread && !chat.isMuted) Otm.InkBody else Otm.InkSoft,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
-                if (chat.unreadCount > 0) UnreadBadge(chat.unreadCount)
+                if (unread) CountPill(chat.unreadCount, quiet = chat.isMuted, Modifier.padding(start = 8.dp))
             }
         }
     }
 }
 
-@Composable
-private fun Avatar(chat: ChatItem) {
-    if (chat.photoFileId != null) {
-        TdImage(chat.photoFileId, chat.photoMinithumbnail, Modifier.size(48.dp).clip(CircleShape))
-        return
-    }
-    val initials = chat.title.split(' ').filter { it.isNotEmpty() }.take(2)
-        .joinToString("") { it.first().uppercase() }
-    Box(
-        modifier = Modifier
-            .size(48.dp)
-            .background(AVATAR_COLORS[Math.floorMod(chat.id, AVATAR_COLORS.size)], CircleShape),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(initials, color = Color.White, style = MaterialTheme.typography.titleMedium)
-    }
-}
-
-@Composable
-private fun UnreadBadge(count: Int) {
-    Box(
-        modifier = Modifier
-            .padding(start = 8.dp)
-            .widthIn(min = 22.dp)
-            .background(MaterialTheme.colorScheme.primary, CircleShape)
-            .padding(horizontal = 6.dp, vertical = 2.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            if (count > 999) "999+" else count.toString(),
-            color = MaterialTheme.colorScheme.onPrimary,
-            style = MaterialTheme.typography.labelSmall,
-        )
+/** [text] with every occurrence of [part] tinted, ignoring case. */
+private fun highlighted(text: String, part: String): AnnotatedString {
+    if (part.isEmpty()) return AnnotatedString(text)
+    return buildAnnotatedString {
+        var from = 0
+        while (true) {
+            val at = text.indexOf(part, from, ignoreCase = true)
+            if (at < 0) break
+            append(text.substring(from, at))
+            withStyle(SpanStyle(background = Otm.Mark)) { append(text.substring(at, at + part.length)) }
+            from = at + part.length
+        }
+        append(text.substring(from))
     }
 }
 
@@ -267,8 +256,3 @@ private fun formatDate(unixTime: Int): String {
         else -> dateTime.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT))
     }
 }
-
-private val AVATAR_COLORS = listOf(
-    Color(0xFFE57373), Color(0xFFF06292), Color(0xFFBA68C8), Color(0xFF7986CB),
-    Color(0xFF4FC3F7), Color(0xFF4DB6AC), Color(0xFF81C784), Color(0xFFFFB74D),
-)
