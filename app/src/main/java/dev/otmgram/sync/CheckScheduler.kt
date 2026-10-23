@@ -1,7 +1,6 @@
 package dev.otmgram.sync
 
 import android.content.Context
-import android.util.Log
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
@@ -11,11 +10,12 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
 import dev.otmgram.data.AppSettings
-import dev.otmgram.data.StorageRepository
 import dev.otmgram.data.FolderRepository
+import dev.otmgram.data.StorageRepository
 import dev.otmgram.di.ApplicationScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.combine
@@ -62,7 +62,7 @@ class CheckScheduler @Inject constructor(
             try {
                 storage.applyLimit()
             } catch (e: TdException) {
-                Log.w("CheckScheduler", "Storage limit failed", e)
+                AppLog.w("CheckScheduler", "Storage limit failed", e)
             }
         }
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
@@ -78,6 +78,7 @@ class CheckScheduler @Inject constructor(
     }
 
     private fun schedule(minutes: Long) {
+        AppLog.i("CheckScheduler", "Checking every $minutes min")
         val request = PeriodicWorkRequestBuilder<CheckWorker>(minutes, TimeUnit.MINUTES)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .build()
@@ -85,6 +86,7 @@ class CheckScheduler @Inject constructor(
     }
 
     private fun unschedule() {
+        AppLog.i("CheckScheduler", "Not checking")
         WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
         notifier.cancel()
     }

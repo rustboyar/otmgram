@@ -11,7 +11,6 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.location.Location
 import android.os.IBinder
-import android.util.Log
 import androidx.annotation.RequiresPermission
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -19,6 +18,7 @@ import androidx.core.location.LocationListenerCompat
 import dagger.hilt.android.AndroidEntryPoint
 import dev.otmgram.MainActivity
 import dev.otmgram.R
+import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
 import kotlinx.coroutines.CancellationException
@@ -83,6 +83,7 @@ class LiveLocationService : Service() {
                 val title = intent.getStringExtra(EXTRA_CHAT_TITLE).orEmpty()
                 val period = intent.getIntExtra(EXTRA_PERIOD, 0)
                 val share = LiveShare(chatId, title, endsAt = now() + period)
+                AppLog.i(TAG, "Sharing for ${period / 60} min")
                 startForeground(share)
                 sharing.update(share)
                 shareJob?.cancel()
@@ -91,7 +92,10 @@ class LiveLocationService : Service() {
                     share(chatId, period)
                 }
             }
-            ACTION_STOP -> scope.launch { stopAndQuit() }
+            ACTION_STOP -> {
+                AppLog.i(TAG, "Stopped by the user")
+                scope.launch { stopAndQuit() }
+            }
         }
         return START_NOT_STICKY
     }
@@ -101,15 +105,17 @@ class LiveLocationService : Service() {
         try {
             val first = locations.current() ?: throw IllegalStateException("Location is off")
             this.messageId = sendLiveLocation(chatId, period, first)
+            AppLog.i(TAG, "Live location message confirmed")
             this.chatId = chatId
             this.period = period
             listenForUpdates()
             delay(period * 1000L)
+            AppLog.i(TAG, "Period over")
             stopAndQuit()
         } catch (e: CancellationException) {
             throw e // Replaced by a new share.
         } catch (e: Exception) {
-            Log.w(TAG, "Live location sharing failed", e)
+            AppLog.w(TAG, "Live location sharing failed", e)
             quit()
         }
     }
@@ -158,7 +164,7 @@ class LiveLocationService : Service() {
                 try {
                     td.send(TdApi.EditMessageLiveLocation(chatId, messageId, null, liveLocation(location, period)))
                 } catch (e: TdException) {
-                    Log.w(TAG, "Live location update failed", e)
+                    AppLog.w(TAG, "Live location update failed", e)
                 }
             }
         }
@@ -173,7 +179,7 @@ class LiveLocationService : Service() {
             try {
                 td.send(TdApi.EditMessageLiveLocation(chatId, messageId, null, null))
             } catch (e: TdException) {
-                Log.w(TAG, "Stopping live location failed", e)
+                AppLog.w(TAG, "Stopping live location failed", e)
             }
         }
         messageId = 0

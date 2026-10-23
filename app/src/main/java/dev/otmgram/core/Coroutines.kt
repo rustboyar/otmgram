@@ -1,6 +1,6 @@
 package dev.otmgram.core
 
-import android.util.Log
+import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TdException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -21,7 +21,7 @@ fun CoroutineScope.launchLogged(
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        Log.w(tag, "Failed", e)
+        AppLog.w(tag, "Failed", e)
         onError(e)
     }
 }

@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.otmgram.MainActivity
 import dev.otmgram.R
+import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.data.ChatRepository
 import dev.otmgram.data.FolderChat
@@ -43,10 +44,11 @@ class NewMessagesNotifier @Inject constructor(
         val news = chats.folderChats(folderId).first()
             .filter { !it.isMuted && it.chat.unreadCount > 0 }
             .mapNotNull { newMessages(it, since = seenUpTo) }
+        val count = news.sumOf { it.lines.size }
         when {
-            news.isEmpty() -> cancel() // Read elsewhere, or nothing new.
-            news.any { it.newest > notifiedUpTo } -> show(news)
-            else -> Unit // Already notified about all of it.
+            news.isEmpty() -> cancel().also { AppLog.i(TAG, "Nothing new") } // Read elsewhere, or nothing new.
+            news.any { it.newest > notifiedUpTo } -> show(news).also { AppLog.i(TAG, "Notified: $count new in ${news.size} chats") }
+            else -> AppLog.i(TAG, "Already notified about $count new") // Already notified about all of it.
         }
         state.markNotified()
     }
@@ -132,6 +134,7 @@ class NewMessagesNotifier @Inject constructor(
     }
 
     private companion object {
+        const val TAG = "Notifier"
         const val CHANNEL_ID = "new_messages"
         const val NOTIFICATION_ID = 2
         const val MAX_MESSAGES_PER_CHAT = 20

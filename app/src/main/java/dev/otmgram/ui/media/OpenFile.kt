@@ -3,9 +3,9 @@ package dev.otmgram.ui.media
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import android.widget.Toast
 import androidx.core.content.FileProvider
+import dev.otmgram.core.log.AppLog
 import java.io.File
 
 /** Opens a downloaded file in another app, e.g. a PDF viewer. */
@@ -20,7 +20,7 @@ fun openFile(context: Context, path: String, mimeType: String) {
         Toast.makeText(context, "No app can open this file", Toast.LENGTH_SHORT).show()
     } catch (e: IllegalArgumentException) {
         // A path outside the folders shared in file_paths.xml.
-        Log.w("openFile", "Can't share $path", e)
+        AppLog.w("openFile", "Can't share $path", e)
         Toast.makeText(context, "Can't open this file", Toast.LENGTH_SHORT).show()
     }
 }

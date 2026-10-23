@@ -2,9 +2,9 @@ package dev.otmgram.core.td
 
 import android.content.Context
 import android.os.Build
-import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.otmgram.BuildConfig
+import dev.otmgram.core.log.AppLog
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -68,7 +68,11 @@ class TdClient @Inject constructor(
     @Synchronized
     fun start() {
         if (client != null) return
-        Client.execute(TdApi.SetLogVerbosityLevel(if (BuildConfig.DEBUG) 2 else 1))
+        // Warnings and errors to a file next to the app's log, shared from settings.
+        AppLog.folder?.let {
+            Client.execute(TdApi.SetLogStream(TdApi.LogStreamFile(File(it, "tdlib.log").path, TDLIB_LOG_BYTES, false)))
+        }
+        Client.execute(TdApi.SetLogVerbosityLevel(2))
         client = Client.create(::onUpdate, ::onException, ::onException)
     }
 
@@ -91,7 +95,10 @@ class TdClient @Inject constructor(
         when (update) {
             is TdApi.UpdateAuthorizationState -> onAuthorizationState(update.authorizationState)
             is TdApi.UpdateChatFolders -> _chatFolders.value = update.chatFolders.toList()
-            is TdApi.UpdateConnectionState -> _connectionState.value = update.state
+            is TdApi.UpdateConnectionState -> {
+                AppLog.i(TAG, "Connection: ${update.state.javaClass.simpleName.removePrefix("ConnectionState")}")
+                _connectionState.value = update.state
+            }
         }
         if (update is TdApi.Update) {
             _updates.tryEmit(update)
@@ -99,6 +106,7 @@ class TdClient @Inject constructor(
     }
 
     private fun onAuthorizationState(state: TdApi.AuthorizationState) {
+        AppLog.i(TAG, "Authorization: ${state.javaClass.simpleName.removePrefix("AuthorizationState")}")
         when (state) {
             is TdApi.AuthorizationStateWaitTdlibParameters -> sendIgnoringResult(tdlibParameters())
             // Never show the account as online, see PLAN.md.
@@ -137,15 +145,16 @@ class TdClient @Inject constructor(
         // the lock waits for the client to be assigned.
         val client = synchronized(this) { client }
         client?.send(function) { result ->
-            if (result is TdApi.Error) Log.w(TAG, "${function.javaClass.simpleName} failed: ${result.message}")
+            if (result is TdApi.Error) AppLog.w(TAG, "${function.javaClass.simpleName} failed: ${result.message}")
         }
     }
 
     private fun onException(e: Throwable) {
-        Log.e(TAG, "Exception in TDLib handler", e)
+        AppLog.e(TAG, "Exception in TDLib handler", e)
     }
 
     private companion object {
         const val TAG = "TdClient"
+        const val TDLIB_LOG_BYTES = 2L * 1024 * 1024
     }
 }

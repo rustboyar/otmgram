@@ -6,4 +6,6 @@
     <files-path name="documents" path="tdlib/documents/" />
     <files-path name="music" path="tdlib/music/" />
     <cache-path name="outgoing" path="outgoing/" />
+    <!-- The logs zip from Settings → Share logs. -->
+    <cache-path name="logs" path="logs/" />
 </paths>

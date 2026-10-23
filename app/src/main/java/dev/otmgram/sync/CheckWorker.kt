@@ -1,7 +1,6 @@
 package dev.otmgram.sync
 
 import android.content.Context
-import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
@@ -9,6 +8,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
 import dev.otmgram.data.FolderRepository
@@ -32,11 +32,13 @@ class CheckWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
+        AppLog.i(TAG, "Check started (attempt ${runAttemptCount + 1})")
         val foreground = withContext(Dispatchers.Main) {
             ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
         }
         if (foreground) {
             // The user is looking at the app right now.
+            AppLog.i(TAG, "Skipped: the app is open")
             state.markSeen()
             return Result.success()
         }
@@ -44,17 +46,21 @@ class CheckWorker @AssistedInject constructor(
         val authorized = withTimeoutOrNull(START_TIMEOUT_MS) {
             td.authorizationState.first { it != null && it !is TdApi.AuthorizationStateWaitTdlibParameters }
         }
-        if (authorized !is TdApi.AuthorizationStateReady) return Result.success()
-        val folderId = folders.selectedFolderId.first() ?: return Result.success()
+        if (authorized !is TdApi.AuthorizationStateReady) {
+            AppLog.i(TAG, "Skipped: not logged in (${authorized?.javaClass?.simpleName ?: "TDLib didn't start in time"})")
+            return Result.success()
+        }
+        val folderId = folders.selectedFolderId.first() ?: return Result.success().also { AppLog.i(TAG, "Skipped: no folder") }
         // Let TDLib catch up with what happened while it was offline.
         withTimeoutOrNull(SYNC_TIMEOUT_MS) { td.connectionState.first { it is TdApi.ConnectionStateReady } }
-            ?: return Result.success()
+            ?: return Result.success().also { AppLog.w(TAG, "Skipped: no connection within ${SYNC_TIMEOUT_MS / 1000} s") }
         return try {
             notifier.check(folderId)
             storage.applyLimit()
+            AppLog.i(TAG, "Check done")
             Result.success()
         } catch (e: TdException) {
-            Log.w(TAG, "Check failed", e)
+            AppLog.w(TAG, "Check failed", e)
             Result.success()
         }
     }

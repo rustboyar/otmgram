@@ -125,6 +125,14 @@ app/
 - Unit tests (`./gradlew :app:testDebugUnitTest`): message mapping, list rows, media mapping, wording, login steps, storage, and the open chat and folder list against a fake TDLib (`testing/FakeTelegram`, behind the `TelegramClient` interface)
 - UI tests on a device (`scripts/ui-tests.sh`): bubble states, delete dialog. Not `connectedAndroidTest`, which uninstalls the app and so logs it out
 
+## Logging
+
+- No remote crash reporting (it would send data to a third party); logs stay on the phone
+- `AppLog`: logcat plus `files/logs/app.log` (512 KB, rotated once): app start with version and device, authorization and connection changes, each background check and its outcome, notifications, live location, every caught failure with its stack trace, and crashes
+- TDLib's warnings and errors to `files/logs/tdlib.log` (2 MB)
+- Settings → Share logs: a zip with both logs and the device info, via the share sheet
+- Never log message text, names or phone numbers
+
 ## Open questions
 
 - Search across all folder chats' messages at once (fan-out `searchChatMessages`) — decide later

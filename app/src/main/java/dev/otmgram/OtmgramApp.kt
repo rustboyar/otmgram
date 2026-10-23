@@ -1,6 +1,7 @@
 package dev.otmgram
 
 import android.app.Application
+import android.os.Build
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import coil3.ImageLoader
@@ -8,6 +9,7 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.video.VideoFrameDecoder
 import dagger.hilt.android.HiltAndroidApp
+import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.sync.CheckScheduler
 import org.maplibre.android.MapLibre
@@ -30,6 +32,12 @@ class OtmgramApp : Application(), SingletonImageLoader.Factory, Configuration.Pr
 
     override fun onCreate() {
         super.onCreate()
+        AppLog.init(this)
+        AppLog.i(
+            "App",
+            "Started ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}${if (BuildConfig.DEBUG) ", debug" else ""}) " +
+                "on ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})",
+        )
         MapLibre.getInstance(this)
         td.start()
         checkScheduler.start()

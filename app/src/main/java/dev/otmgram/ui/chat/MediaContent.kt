@@ -2,11 +2,10 @@
 
 package dev.otmgram.ui.chat
 
-import android.util.Log
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -38,14 +37,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -58,15 +57,16 @@ import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.rememberLottieComposition
 import dev.otmgram.core.location.MapSnapshots
+import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.media.AudioState
 import dev.otmgram.core.td.TdException
 import dev.otmgram.ui.media.LocalFileRepository
 import dev.otmgram.ui.media.LoopingVideo
+import dev.otmgram.ui.media.OnDemandFile
 import dev.otmgram.ui.media.TdImage
-import dev.otmgram.ui.media.rememberDownloadedPath
 import dev.otmgram.ui.media.formatSize
 import dev.otmgram.ui.media.openFile
-import dev.otmgram.ui.media.OnDemandFile
+import dev.otmgram.ui.media.rememberDownloadedPath
 import dev.otmgram.ui.media.rememberFileState
 import dev.otmgram.ui.media.rememberOnDemandFile
 import dev.otmgram.ui.theme.Otm
@@ -153,7 +153,7 @@ private fun DocumentContent(media: MessageMedia.Document, onLongClick: () -> Uni
                         try {
                             files.startDownload(media.fileId)
                         } catch (e: TdException) {
-                            Log.w("DocumentContent", "Download failed", e)
+                            AppLog.w("DocumentContent", "Download failed", e)
                         }
                     }
                 }

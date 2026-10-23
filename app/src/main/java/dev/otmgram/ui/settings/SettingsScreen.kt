@@ -1,6 +1,6 @@
 package dev.otmgram.ui.settings
 
-import android.util.Log
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -43,7 +44,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.otmgram.core.launchLogged
+import dev.otmgram.core.log.AppLog
+import dev.otmgram.core.log.LogArchive
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
 import dev.otmgram.data.AppSettings
@@ -78,6 +82,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
+import java.io.File
 import javax.inject.Inject
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -185,6 +190,18 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                 )
             }
 
+            Card {
+                Title("Logs", "What the app did and any errors, kept on this phone. No message text or names.")
+                val context = LocalContext.current
+                SoftButton(
+                    if (viewModel.sharingLogs) "Preparing…" else "Share logs",
+                    {
+                        viewModel.shareLogs { zip -> context.startActivity(LogArchive.shareIntent(context, zip)) }
+                    },
+                    Modifier.testTag("shareLogs"),
+                )
+            }
+
             Spacer(Modifier.height(4.dp))
             Box(
                 modifier = Modifier
@@ -269,6 +286,7 @@ private val STORAGE_COLORS = mapOf(
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val td: TdClient,
     private val auth: AuthRepository,
     private val folders: FolderRepository,
@@ -296,6 +314,9 @@ class SettingsViewModel @Inject constructor(
         private set
 
     var clearing by mutableStateOf(false)
+        private set
+
+    var sharingLogs by mutableStateOf(false)
         private set
 
     init {
@@ -340,6 +361,19 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /** Zips the logs, then hands the file to [share]. */
+    fun shareLogs(share: (File) -> Unit) {
+        if (sharingLogs) return
+        sharingLogs = true
+        viewModelScope.launchLogged(TAG) {
+            try {
+                share(LogArchive.create(context))
+            } finally {
+                sharingLogs = false
+            }
+        }
+    }
+
     fun logOut() {
         viewModelScope.launch { quietly { auth.logOut() } }
     }
@@ -353,7 +387,7 @@ class SettingsViewModel @Inject constructor(
         try {
             block()
         } catch (e: TdException) {
-            Log.w(TAG, "Settings action failed", e)
+            AppLog.w(TAG, "Settings action failed", e)
         }
     }
 }
