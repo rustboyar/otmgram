@@ -14,10 +14,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.otmgram.MainActivity
 import dev.otmgram.R
 import dev.otmgram.core.td.TdClient
-import dev.otmgram.core.td.TdException
 import dev.otmgram.data.ChatRepository
 import dev.otmgram.data.FolderChat
-import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.isGroup
 import dev.otmgram.ui.summary
 import kotlinx.coroutines.flow.first
@@ -37,7 +35,6 @@ class NewMessagesNotifier @Inject constructor(
     @ApplicationContext private val context: Context,
     private val td: TdClient,
     private val chats: ChatRepository,
-    private val folders: FolderRepository,
     private val state: NotificationState,
 ) {
     suspend fun check(folderId: Int) {
@@ -48,7 +45,7 @@ class NewMessagesNotifier @Inject constructor(
             .mapNotNull { newMessages(it, since = seenUpTo) }
         when {
             news.isEmpty() -> cancel() // Read elsewhere, or nothing new.
-            news.any { it.newest > notifiedUpTo } -> show(news, folderName(folderId))
+            news.any { it.newest > notifiedUpTo } -> show(news)
             else -> Unit // Already notified about all of it.
         }
         state.markNotified()
@@ -91,17 +88,7 @@ class NewMessagesNotifier @Inject constructor(
         return unread.take(limit)
     }
 
-    /** The name shown over the chat list; null if it's set to show none. */
-    private suspend fun folderName(folderId: Int): String? {
-        folders.headerName.first()?.let { return it.ifBlank { null } }
-        return try {
-            td.send(TdApi.GetChatFolder(folderId)).name.text.text
-        } catch (e: TdException) {
-            null
-        }
-    }
-
-    private fun show(news: List<ChatNews>, folderName: String?) {
+    private fun show(news: List<ChatNews>) {
         val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
         if (!granted) return
@@ -137,7 +124,7 @@ class NewMessagesNotifier @Inject constructor(
                     style.addLine("${chat.title}: ${chat.lines.first()}$more")
                 }
             }
-            builder.setContentTitle(if (folderName != null) "$count new in $folderName" else "$count new messages")
+            builder.setContentTitle("$count new messages")
                 .setContentText(news.joinToString(", ") { it.title })
                 .setStyle(style.setSummaryText(chatsText))
         }
