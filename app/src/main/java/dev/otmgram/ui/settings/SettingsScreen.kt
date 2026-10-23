@@ -50,6 +50,8 @@ import dev.otmgram.data.AuthRepository
 import dev.otmgram.data.CacheLimit
 import dev.otmgram.data.CheckInterval
 import dev.otmgram.data.FolderRepository
+import dev.otmgram.data.MAX_HEADER_NAME
+import dev.otmgram.data.limitTo
 import dev.otmgram.data.StorageKind
 import dev.otmgram.data.StorageRepository
 import dev.otmgram.data.StorageUsage
@@ -120,6 +122,14 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                         placeholder = "No name",
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         modifier = Modifier.fillMaxWidth().testTag("headerName"),
+                        trailing = {
+                            Text(
+                                "${header.codePointCount(0, header.length)}/$MAX_HEADER_NAME",
+                                style = OtmType.Time,
+                                color = Otm.InkFaint,
+                                modifier = Modifier.padding(end = 12.dp),
+                            )
+                        },
                     )
                     if (folderName != null && header != folderName) {
                         Text(
@@ -292,8 +302,9 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun editHeader(name: String) {
-        header = name
-        viewModelScope.launch { folders.setHeaderName(name) }
+        val limited = name.limitTo(MAX_HEADER_NAME)
+        header = limited
+        viewModelScope.launch { folders.setHeaderName(limited) }
     }
 
     fun resetHeader() {

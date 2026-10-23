@@ -22,6 +22,12 @@ data class Folder(val id: Int, val name: String)
 private val SELECTED_FOLDER_ID = intPreferencesKey("selected_folder_id")
 private val HEADER_NAME = stringPreferencesKey("header_name")
 
+/**
+ * Longest name on top, in characters: typical names of this length still show in full at
+ * about 20 sp on a narrow phone; the header shrinks the font to fit.
+ */
+const val MAX_HEADER_NAME = 20
+
 /** The user's chat folders and the one folder Otmgram shows, picked once after login. */
 @Singleton
 class FolderRepository @Inject constructor(
@@ -69,12 +75,16 @@ class FolderRepository @Inject constructor(
         null
     }
 
-    /** Null goes back to the folder's name. */
+    /** Null goes back to the folder's name; longer names are cut to [MAX_HEADER_NAME]. */
     suspend fun setHeaderName(name: String?) {
-        context.settings.edit { if (name == null) it.remove(HEADER_NAME) else it[HEADER_NAME] = name }
+        context.settings.edit { if (name == null) it.remove(HEADER_NAME) else it[HEADER_NAME] = name.limitTo(MAX_HEADER_NAME) }
     }
 
     suspend fun selectFolder(id: Int) {
         context.settings.edit { it[SELECTED_FOLDER_ID] = id }
     }
 }
+
+/** At most [max] characters, never splitting an emoji or other surrogate pair. */
+fun String.limitTo(max: Int): String =
+    if (codePointCount(0, length) <= max) this else substring(0, offsetByCodePoints(0, max))

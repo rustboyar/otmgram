@@ -29,7 +29,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
@@ -161,7 +163,15 @@ fun SkyBand(
                 if (content != null) {
                     content()
                 } else {
-                    Text(title, style = OtmType.FolderName, color = Otm.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    // Names are short (see MAX_HEADER_NAME); longer ones shrink to fit on one line.
+                    BasicText(
+                        title,
+                        style = OtmType.FolderName.copy(color = Otm.Ink),
+                        maxLines = 1,
+                        softWrap = false,
+                        autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = OtmType.FolderName.fontSize, stepSize = 0.5.sp),
+                        modifier = Modifier.weight(1f).testTag("headerTitle"),
+                    )
                 }
                 actions()
             }
