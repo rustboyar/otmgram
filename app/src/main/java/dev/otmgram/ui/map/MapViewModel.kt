@@ -68,7 +68,8 @@ class MapViewModel @Inject constructor(
                     is TdApi.UpdateMessageEdited -> update.chatId == chatId && update.messageId == messageId
                     else -> false
                 }
-                if (changed) reloadLogged()
+                // Reloading waits for TDLib: not inside the update collector.
+                if (changed) viewModelScope.launch { reloadLogged() }
             }
         }
         viewModelScope.launch { reloadLogged() }

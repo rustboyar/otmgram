@@ -40,6 +40,10 @@ class TdClient @Inject constructor(
     /**
      * All updates from TDLib. Updates emitted while nobody is subscribed are dropped, so
      * long-lived collectors must subscribe before [start].
+     *
+     * The buffer is unbounded so no update is ever lost; in return collectors must be quick
+     * and never wait for a TDLib request inside collect (launch it separately instead), or
+     * updates pile up behind them.
      */
     override val updates: SharedFlow<TdApi.Update> = _updates.asSharedFlow()
 

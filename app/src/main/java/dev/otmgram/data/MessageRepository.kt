@@ -209,12 +209,13 @@ class ChatSession internal constructor(
         td.send(TdApi.ViewMessages(chatId, messageIds.toLongArray(), TdApi.MessageSourceChatHistory(), false))
     }
 
-    private suspend fun onUpdate(update: TdApi.Update) {
+    /** Applies [update] right away; names it refers to are looked up separately. */
+    private fun onUpdate(update: TdApi.Update) {
         when (update) {
             is TdApi.UpdateNewMessage -> {
                 if (update.message.chatId != chatId) return
                 messages[update.message.id] = update.message
-                resolveReferences()
+                resolveSoon()
             }
             is TdApi.UpdateMessageSendSucceeded -> {
                 if (update.message.chatId != chatId) return
@@ -250,6 +251,27 @@ class ChatSession internal constructor(
             else -> return
         }
         publish()
+    }
+
+    private var resolving: Job? = null
+    private var resolveAgain = false
+
+    /**
+     * Looks up names and replied messages outside the update collector, which must never
+     * wait for TDLib (updates would pile up behind it); runs once more if asked meanwhile.
+     */
+    private fun resolveSoon() {
+        if (resolving?.isActive == true) {
+            resolveAgain = true
+            return
+        }
+        resolving = scope.launchLogged(TAG) {
+            do {
+                resolveAgain = false
+                resolveReferences()
+                publish()
+            } while (resolveAgain)
+        }
     }
 
     /** Loads what loaded messages refer to: sender and forward origin names, replied messages. */
