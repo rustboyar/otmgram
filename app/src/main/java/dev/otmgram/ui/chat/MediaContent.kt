@@ -2,6 +2,9 @@
 
 package dev.otmgram.ui.chat
 
+import dev.otmgram.core.log.AppLog
+import java.io.ByteArrayOutputStream
+import java.io.IOException
 import dev.otmgram.core.launchLogged
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -543,13 +546,11 @@ fun StickerView(media: MessageMedia.Sticker, modifier: Modifier) {
     }
 }
 
-/** TGS stickers are gzipped Lottie animations. */
+/** TGS stickers are gzipped Lottie animations; a broken or oversized one stays blank. */
 @Composable
 private fun LottieSticker(path: String, modifier: Modifier) {
     val json by produceState<String?>(null, path) {
-        value = withContext(Dispatchers.IO) {
-            GZIPInputStream(File(path).inputStream()).bufferedReader().use { it.readText() }
-        }
+        value = withContext(Dispatchers.IO) { readTgs(File(path)) }
     }
     val loaded = json ?: return Box(modifier)
     // Only create the composition once loaded: an empty placeholder one breaks the animation.
@@ -557,6 +558,26 @@ private fun LottieSticker(path: String, modifier: Modifier) {
     // Telegram stickers use merge paths, which Lottie disables by default.
     LottieAnimation(composition, iterations = LottieConstants.IterateForever, enableMergePaths = true, modifier = modifier)
 }
+
+/** The animation's JSON, or null if the file is broken or unpacks to more than [TGS_MAX_BYTES]. */
+private fun readTgs(file: File): String? = try {
+    GZIPInputStream(file.inputStream()).use { input ->
+        val out = ByteArrayOutputStream()
+        val buffer = ByteArray(16 * 1024)
+        while (out.size() <= TGS_MAX_BYTES) {
+            val read = input.read(buffer)
+            if (read < 0) break
+            out.write(buffer, 0, read)
+        }
+        if (out.size() > TGS_MAX_BYTES) null else out.toString(Charsets.UTF_8.name())
+    }
+} catch (e: IOException) {
+    AppLog.w("LottieSticker", "Can't read a sticker", e)
+    null
+}
+
+/** Telegram allows 64 KB packed; real ones unpack to a few hundred KB. */
+private const val TGS_MAX_BYTES = 2 * 1024 * 1024
 
 @Composable
 private fun Label(text: String, modifier: Modifier) {

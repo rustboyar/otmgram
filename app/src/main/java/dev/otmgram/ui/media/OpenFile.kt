@@ -1,5 +1,6 @@
 package dev.otmgram.ui.media
 
+import android.webkit.MimeTypeMap
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -9,12 +10,17 @@ import dev.otmgram.R
 import dev.otmgram.core.log.AppLog
 import java.io.File
 
+private fun typeOf(path: String): String? =
+    MimeTypeMap.getSingleton().getMimeTypeFromExtension(File(path).extension.lowercase())
+
 /** Opens a downloaded file in another app, e.g. a PDF viewer. */
 fun openFile(context: Context, path: String, mimeType: String) {
     try {
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", File(path))
         val intent = Intent(Intent.ACTION_VIEW)
-            .setDataAndType(uri, mimeType.ifEmpty { "*/*" })
+            // The type from the file's extension where known, not the one the sender gave, which
+            // could steer the file to an app that doesn't expect it.
+            .setDataAndType(uri, typeOf(path) ?: mimeType.ifEmpty { "*/*" })
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         context.startActivity(Intent.createChooser(intent, null))
     } catch (e: ActivityNotFoundException) {

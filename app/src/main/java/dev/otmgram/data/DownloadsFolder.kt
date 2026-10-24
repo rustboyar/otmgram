@@ -19,12 +19,21 @@ class DownloadsFolder @Inject constructor(
         val values = ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, name)
             put(MediaStore.Downloads.MIME_TYPE, mimeType.ifEmpty { "application/octet-stream" })
+            // Hidden from other apps until complete.
+            put(MediaStore.Downloads.IS_PENDING, 1)
         }
         val resolver = context.contentResolver
         val uri = checkNotNull(resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)) { "Can't create the file in Downloads" }
-        resolver.openOutputStream(uri).use { output ->
-            checkNotNull(output) { "Can't write the file in Downloads" }
-            file.inputStream().use { it.copyTo(output) }
+        try {
+            resolver.openOutputStream(uri).use { output ->
+                checkNotNull(output) { "Can't write the file in Downloads" }
+                file.inputStream().use { it.copyTo(output) }
+            }
+            resolver.update(uri, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null)
+        } catch (e: Exception) {
+            // No half-written file left in Downloads.
+            resolver.delete(uri, null, null)
+            throw e
         }
     }
 }
