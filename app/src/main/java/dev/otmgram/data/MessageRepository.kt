@@ -1,5 +1,7 @@
 package dev.otmgram.data
 
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.Mutex
 import dev.otmgram.core.launchLogged
 import dev.otmgram.core.media.VoiceRecording
 import dev.otmgram.core.td.TdException
@@ -65,7 +67,7 @@ class ChatSession internal constructor(
     private val repliedMessages = mutableMapOf<Long, TdApi.Message>()
     private var lastReadOutboxMessageId = 0L
     private var reachedStart = false
-    private var loading = false
+    private val loadLock = Mutex()
     private var version = 0L
 
     private val _history = MutableStateFlow(ChatHistory())
@@ -88,8 +90,15 @@ class ChatSession internal constructor(
 
     /** Loads the next page of older messages, unless already loading or at the start. */
     suspend fun loadOlder() {
-        if (loading || reachedStart) return
-        loading = true
+        if (reachedStart || !loadLock.tryLock()) return
+        try {
+            loadPage()
+        } finally {
+            loadLock.unlock()
+        }
+    }
+
+    private suspend fun loadPage() {
         try {
             var received = 0
             // TDLib often returns fewer messages than asked for; keep asking.
@@ -106,7 +115,6 @@ class ChatSession internal constructor(
             }
             resolveReferences()
         } finally {
-            loading = false
             publish()
         }
     }
@@ -193,12 +201,19 @@ class ChatSession internal constructor(
     suspend fun search(query: String): List<TdApi.Message> =
         td.send(TdApi.SearchChatMessages(chatId, null, query, null, 0, 0, SEARCH_LIMIT, null)).messages.toList()
 
-    /** Loads older pages until [messageId] is loaded; false if it couldn't be reached. */
-    suspend fun loadUntil(messageId: Long): Boolean {
-        while (messageId !in messages && !reachedStart) {
-            val before = messages.size
-            loadOlder()
-            if (messages.size == before) break // Another load is running, or nothing new.
+    /**
+     * Loads older pages until [messageId] is loaded, at most [maxPages]; false if it wasn't
+     * reached. Waits for a load already running instead of giving up.
+     */
+    suspend fun loadUntil(messageId: Long, maxPages: Int = Int.MAX_VALUE): Boolean {
+        loadLock.withLock {
+            var pages = 0
+            while (messageId !in messages && !reachedStart && pages < maxPages) {
+                val before = messages.size
+                loadPage()
+                pages++
+                if (messages.size == before) break
+            }
         }
         return messageId in messages
     }

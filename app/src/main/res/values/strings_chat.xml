@@ -145,4 +145,7 @@
     <string name="status_read">Read</string>
     <string name="video_note_record">Record</string>
     <string name="video_note_stop_send">Stop and send</string>
+
+    <!-- Chat screen -->
+    <string name="jump_to_newest">Newest messages</string>
 </resources>

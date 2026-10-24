@@ -1,5 +1,9 @@
 package dev.otmgram.ui.chat
 
+import androidx.compose.ui.platform.LocalDensity
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.derivedStateOf
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
@@ -131,8 +135,24 @@ fun ChatScreen(
     LaunchedEffect(newest?.id) {
         val previousIndex = rows.indexOfFirst { it is ListRow.Message && it.message.id == previousNewestId }
         previousNewestId = newest?.id
+        // Opening at the first unread message instead.
+        if (!viewModel.positioned) return@LaunchedEffect
         if (previousIndex < 0 || listState.firstVisibleItemIndex <= previousIndex || newest?.isOutgoing == true) {
             listState.animateScrollToItem(0)
+        }
+    }
+    // Open at the first unread message, its "new since you left" line near the top.
+    val topMargin = with(LocalDensity.current) { OPEN_AT_TOP_MARGIN.roundToPx() }
+    viewModel.openAt?.let { target ->
+        LaunchedEffect(target, rows) {
+            val index = rows.indexOfFirst { it is ListRow.Unread }.takeIf { it >= 0 }
+                ?: rows.indexOfFirst { it is ListRow.Message && it.message.id == target }
+            if (index < 0) return@LaunchedEffect
+            listState.scrollToItem(index)
+            // The list starts at the bottom: move the line up to the top, if there's room.
+            val line = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }
+            if (line != null) listState.scrollToItem(index, -(listState.layoutInfo.viewportSize.height - line.size - topMargin))
+            viewModel.opened(listState.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? Long })
         }
     }
     viewModel.scrollTarget?.let { target ->
@@ -208,10 +228,11 @@ fun ChatScreen(
             val results = search.results
             val resultIds = remember(results) { results?.map { it.messageId }?.toSet().orEmpty() }
             val currentMatch = results?.getOrNull(search.index)?.messageId
+            Box(Modifier.weight(1f).fillMaxWidth()) {
             LazyColumn(
                 state = listState,
                 reverseLayout = true,
-                modifier = Modifier.weight(1f).fillMaxWidth().testTag("messages"),
+                modifier = Modifier.fillMaxSize().testTag("messages"),
                 verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Bottom),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 10.dp),
             ) {
@@ -255,6 +276,21 @@ fun ChatScreen(
                         }
                     }
                 }
+            }
+            // Back to the newest message, once scrolled away from it.
+            val scrolledAway by remember { derivedStateOf { listState.firstVisibleItemIndex > JUMP_BUTTON_AFTER } }
+            if (scrolledAway) {
+                val scope = rememberCoroutineScope()
+                IconBtn(
+                    OtmIcons.ChevronDown,
+                    stringResource(R.string.jump_to_newest),
+                    { scope.launch { listState.animateScrollToItem(0) } },
+                    Modifier.align(Alignment.BottomEnd).padding(12.dp),
+                    tint = Otm.SlateDeep,
+                    background = Otm.Card,
+                    tag = "jumpToNewest",
+                )
+            }
             }
 
             val current = recording
@@ -653,5 +689,11 @@ fun formatTime(unixTime: Int): String =
         .format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
 
 private const val LOAD_MORE_THRESHOLD = 10
+
+/** The "newest messages" button shows once scrolled this many rows up. */
+private const val JUMP_BUTTON_AFTER = 3
+
+/** Room above the "new since you left" line when opening there. */
+private val OPEN_AT_TOP_MARGIN = 24.dp
 private const val MAX_PICKED_MEDIA = 10
 private const val LIVE_BARS = 24

@@ -197,6 +197,14 @@ class ChatViewModel @Inject constructor(
     var unreadMark by mutableStateOf<UnreadMark?>(null)
         private set
 
+    /** The first unread message, to open the chat at; null once there or if none. */
+    var openAt by mutableStateOf<Long?>(null)
+        private set
+
+    /** False until the chat shows where it opens; nothing is marked read before. */
+    var positioned by mutableStateOf(false)
+        private set
+
     /** One-time message: an error or a confirmation. */
     var notice by mutableStateOf<String?>(null)
         private set
@@ -236,18 +244,29 @@ class ChatViewModel @Inject constructor(
 
     init {
         action {
-            val chat = td.send(TdApi.GetChat(chatId))
-            val myId = td.send(TdApi.GetMe()).id
-            val saved = chat.isSavedMessages(myId)
-            if (chat.unreadCount > 0) unreadMark = UnreadMark(chat.lastReadInboxMessageId, chat.unreadCount)
-            _header.value = ChatHeader(
-                title = if (saved) strings.get(R.string.saved_messages) else chat.title,
-                isGroup = chat.isGroup,
-                subtitle = if (saved) null else subtitle(chat),
-                photoFileId = chat.photo?.small?.id,
-                minithumbnail = chat.photo?.minithumbnail?.data,
-                isSavedMessages = saved,
-            )
+            try {
+                val chat = td.send(TdApi.GetChat(chatId))
+                val myId = td.send(TdApi.GetMe()).id
+                val saved = chat.isSavedMessages(myId)
+                _header.value = ChatHeader(
+                    title = if (saved) strings.get(R.string.saved_messages) else chat.title,
+                    isGroup = chat.isGroup,
+                    subtitle = if (saved) null else subtitle(chat),
+                    photoFileId = chat.photo?.small?.id,
+                    minithumbnail = chat.photo?.minithumbnail?.data,
+                    isSavedMessages = saved,
+                )
+                if (chat.unreadCount > 0) {
+                    unreadMark = UnreadMark(chat.lastReadInboxMessageId, chat.unreadCount)
+                    // Open at the first unread message: opening at the newest would mark them all
+                    // read, seen or not (Telegram marks everything up to the newest one viewed).
+                    session.loadUntil(chat.lastReadInboxMessageId, maxPages = FIRST_UNREAD_MAX_PAGES)
+                    openAt = session.history.value.messages.filter { it.id > chat.lastReadInboxMessageId }.minOfOrNull { it.id }
+                }
+            } finally {
+                // Nothing to open at (or it failed): mark what's on screen as usual.
+                if (openAt == null) positioned = true
+            }
         }
     }
 
@@ -272,8 +291,16 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /** The chat is shown at [openAt], with [visibleIds] on screen. */
+    fun opened(visibleIds: List<Long>) {
+        openAt = null
+        positioned = true
+        onMessagesVisible(visibleIds)
+    }
+
     /** Called with the ids of messages currently on screen. */
     fun onMessagesVisible(ids: List<Long>) {
+        if (!positioned) return
         val new = ids.filter { viewedIds.add(it) }
         if (new.isNotEmpty()) action { session.markViewed(new) }
     }
@@ -526,3 +553,6 @@ class ChatViewModel @Inject constructor(
 }
 
 private const val TAG = "ChatViewModel"
+
+/** Opening at the first unread loads history back to it, but not further than this. */
+private const val FIRST_UNREAD_MAX_PAGES = 10
