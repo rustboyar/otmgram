@@ -10,4 +10,5 @@
     <string name="send">Send</string>
     <string name="save">Save</string>
     <string name="back">Back</string>
+    <string name="open_settings">Settings</string>
 </resources>

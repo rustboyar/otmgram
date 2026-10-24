@@ -2,6 +2,7 @@ package dev.otmgram.core.media
 
 import android.content.Context
 import android.net.Uri
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -38,6 +39,7 @@ class AudioPlayer @Inject constructor(
 
     private val player: ExoPlayer by lazy {
         ExoPlayer.Builder(context).build().apply {
+            mediaAudio(focus = true, content = C.AUDIO_CONTENT_TYPE_SPEECH)
             addListener(object : Player.Listener {
                 override fun onIsPlayingChanged(isPlaying: Boolean) = publish()
 

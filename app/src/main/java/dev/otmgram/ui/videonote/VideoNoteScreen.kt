@@ -63,14 +63,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.otmgram.R
 import dev.otmgram.ui.chat.formatDuration
+import dev.otmgram.ui.openAppSettings
 import dev.otmgram.ui.theme.DarkSystemBars
 import dev.otmgram.ui.theme.IconBtn
 import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmType
+import dev.otmgram.ui.theme.TextAction
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -86,6 +89,11 @@ fun VideoNoteScreen(onDone: () -> Unit, viewModel: VideoNoteViewModel = hiltView
         granted = result.values.all { it }
     }
     LaunchedEffect(Unit) { if (!granted) request.launch(permissions) }
+    // Back from the system settings.
+    LifecycleResumeEffect(Unit) {
+        if (!granted) granted = permissions.all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }
+        onPauseOrDispose {}
+    }
     LaunchedEffect(viewModel.state) { if (viewModel.state == VideoNoteState.Sent) onDone() }
     DarkSystemBars()
 
@@ -98,7 +106,10 @@ fun VideoNoteScreen(onDone: () -> Unit, viewModel: VideoNoteViewModel = hiltView
                     color = Otm.NightText,
                     textAlign = TextAlign.Center,
                 )
-                IconBtn(OtmIcons.Close, stringResource(R.string.close), onDone, Modifier.padding(top = 16.dp), tint = Otm.NightText, tag = "cancelVideoNote")
+                Row(Modifier.padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconBtn(OtmIcons.Close, stringResource(R.string.close), onDone, tint = Otm.NightText, tag = "cancelVideoNote")
+                    TextAction(stringResource(R.string.open_settings), context::openAppSettings, color = Otm.NightText)
+                }
             }
             viewModel.state == VideoNoteState.Processing -> Column(
                 Modifier.align(Alignment.Center),

@@ -37,7 +37,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -56,6 +58,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -70,6 +73,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.otmgram.R
 import dev.otmgram.core.location.LiveShare
 import dev.otmgram.core.media.RecorderState
+import dev.otmgram.ui.openAppSettings
 import dev.otmgram.ui.theme.Banner
 import dev.otmgram.ui.theme.ChatAvatar
 import dev.otmgram.ui.theme.Hairline
@@ -180,8 +184,19 @@ fun ChatScreen(
     val keyboard = LocalSoftwareKeyboardController.current
     val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments(), viewModel.outgoing::pickFiles)
     val pickMedia = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MAX_PICKED_MEDIA), viewModel.outgoing::pickMedia)
+    // A refused permission says what it's for, with the way to the settings where it can be
+    // allowed again: after two refusals, Android no longer asks.
+    val scope = rememberCoroutineScope()
+    val settingsLabel = stringResource(R.string.open_settings)
+    val resources = LocalResources.current
+    val refused: (Int) -> Unit = { reason ->
+        scope.launch {
+            val result = snackbar.showSnackbar(resources.getString(reason), actionLabel = settingsLabel, duration = SnackbarDuration.Long)
+            if (result == SnackbarResult.ActionPerformed) context.openAppSettings()
+        }
+    }
     val requestLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-        if (result.values.any { it }) viewModel.sendCurrentLocation()
+        if (result.values.any { it }) viewModel.sendCurrentLocation() else refused(R.string.permission_location)
     }
     var pendingLivePeriod by rememberSaveable { mutableStateOf<Int?>(null) }
     val requestLiveLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -191,10 +206,11 @@ fun ChatScreen(
         val notifications = Manifest.permission.POST_NOTIFICATIONS
         val located = result.filterKeys { it != notifications }.values.any { it } || hasLocationPermission(context)
         if (period != null && located) viewModel.startLiveLocation(period)
+        if (!located) refused(R.string.permission_location)
         pendingLivePeriod = null
     }
     val requestMicrophone = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) viewModel.startVoice()
+        if (granted) viewModel.startVoice() else refused(R.string.permission_microphone)
     }
 
     Box(Modifier.fillMaxSize().paper()) {
@@ -240,7 +256,7 @@ fun ChatScreen(
                 verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Bottom),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 10.dp),
             ) {
-                items(rows, key = { it.key }) { row ->
+                items(rows, key = { it.key }, contentType = ListRow::contentType) { row ->
                     when (row) {
                         is ListRow.Day -> Divider(dayLabel(row.date))
                         is ListRow.Unread -> Divider(
@@ -254,7 +270,8 @@ fun ChatScreen(
                             val message = row.message
                             MessageBubble(
                                 message,
-                                audio = audio,
+                                // Only the playing bubble changes as it plays.
+                                audio = audio?.takeIf { it.fileId == (message.media as? MessageMedia.VoiceNote)?.fileId },
                                 onLongClick = { viewModel.openMenu(message) },
                                 onReactionClick = { viewModel.toggleReaction(message, it) },
                                 onOpenMedia = {
@@ -284,7 +301,6 @@ fun ChatScreen(
             // Back to the newest message, once scrolled away from it.
             val scrolledAway by remember { derivedStateOf { listState.firstVisibleItemIndex > JUMP_BUTTON_AFTER } }
             if (scrolledAway) {
-                val scope = rememberCoroutineScope()
                 IconBtn(
                     OtmIcons.ChevronDown,
                     stringResource(R.string.jump_to_newest),
@@ -333,8 +349,9 @@ fun ChatScreen(
                 }
             }
         }
-        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 72.dp)) {
-            Snackbar(it, containerColor = Otm.Ink, contentColor = Otm.Paper, shape = RoundedCornerShape(14.dp))
+        // Above the input bar, and the keyboard when it's open.
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().imePadding().padding(bottom = 72.dp)) {
+            Snackbar(it, containerColor = Otm.Ink, contentColor = Otm.Paper, actionColor = Otm.Apricot, shape = RoundedCornerShape(14.dp))
         }
     }
 

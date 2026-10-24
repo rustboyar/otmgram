@@ -23,4 +23,6 @@
 
     <!-- Chat list -->
     <string name="draft_label">Draft:</string>
+    <string name="notifications_off">Notifications are off, so new messages won\'t show.</string>
+    <string name="notifications_turn_on">Turn on</string>
 </resources>

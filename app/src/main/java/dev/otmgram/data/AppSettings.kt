@@ -34,6 +34,7 @@ private val CHECK_INTERVAL = stringPreferencesKey("check_interval")
 private val COMPRESS = booleanPreferencesKey("compress_by_default")
 private val CACHE_LIMIT = stringPreferencesKey("cache_limit")
 private val MESSAGE_TEXT = booleanPreferencesKey("notification_message_text")
+private val NOTIFICATIONS_ASKED = booleanPreferencesKey("notification_permission_asked")
 
 /** Settings of the app on this phone; they stay across logins. */
 @Singleton
@@ -53,6 +54,13 @@ class AppSettings @Inject constructor(
 
     /** Whether notifications include message text; off keeps it off the lock screen. */
     val showMessageText: Flow<Boolean> = settings.data.map { it[MESSAGE_TEXT] ?: false }
+
+    /** Whether the app has asked for the notification permission; it asks once. */
+    val notificationsAsked: Flow<Boolean> = settings.data.map { it[NOTIFICATIONS_ASKED] ?: false }
+
+    suspend fun setNotificationsAsked() {
+        settings.edit { it[NOTIFICATIONS_ASKED] = true }
+    }
 
     suspend fun setShowMessageText(show: Boolean) {
         settings.edit { it[MESSAGE_TEXT] = show }

@@ -10,8 +10,12 @@ import java.util.Locale
 internal sealed interface ListRow {
     val key: Any
 
+    /** Rows of one type reuse each other's layout as they scroll by. */
+    val contentType: Any get() = this::class
+
     data class Message(val message: MessageItem) : ListRow {
         override val key get() = message.id
+        override val contentType: Any get() = if (message.isService) "service" else message.media?.let { it::class } ?: "text"
     }
 
     data class Day(val date: Int, override val key: String) : ListRow

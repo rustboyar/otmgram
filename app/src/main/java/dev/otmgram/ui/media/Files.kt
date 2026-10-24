@@ -36,6 +36,7 @@ import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
 import coil3.compose.AsyncImage
 import dev.otmgram.core.launchLogged
 import dev.otmgram.core.media.SoftwareFirstCodecSelector
+import dev.otmgram.core.media.mediaAudio
 import dev.otmgram.data.FileRepository
 import dev.otmgram.data.FileState
 import kotlinx.coroutines.delay
@@ -155,6 +156,8 @@ fun LoopingVideo(
     // Muted: loop silently. With sound: play once from the start, then report the end.
     DisposableEffect(player, muted) {
         player.volume = if (muted) 0f else 1f
+        // A silent loop leaves other apps' sound alone.
+        player.mediaAudio(focus = !muted)
         player.repeatMode = if (muted) Player.REPEAT_MODE_ALL else Player.REPEAT_MODE_OFF
         if (!muted) player.seekTo(0)
         player.play()

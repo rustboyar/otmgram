@@ -1,7 +1,6 @@
 package dev.otmgram.ui.chats
 
 import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -50,12 +49,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.otmgram.R
 import dev.otmgram.ui.auth.LoadingScreen
+import dev.otmgram.sync.MessagesNotification
 import dev.otmgram.ui.highlightMatches
+import dev.otmgram.ui.openNotificationSettings
 import dev.otmgram.ui.theme.Banner
 import dev.otmgram.ui.theme.ChatAvatar
 import dev.otmgram.ui.theme.CountPill
@@ -66,6 +67,7 @@ import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmType
 import dev.otmgram.ui.theme.SectionLabel
 import dev.otmgram.ui.theme.SkyBand
+import dev.otmgram.ui.theme.TextAction
 import dev.otmgram.ui.theme.paper
 import java.time.Instant
 import java.time.LocalDate
@@ -90,7 +92,8 @@ fun ChatListScreen(
         searching = false
         viewModel.setQuery("")
     }
-    RequestNotificationPermission()
+    val askNotifications by viewModel.askNotifications.collectAsStateWithLifecycle()
+    val notifies by viewModel.notifies.collectAsStateWithLifecycle()
     BackHandler(enabled = searching, onBack = closeSearch)
 
     Column(Modifier.fillMaxSize().paper()) {
@@ -106,6 +109,7 @@ fun ChatListScreen(
             )
         }
         connection?.let { Banner(OtmIcons.Offline, it, Modifier.testTag("connection")) }
+        NotificationsCheck(ask = askNotifications, notifies = notifies, onAsked = viewModel::notificationsAsked)
 
         val list = chats
         val searchText = query.trim()
@@ -147,16 +151,40 @@ private fun Empty(text: String) {
     }
 }
 
-/** Asks once for the permission to notify about new messages (Android 13+). */
+/**
+ * Asks once for the permission to notify about new messages (Android 13+). While
+ * notifications can't show, though the app checks for messages, a banner leads to the
+ * system settings to turn them on.
+ */
 @Composable
-private fun RequestNotificationPermission() {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+private fun NotificationsCheck(ask: Boolean?, notifies: Boolean, onAsked: () -> Unit) {
     val context = LocalContext.current
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
-    LaunchedEffect(Unit) {
-        val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
-            PackageManager.PERMISSION_GRANTED
-        if (!granted) launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    var allowed by remember { mutableStateOf(MessagesNotification.allowed(context)) }
+    var asking by remember { mutableStateOf(false) }
+    // Back from the system settings, or from the shade.
+    LifecycleResumeEffect(Unit) {
+        allowed = MessagesNotification.allowed(context)
+        onPauseOrDispose {}
+    }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        asking = false
+        allowed = MessagesNotification.allowed(context)
+    }
+    LaunchedEffect(ask) {
+        if (ask != true) return@LaunchedEffect
+        onAsked()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !allowed) {
+            asking = true
+            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+    if (notifies && !allowed && !asking && ask == false) {
+        Banner(
+            OtmIcons.Alert,
+            stringResource(R.string.notifications_off),
+            Modifier.testTag("notificationsOff"),
+            action = { TextAction(stringResource(R.string.notifications_turn_on), context::openNotificationSettings) },
+        )
     }
 }
 

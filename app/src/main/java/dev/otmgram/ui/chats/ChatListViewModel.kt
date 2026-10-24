@@ -5,8 +5,11 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.otmgram.R
 import dev.otmgram.core.Strings
+import dev.otmgram.core.launchLogged
 import dev.otmgram.core.td.TelegramClient
+import dev.otmgram.data.AppSettings
 import dev.otmgram.data.ChatRepository
+import dev.otmgram.data.CheckInterval
 import dev.otmgram.data.FolderChat
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.ui.summary
@@ -45,6 +48,7 @@ class ChatListViewModel @Inject constructor(
     folders: FolderRepository,
     chats: ChatRepository,
     td: TelegramClient,
+    private val settings: AppSettings,
     private val strings: Strings,
 ) : ViewModel() {
 
@@ -73,10 +77,24 @@ class ChatListViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /** Whether to ask for the notification permission; null until known. */
+    val askNotifications: StateFlow<Boolean?> = settings.notificationsAsked.map { !it }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Whether the app checks for new messages, so blocked notifications are worth a word. */
+    val notifies: StateFlow<Boolean> = settings.checkInterval.map { it != CheckInterval.Never }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun notificationsAsked() {
+        viewModelScope.launchLogged(TAG) { settings.setNotificationsAsked() }
+    }
+
     fun setQuery(query: String) {
         _query.value = query
     }
 }
+
+private const val TAG = "ChatList"
 
 private fun FolderChat.toItem(strings: Strings) = ChatItem(
     id = chat.id,

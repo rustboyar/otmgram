@@ -38,6 +38,7 @@ import dev.otmgram.di.onMain
 import dev.otmgram.ui.isService
 import dev.otmgram.ui.summary
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -45,6 +46,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import org.drinkless.tdlib.TdApi
 import java.io.File
@@ -167,7 +169,7 @@ class ChatViewModel @Inject constructor(
     /** Messages, newest first. */
     val messages: StateFlow<List<MessageItem>> = combine(session.history, _header) { history, header ->
         history.toItems(isGroup = header?.isGroup == true, strings)
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Live location being shared from this device, in any chat. */
     val liveShare: StateFlow<LiveShare?> = liveLocation.share

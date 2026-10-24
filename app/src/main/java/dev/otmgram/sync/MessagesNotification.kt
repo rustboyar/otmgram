@@ -108,12 +108,19 @@ class MessagesNotification @Inject constructor(
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
     }
 
-    private companion object {
-        const val CHANNEL_ID = "messages"
-        const val OLD_CHANNEL_ID = "new_messages"
-        const val NOTIFICATION_ID = 2
+    companion object {
+        private const val CHANNEL_ID = "messages"
+        private const val OLD_CHANNEL_ID = "new_messages"
+        private const val NOTIFICATION_ID = 2
 
         /** Android shows about this many lines of an expanded notification. */
-        const val MAX_LINES = 5
+        private const val MAX_LINES = 5
+
+        /** Whether these notifications can show: not refused, turned off, or their channel blocked. */
+        fun allowed(context: Context): Boolean {
+            val manager = NotificationManagerCompat.from(context)
+            return manager.areNotificationsEnabled() &&
+                manager.getNotificationChannelCompat(CHANNEL_ID)?.importance != NotificationManagerCompat.IMPORTANCE_NONE
+        }
     }
 }

@@ -1,5 +1,6 @@
 package dev.otmgram.ui.media
 
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
@@ -25,8 +26,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,8 +42,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -49,6 +55,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.otmgram.R
 import dev.otmgram.core.Strings
 import dev.otmgram.core.launchLogged
+import dev.otmgram.core.media.mediaAudio
 import dev.otmgram.core.td.TdException
 import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.core.userMessage
@@ -86,8 +93,15 @@ fun MediaViewerScreen(onBack: () -> Unit, viewModel: MediaViewerViewModel = hilt
     DarkSystemBars()
     val pages = viewModel.pages
     val pager = rememberPagerState(initialPage = viewModel.startIndex) { pages.size }
-    // The album loads after the pager is created: start on the opened message.
-    LaunchedEffect(viewModel.startIndex) { pager.scrollToPage(viewModel.startIndex) }
+    // The album loads after the pager is created: start on the opened message, once (after
+    // turning the phone, the pager is back where it was).
+    var positioned by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(pages) {
+        if (pages.isNotEmpty() && !positioned) {
+            pager.scrollToPage(viewModel.startIndex)
+            positioned = true
+        }
+    }
     val current = pages.getOrNull(pager.currentPage)
     Box(Modifier.fillMaxSize().background(Otm.Night)) {
         HorizontalPager(pager, Modifier.fillMaxSize(), key = { pages[it].messageId }) { index ->
@@ -173,9 +187,19 @@ private fun FullVideo(video: ViewerContent.Video) {
         return
     }
     val context = LocalContext.current
+    val activity = LocalActivity.current
     // Hardware decoders first; if one fails (as on the emulator), retry with software ones.
     var softwareDecoders by remember { mutableStateOf(false) }
-    val player = remember(path, softwareDecoders) { buildPlayer(context, path, softwareDecoders) }
+    // Where it was and whether it was playing: turning the phone builds a new player.
+    var resumeAt by rememberSaveable { mutableLongStateOf(0L) }
+    var playing by rememberSaveable { mutableStateOf(true) }
+    val player = remember(path, softwareDecoders) {
+        buildPlayer(context, path, softwareDecoders).apply {
+            mediaAudio(focus = true)
+            seekTo(resumeAt)
+            playWhenReady = playing
+        }
+    }
     DisposableEffect(player) {
         val listener = object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
@@ -184,6 +208,19 @@ private fun FullVideo(video: ViewerContent.Video) {
         }
         player.addListener(listener)
         onDispose { player.release() }
+    }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle, player) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                resumeAt = player.currentPosition
+                // Turning the phone carries on playing; leaving the app pauses.
+                playing = player.playWhenReady && activity?.isChangingConfigurations == true
+                player.pause()
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
     }
     AndroidView(
         factory = { PlayerView(it) },
