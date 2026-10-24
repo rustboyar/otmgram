@@ -7,6 +7,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.security.KeyStore
 import java.security.SecureRandom
+import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -14,10 +15,24 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** What [DatabaseKey.load] found. */
+sealed interface StoredKey {
+    /** No key yet: the database isn't encrypted (or its key file is gone). */
+    data object None : StoredKey
+
+    data class Loaded(val bytes: ByteArray) : StoredKey
+
+    /** The file is there but can never be decrypted again (e.g. the Keystore key is gone). */
+    data object Lost : StoredKey
+
+    /** The Keystore failed this time; it may work on the next try. */
+    data class Unavailable(val error: Exception) : StoredKey
+}
+
 /**
  * The key TDLib encrypts its database and login with: 32 random bytes, stored encrypted by
- * a key in the Android Keystore, which never leaves the device. A copy of the app's files
- * is useless anywhere else.
+ * a key in the Android Keystore, which never leaves the device. A copy of the database is
+ * useless anywhere else (downloaded media aren't encrypted, though).
  */
 @Singleton
 class DatabaseKey @Inject constructor(
@@ -25,16 +40,19 @@ class DatabaseKey @Inject constructor(
 ) {
     private val file = File(context.noBackupFilesDir, "database.key")
 
-    /** The stored key, or null if there is none yet (or it can't be read any more). */
-    fun load(): ByteArray? {
-        if (!file.exists()) return null
+    fun load(): StoredKey {
+        if (!file.exists()) return StoredKey.None
         return try {
             val stored = file.readBytes()
+            if (stored.size <= IV_BYTES) return StoredKey.Lost
             val cipher = Cipher.getInstance(TRANSFORMATION)
             cipher.init(Cipher.DECRYPT_MODE, keystoreKey(), GCMParameterSpec(TAG_BITS, stored, 0, IV_BYTES))
-            cipher.doFinal(stored, IV_BYTES, stored.size - IV_BYTES)
+            StoredKey.Loaded(cipher.doFinal(stored, IV_BYTES, stored.size - IV_BYTES))
+        } catch (e: AEADBadTagException) {
+            // Encrypted by a Keystore key that no longer exists (a new one was made instead).
+            StoredKey.Lost
         } catch (e: Exception) {
-            null
+            StoredKey.Unavailable(e)
         }
     }
 
