@@ -1,5 +1,9 @@
 package dev.otmgram.ui
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -41,19 +45,27 @@ sealed interface RootState {
 }
 
 @Composable
-fun AppRoot(viewModel: RootViewModel = hiltViewModel()) {
+fun AppRoot(openChatId: Long? = null, viewModel: RootViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     when (val s = state) {
         RootState.Loading -> LoadingScreen()
         is RootState.Auth -> AuthScreen(s.state, hiltViewModel())
         is RootState.PickFolder -> FolderPickerScreen(s.folders, s.previousMissing)
-        RootState.Chats -> MainNavHost()
+        RootState.Chats -> MainNavHost(openChatId)
     }
 }
 
 @Composable
-private fun MainNavHost() {
+private fun MainNavHost(openChatId: Long?) {
     val navController = rememberNavController()
+    // Once: not again after a rotation, which keeps the activity's intent.
+    var openedChat by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(openChatId) {
+        if (openChatId != null && !openedChat) {
+            openedChat = true
+            navController.navigate("chat/$openChatId")
+        }
+    }
     NavHost(navController, startDestination = "chats") {
         composable("chats") {
             ChatListScreen(

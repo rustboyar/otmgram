@@ -28,15 +28,22 @@ class MainActivity : ComponentActivity() {
         // Always light: dark icons over the paper and the sky.
         val bars = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
         enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
+        // From a notification about one chat: that chat, over the chat list.
+        val openChatId = intent.getLongExtra(EXTRA_OPEN_CHAT, 0).takeIf { it != 0L }
         setContent {
             CompositionLocalProvider(LocalFileRepository provides files) {
                 OtmgramTheme {
                     // Exposes test tags as view ids to UI Automator, for driving the app via adb.
                     Box(Modifier.semantics { testTagsAsResourceId = true }) {
-                        AppRoot()
+                        AppRoot(openChatId = openChatId)
                     }
                 }
             }
         }
+    }
+
+    companion object {
+        /** A chat to open at start, by id. */
+        const val EXTRA_OPEN_CHAT = "dev.otmgram.extra.OPEN_CHAT"
     }
 }

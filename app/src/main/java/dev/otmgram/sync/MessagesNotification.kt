@@ -44,11 +44,14 @@ class MessagesNotification @Inject constructor(
                 lockscreenVisibility = Notification.VISIBILITY_PRIVATE
             },
         )
-        // Always the chat list: a fresh task, whatever screen was open before.
+        // A fresh task, whatever screen was open before: the chat when it's about one, else
+        // the chat list. Updated, as extras don't tell pending intents apart.
         val open = PendingIntent.getActivity(
             context, 0,
-            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
-            PendingIntent.FLAG_IMMUTABLE,
+            Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                .apply { news.singleOrNull()?.let { putExtra(MainActivity.EXTRA_OPEN_CHAT, it.chatId) } },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val count = news.sumOf { it.lines.size }
         val countText = strings.plural(R.plurals.new_messages, count, count)
