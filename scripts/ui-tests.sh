@@ -15,4 +15,7 @@ ADB="$ANDROID_HOME/platform-tools/adb"
 
 args=()
 [ $# -gt 0 ] && args=(-e class "dev.otmgram.$1")
-"$ADB" shell am instrument -w "${args[@]}" dev.otmgram.test/androidx.test.runner.AndroidJUnitRunner
+# am instrument exits 0 even when tests fail; its output says.
+output=$("$ADB" shell am instrument -w "${args[@]}" dev.otmgram.test/androidx.test.runner.AndroidJUnitRunner)
+echo "$output"
+grep -q '^OK (' <<< "$output"

@@ -21,8 +21,19 @@ class LockScreenNotificationTest {
     private val news = listOf(ChatNews(1, "Anna", listOf("see you at 7, by the bridge", "bring the tent"), newestId = 2))
 
     private fun show(withText: Boolean): Notification {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        // Android updates its list of shown notifications asynchronously: without waiting, a
+        // test could read the one the previous test left.
+        manager.cancelAll()
+        waitFor { manager.activeNotifications.isEmpty() }
         MessagesNotification(context, AndroidStrings(context)).show(news, withText)
-        return context.getSystemService(NotificationManager::class.java).activeNotifications.single().notification
+        waitFor { manager.activeNotifications.isNotEmpty() }
+        return manager.activeNotifications.single().notification
+    }
+
+    private fun waitFor(condition: () -> Boolean) {
+        val until = System.currentTimeMillis() + 5_000
+        while (!condition() && System.currentTimeMillis() < until) Thread.sleep(20)
     }
 
     private fun Notification.allText() =
