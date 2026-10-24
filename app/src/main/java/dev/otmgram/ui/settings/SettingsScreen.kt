@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -147,7 +148,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                             stringResource(R.string.header_reset, folderName.orEmpty()),
                             style = OtmType.Secondary.copy(fontWeight = FontWeight.SemiBold),
                             color = Otm.SlateDeep,
-                            modifier = Modifier.clickable(onClick = viewModel::resetHeader).padding(vertical = 4.dp).testTag("resetHeaderName"),
+                            modifier = Modifier.heightIn(min = 48.dp).clickable(onClick = viewModel::resetHeader, role = Role.Button).padding(vertical = 4.dp).testTag("resetHeaderName"),
                         )
                     }
                 }
@@ -232,7 +233,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                     .height(52.dp)
                     .clip(RoundedCornerShape(18.dp))
                     .background(Otm.Card)
-                    .clickable { confirmLogout = true }
+                    .clickable(role = Role.Button) { confirmLogout = true }
                     .testTag("logout"),
                 contentAlignment = Alignment.Center,
             ) {

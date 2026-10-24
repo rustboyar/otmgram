@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -39,6 +40,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -117,8 +119,13 @@ private fun CodeStep(state: AuthState.WaitCode, viewModel: AuthViewModel) {
     var code by rememberSaveable { mutableStateOf("") }
     val submit = { viewModel.submitCode(code) }
     val length = state.length ?: 5
+    // Sent once when complete; turning the phone doesn't send it again.
+    var sent by rememberSaveable { mutableStateOf("") }
     LaunchedEffect(code) {
-        if (state.length != null && code.length == state.length) submit()
+        if (state.length != null && code.length == state.length && code != sent) {
+            sent = code
+            submit()
+        }
     }
     val sentTo = when (state.delivery) {
         CodeDelivery.TelegramApp -> stringResource(R.string.code_sent_app)
@@ -148,7 +155,7 @@ private fun CodeStep(state: AuthState.WaitCode, viewModel: AuthViewModel) {
                 style = OtmType.Secondary,
                 color = Otm.InkSoft,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().clickable(enabled = !viewModel.busy, onClick = viewModel::startOver).padding(vertical = 10.dp).testTag("startOver"),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(enabled = !viewModel.busy, onClick = viewModel::startOver, role = Role.Button).padding(vertical = 10.dp).testTag("startOver"),
             )
         },
     ) {
@@ -205,7 +212,7 @@ private fun ResendLine(state: AuthState.WaitCode, viewModel: AuthViewModel) {
             stringResource(R.string.code_resend),
             style = OtmType.Secondary.copy(fontWeight = FontWeight.SemiBold),
             color = Otm.SlateDeep,
-            modifier = Modifier.clickable(enabled = !viewModel.busy, onClick = viewModel::resendCode).padding(vertical = 8.dp).testTag("resend"),
+            modifier = Modifier.heightIn(min = 48.dp).clickable(enabled = !viewModel.busy, onClick = viewModel::resendCode, role = Role.Button).padding(vertical = 8.dp).testTag("resend"),
         )
     }
 }
@@ -233,7 +240,7 @@ private fun PasswordStep(state: AuthState.WaitPassword, viewModel: AuthViewModel
                 style = OtmType.Secondary,
                 color = Otm.InkSoft,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().clickable(enabled = !viewModel.busy, onClick = viewModel::startOver).padding(vertical = 10.dp).testTag("startOver"),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(enabled = !viewModel.busy, onClick = viewModel::startOver, role = Role.Button).padding(vertical = 10.dp).testTag("startOver"),
             )
         },
     ) {

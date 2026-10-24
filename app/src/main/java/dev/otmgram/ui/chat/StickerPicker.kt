@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -28,6 +29,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.otmgram.R
@@ -49,6 +53,7 @@ fun StickerPicker(
     onSelectTab: (StickerTab) -> Unit,
     onSend: (Sticker) -> Unit,
 ) {
+    val sendLabel = stringResource(R.string.send)
     Column(Modifier.fillMaxWidth().height(PICKER_HEIGHT).background(Otm.Sheet).navigationBarsPadding()) {
         Hairline()
         LazyRow(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -58,7 +63,8 @@ fun StickerPicker(
                         .size(44.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(if (tab == selected) Otm.Haze else Color.Transparent)
-                        .clickable { onSelectTab(tab) }
+                        .selectable(selected = tab == selected, onClick = { onSelectTab(tab) }, role = Role.Tab)
+                        .semantics { contentDescription = tab.title }
                         .testTag("stickerTab-${tab.title}"),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -87,7 +93,7 @@ fun StickerPicker(
                 }
                 items(stickers, key = { it.fileId }) { sticker ->
                     Box(
-                        Modifier.height(80.dp).clip(RoundedCornerShape(14.dp)).clickable { onSend(sticker) }.testTag("pick-${sticker.fileId}"),
+                        Modifier.height(80.dp).clip(RoundedCornerShape(14.dp)).clickable(onClickLabel = sendLabel, role = Role.Button) { onSend(sticker) }.semantics { contentDescription = sticker.emoji }.testTag("pick-${sticker.fileId}"),
                         contentAlignment = Alignment.Center,
                     ) {
                         StickerView(sticker.toMedia(), Modifier.size(STICKER_CELL))

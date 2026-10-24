@@ -1,5 +1,7 @@
 package dev.otmgram.ui.chat
 
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -98,7 +100,7 @@ fun MessageBubble(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(if (selected) Otm.Haze.copy(alpha = 0.7f) else Color.Transparent)
-                .then(if (selecting) Modifier.clickable(onClick = onToggleSelected) else Modifier)
+                .then(if (selecting) Modifier.toggleable(value = selected, onValueChange = { onToggleSelected() }, role = Role.Checkbox) else Modifier)
                 .padding(horizontal = 12.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -172,7 +174,7 @@ private fun Bubble(
             .clip(shape)
             .background(background)
             .then(if (failed) Modifier.border(1.dp, Color(0xFFE5B9AF), shape) else Modifier)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = stringResource(R.string.message_actions))
             .testTag("message-${message.id}")
             .padding(
                 horizontal = when {
@@ -347,7 +349,7 @@ private fun Reaction(chip: ReactionChip, outgoing: Boolean, onClick: () -> Unit)
                 },
             )
             .then(if (chip.isChosen) Modifier.border(1.dp, Otm.RidgeLight, RoundedCornerShape(10.dp)) else Modifier)
-            .clickable(enabled = chip.emoji != null, onClick = onClick)
+            .clickable(enabled = chip.emoji != null, onClick = onClick, role = Role.Button)
             .testTag("reaction-${chip.label}")
             .padding(horizontal = 8.dp, vertical = 2.dp),
     )

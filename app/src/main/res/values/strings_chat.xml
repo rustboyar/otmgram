@@ -152,4 +152,5 @@
     <string name="link_open">Open</string>
     <string name="permission_microphone">Voice messages need the microphone. You can allow it in Settings.</string>
     <string name="permission_location">Sending your location needs location access. You can allow it in Settings.</string>
+    <string name="message_actions">Message actions</string>
 </resources>

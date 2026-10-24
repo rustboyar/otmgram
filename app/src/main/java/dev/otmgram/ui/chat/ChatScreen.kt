@@ -52,6 +52,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -91,6 +94,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ChatScreen(
     onBack: () -> Unit,
@@ -182,6 +186,12 @@ fun ChatScreen(
 
     val context = LocalContext.current
     val keyboard = LocalSoftwareKeyboardController.current
+    // The keyboard and the sticker picker take turns: the keyboard opening closes the picker,
+    // and so does back.
+    val inputFocus = remember { FocusRequester() }
+    val imeVisible = WindowInsets.isImeVisible
+    LaunchedEffect(imeVisible) { if (imeVisible) viewModel.stickers.close() }
+    BackHandler(enabled = viewModel.stickers.isOpen && !selecting && !searching, onBack = viewModel.stickers::close)
     val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments(), viewModel.outgoing::pickFiles)
     val pickMedia = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MAX_PICKED_MEDIA), viewModel.outgoing::pickMedia)
     // A refused permission says what it's for, with the way to the settings where it can be
@@ -327,9 +337,16 @@ fun ChatScreen(
                     onCancel = viewModel::cancelComposer,
                     onSend = viewModel::send,
                     onStickers = {
-                        keyboard?.hide()
-                        viewModel.stickers.toggle()
+                        if (viewModel.stickers.isOpen) {
+                            viewModel.stickers.close()
+                            inputFocus.requestFocus()
+                            keyboard?.show()
+                        } else {
+                            keyboard?.hide()
+                            viewModel.stickers.toggle()
+                        }
                     },
+                    focus = inputFocus,
                     onAttach = {
                         keyboard?.hide()
                         attaching = true
@@ -567,6 +584,7 @@ private fun InputBar(
     onStickers: () -> Unit,
     onAttach: () -> Unit,
     onRecordVideoNote: () -> Unit,
+    focus: FocusRequester,
 ) {
     Column(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.6f)).then(if (stickersOpen) Modifier else Modifier.navigationBarsPadding())) {
         Hairline()
@@ -617,7 +635,7 @@ private fun InputBar(
                         tag = "stickers",
                     )
                 },
-                modifier = Modifier.weight(1f).border(1.dp, Otm.Line, RoundedCornerShape(22.dp)).testTag("input"),
+                modifier = Modifier.weight(1f).border(1.dp, Otm.Line, RoundedCornerShape(22.dp)).focusRequester(focus).testTag("input"),
             )
             Box(Modifier.size(4.dp))
             if (text.isBlank() && composer !is Composer.Edit) {

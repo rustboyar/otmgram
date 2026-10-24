@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -33,6 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Dp
@@ -63,7 +65,7 @@ fun IconBtn(
             .size(size)
             .clip(CircleShape)
             .background(background)
-            .clickable(enabled = enabled, onClick = onClick, onClickLabel = description)
+            .clickable(enabled = enabled, onClick = onClick, role = Role.Button)
             .then(if (tag != null) Modifier.testTag(tag) else Modifier),
         contentAlignment = Alignment.Center,
     ) {
@@ -86,7 +88,7 @@ fun PrimaryButton(
             .height(52.dp)
             .clip(RoundedCornerShape(26.dp))
             .background(if (enabled) Otm.Slate else Otm.RidgeLight)
-            .clickable(enabled = enabled && !busy, onClick = onClick),
+            .clickable(enabled = enabled && !busy, onClick = onClick, role = Role.Button),
         contentAlignment = Alignment.Center,
     ) {
         if (busy) {
@@ -113,7 +115,7 @@ fun SoftButton(
             .heightIn(min = height)
             .clip(RoundedCornerShape(height / 2))
             .background(background)
-            .clickable(onClick = onClick)
+            .clickable(onClick = onClick, role = Role.Button)
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
@@ -130,7 +132,7 @@ fun TextAction(text: String, onClick: () -> Unit, modifier: Modifier = Modifier,
         modifier = modifier
             .heightIn(min = 44.dp)
             .clip(RoundedCornerShape(22.dp))
-            .clickable(enabled = enabled, onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick, role = Role.Button)
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -248,7 +250,7 @@ fun Chip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifie
             .height(36.dp)
             .clip(shape)
             .then(if (selected) Modifier.background(Otm.Haze) else Modifier.border(1.dp, Otm.Outline, shape))
-            .clickable(onClick = onClick)
+            .selectable(selected = selected, onClick = onClick, role = Role.RadioButton)
             .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center,
     ) {

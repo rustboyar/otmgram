@@ -48,17 +48,26 @@ class VoiceRecorder @Inject constructor(
     fun start() {
         if (recorder != null) return
         val output = outgoing.newFile("ogg")
-        recorder = newRecorder().apply {
-            setAudioSource(MediaRecorder.AudioSource.MIC)
-            setOutputFormat(MediaRecorder.OutputFormat.OGG)
-            setAudioEncoder(MediaRecorder.AudioEncoder.OPUS)
-            setAudioSamplingRate(SAMPLE_RATE)
-            setAudioChannels(1)
-            setAudioEncodingBitRate(BIT_RATE)
-            setOutputFile(output.path)
-            prepare()
-            start()
+        val started = newRecorder()
+        try {
+            started.apply {
+                setAudioSource(MediaRecorder.AudioSource.MIC)
+                setOutputFormat(MediaRecorder.OutputFormat.OGG)
+                setAudioEncoder(MediaRecorder.AudioEncoder.OPUS)
+                setAudioSamplingRate(SAMPLE_RATE)
+                setAudioChannels(1)
+                setAudioEncodingBitRate(BIT_RATE)
+                setOutputFile(output.path)
+                prepare()
+                start()
+            }
+        } catch (e: Exception) {
+            // E.g. the microphone is in use: free the recorder, or it holds on to it.
+            started.release()
+            output.delete()
+            throw e
         }
+        recorder = started
         file = output
         startedAt = SystemClock.elapsedRealtime()
         amplitudes.clear()

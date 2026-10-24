@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,6 +40,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -86,6 +88,8 @@ import dev.otmgram.ui.theme.PlainDialogWindow
 import dev.otmgram.ui.theme.TextAction
 import dev.otmgram.ui.theme.paper
 import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Long-press menu, floating over the dimmed chat: reactions on top, the message, and the
@@ -132,7 +136,7 @@ fun MessageMenuOverlay(
                     ) {
                         items(menu.reactions) { emoji ->
                             Box(
-                                Modifier.size(42.dp).clip(CircleShape).clickable { onReact(emoji) }.testTag("react-$emoji"),
+                                Modifier.size(42.dp).clip(CircleShape).clickable(role = Role.Button) { onReact(emoji) }.testTag("react-$emoji"),
                                 contentAlignment = Alignment.Center,
                             ) { Text(emoji, fontSize = 22.sp) }
                         }
@@ -185,7 +189,7 @@ private val BUBBLE_SHAPE = RoundedCornerShape(18.dp)
 @Composable
 private fun MenuAction(icon: ImageVector, label: String, tag: String, onClick: () -> Unit, danger: Boolean = false) {
     Row(
-        modifier = Modifier.fillMaxWidth().height(48.dp).clickable(onClick = onClick).testTag(tag).padding(horizontal = 18.dp),
+        modifier = Modifier.fillMaxWidth().height(48.dp).clickable(onClick = onClick, role = Role.Button).testTag(tag).padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -273,7 +277,7 @@ fun ForwardSheet(targets: List<ForwardTarget>, onForward: (ForwardTarget) -> Uni
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
-                        .clickable { onForward(target) }
+                        .clickable(role = Role.Button) { onForward(target) }
                         .testTag("forward-${target.title}")
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -310,7 +314,7 @@ fun AttachSheet(
 @Composable
 private fun androidx.compose.foundation.layout.RowScope.AttachOption(icon: ImageVector, label: String, tag: String, onClick: () -> Unit) {
     Column(
-        modifier = Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick).testTag(tag).padding(vertical = 8.dp),
+        modifier = Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick, role = Role.Button).testTag(tag).padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -338,7 +342,7 @@ fun LocationSheet(
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .clickable(onClick = onSendCurrent)
+                .clickable(onClick = onSendCurrent, role = Role.Button)
                 .testTag("sendCurrentLocation")
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -462,7 +466,7 @@ fun MediaPreviewScreen(
                             .size(64.dp)
                             .then(if (index == shown) Modifier.border(2.dp, Otm.Slate, RoundedCornerShape(12.dp)).padding(3.dp) else Modifier)
                             .clip(RoundedCornerShape(if (index == shown) 9.dp else 12.dp))
-                            .clickable { shown = index },
+                            .selectable(selected = index == shown, role = Role.Tab) { shown = index },
                     )
                 }
             }
@@ -492,11 +496,15 @@ internal fun sizeLine(sizes: SizeEstimate?, compress: Boolean, strings: Strings)
 @Composable
 fun FilesPreviewScreen(uris: List<Uri>, chatTitle: String, onSend: (caption: String) -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
-    val files = remember(uris) {
-        uris.map { uri ->
-            context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)
-                ?.use { if (it.moveToFirst()) it.getString(0) to formatSize(it.getLong(1)) else null }
-                ?: (uri.lastPathSegment.orEmpty() to "")
+    // Names and sizes come from the app that has the files, which may be slow to answer.
+    val files by produceState(emptyList(), uris) {
+        value = withContext(Dispatchers.IO) {
+            uris.map { uri ->
+                runCatching {
+                    context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)
+                        ?.use { if (it.moveToFirst()) it.getString(0) to formatSize(it.getLong(1)) else null }
+                }.getOrNull() ?: (uri.lastPathSegment.orEmpty() to "")
+            }
         }
     }
     SendPreview(
