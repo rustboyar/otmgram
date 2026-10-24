@@ -1,5 +1,6 @@
 package dev.otmgram.data
 
+import dev.otmgram.core.location.LiveLocationSharing
 import androidx.annotation.StringRes
 import dev.otmgram.R
 import dev.otmgram.core.td.TdClient
@@ -36,6 +37,7 @@ enum class CodeDelivery { TelegramApp, Sms, Call, Other }
 @Singleton
 class AuthRepository @Inject constructor(
     private val td: TdClient,
+    private val liveLocation: LiveLocationSharing,
 ) {
     val state: Flow<AuthState> = td.authorizationState.map { it.toAuthState() }
 
@@ -57,6 +59,10 @@ class AuthRepository @Inject constructor(
 
     /** Logs out, or abandons a login in progress. TDLib deletes all local data. */
     suspend fun logOut() {
+        // Once logged out, a live location can't be ended any more: other people would see
+        // it until it expires.
+        liveLocation.stop()
+        liveLocation.endAll()
         td.send(TdApi.LogOut())
     }
 }

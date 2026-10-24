@@ -88,6 +88,8 @@ app/
 - Share live location for 15 min / 1 h / 8 h (`inputMessageLocation` with `live_period`):
   - foreground service of type `location` with a permanent notification and a stop action; started while the app is open, so "while using the app" location permission is enough (no background location); notification permission for the notification
   - sends `editMessageLiveLocation` when the position changes noticeably, at most every ~30 s; stops on expiry, on "stop sharing" or on logout
+  - expiry is an alarm (fires while the phone sleeps); logout ends it in the chat first (TDLib can't once logged out); a message Telegram hasn't confirmed when sharing fails, stops or is replaced is withdrawn, so it isn't sent later
+  - a share the process was killed during is ended at the next start, from TDLib's list of this app's active live locations
   - must not set the account online (see "always offline")
 - Not done: proximity alerts and heading. If the service is killed, sharing is ended in the chat (no resume)
 

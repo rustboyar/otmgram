@@ -1,5 +1,6 @@
 package dev.otmgram
 
+import dev.otmgram.core.location.LiveLocationSharing
 import android.app.Application
 import android.os.Build
 import androidx.hilt.work.HiltWorkerFactory
@@ -24,6 +25,9 @@ class OtmgramApp : Application(), SingletonImageLoader.Factory, Configuration.Pr
     lateinit var checkScheduler: CheckScheduler
 
     @Inject
+    lateinit var liveLocation: LiveLocationSharing
+
+    @Inject
     lateinit var workerFactory: HiltWorkerFactory
 
     override val workManagerConfiguration: Configuration
@@ -39,6 +43,7 @@ class OtmgramApp : Application(), SingletonImageLoader.Factory, Configuration.Pr
         )
         td.start()
         checkScheduler.start()
+        liveLocation.endLeftovers()
     }
 
     /** Images for Coil, including frames of local videos (e.g. picked for sending). */

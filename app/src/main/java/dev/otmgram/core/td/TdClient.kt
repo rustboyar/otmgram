@@ -65,6 +65,14 @@ class TdClient @Inject constructor(
      */
     val chatFolders: StateFlow<List<TdApi.ChatFolderInfo>?> = _chatFolders.asStateFlow()
 
+    private val _activeLiveLocations = MutableStateFlow<List<TdApi.Message>?>(null)
+
+    /**
+     * Live location messages this app sent that are still running, or null until TDLib
+     * tells; like [chatFolders], only sent as updates.
+     */
+    val activeLiveLocations: StateFlow<List<TdApi.Message>?> = _activeLiveLocations.asStateFlow()
+
     private val _connectionState = MutableStateFlow<TdApi.ConnectionState?>(null)
 
     /** Connection to Telegram; ready once TDLib has caught up with what happened offline. */
@@ -134,6 +142,7 @@ class TdClient @Inject constructor(
         when (update) {
             is TdApi.UpdateAuthorizationState -> onAuthorizationState(update.authorizationState)
             is TdApi.UpdateChatFolders -> _chatFolders.value = update.chatFolders.toList()
+            is TdApi.UpdateActiveLiveLocationMessages -> _activeLiveLocations.value = update.messages.toList()
             is TdApi.UpdateConnectionState -> {
                 AppLog.i(TAG, "Connection: ${update.state.javaClass.simpleName.removePrefix("ConnectionState")}")
                 _connectionState.value = update.state
@@ -158,6 +167,7 @@ class TdClient @Inject constructor(
             is TdApi.AuthorizationStateClosed -> synchronized(this) {
                 client = null
                 _chatFolders.value = null
+                _activeLiveLocations.value = null
                 start()
             }
         }

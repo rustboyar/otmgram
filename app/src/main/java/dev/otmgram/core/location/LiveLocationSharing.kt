@@ -5,9 +5,18 @@ import android.content.Intent
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.otmgram.R
+import dev.otmgram.core.log.AppLog
+import dev.otmgram.core.td.TdClient
+import dev.otmgram.core.td.TdException
+import dev.otmgram.di.ApplicationScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -18,6 +27,8 @@ data class LiveShare(val chatId: Long, val chatTitle: String, val endsAt: Int)
 @Singleton
 class LiveLocationSharing @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val td: TdClient,
+    @ApplicationScope private val scope: CoroutineScope,
 ) {
     private val _share = MutableStateFlow<LiveShare?>(null)
 
@@ -39,12 +50,40 @@ class LiveLocationSharing @Inject constructor(
         context.startService(Intent(context, LiveLocationService::class.java).setAction(LiveLocationService.ACTION_STOP))
     }
 
+    /**
+     * Ends live locations this app sent that are still running, though nothing is shared:
+     * the process was killed while sharing, so the service couldn't end them. Call at start.
+     */
+    fun endLeftovers() {
+        scope.launch {
+            td.authorizationState.first { it is TdApi.AuthorizationStateReady }
+            // TDLib tells shortly after starting, if there are any.
+            delay(LEFTOVER_WAIT_MS)
+            if (_share.value == null) endAll()
+        }
+    }
+
+    /** Ends every live location this app is sharing, in the chats (e.g. before logging out). */
+    suspend fun endAll() {
+        td.activeLiveLocations.value.orEmpty().forEach { message ->
+            try {
+                td.send(TdApi.EditMessageLiveLocation(message.chatId, message.id, null, null))
+                AppLog.i(TAG, "Ended a live location left running")
+            } catch (e: TdException) {
+                AppLog.w(TAG, "Ending a live location failed", e)
+            }
+        }
+    }
+
     internal fun update(share: LiveShare?) {
         _share.value = share
     }
 
     companion object {
         /** Durations offered for sharing, in seconds. */
+        private const val TAG = "LiveLocation"
+        private const val LEFTOVER_WAIT_MS = 10_000L
+
         val PERIODS = listOf(15 * 60 to R.string.live_15_minutes, 60 * 60 to R.string.live_1_hour, 8 * 60 * 60 to R.string.live_8_hours)
     }
 }

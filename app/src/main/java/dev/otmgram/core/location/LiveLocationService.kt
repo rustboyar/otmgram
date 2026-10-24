@@ -1,5 +1,6 @@
 package dev.otmgram.core.location
 
+import android.app.AlarmManager
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Notification
@@ -62,6 +63,7 @@ class LiveLocationService : Service() {
     private var chatId = 0L
     private var messageId = 0L
     private var period = 0
+    private var endsAt = 0
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -89,11 +91,15 @@ class LiveLocationService : Service() {
                 shareJob?.cancel()
                 shareJob = scope.launch {
                     stopCurrent()
-                    share(chatId, period)
+                    share(chatId, period, share.endsAt)
                 }
             }
             ACTION_STOP -> {
                 AppLog.i(TAG, "Stopped by the user")
+                scope.launch { stopAndQuit() }
+            }
+            ACTION_END -> {
+                AppLog.i(TAG, "Period over (alarm)")
                 scope.launch { stopAndQuit() }
             }
         }
@@ -101,14 +107,17 @@ class LiveLocationService : Service() {
     }
 
     @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
-    private suspend fun share(chatId: Long, period: Int) {
+    private suspend fun share(chatId: Long, period: Int, endsAt: Int) {
         try {
             val first = locations.current() ?: throw IllegalStateException("Location is off")
             this.messageId = sendLiveLocation(chatId, period, first)
             AppLog.i(TAG, "Live location message confirmed")
             this.chatId = chatId
             this.period = period
+            this.endsAt = endsAt
             listenForUpdates()
+            // The alarm ends it even if the phone sleeps through the period, which pauses this.
+            scheduleEnd(endsAt)
             delay(period * 1000L)
             AppLog.i(TAG, "Period over")
             stopAndQuit()
@@ -128,6 +137,7 @@ class LiveLocationService : Service() {
         // Results by the message's temporary id: its final id, or why it failed.
         val results = ConcurrentHashMap<Long, Result<Long>>()
         var pendingId: Long? = null
+        var confirmed = false
         val finalId = CompletableDeferred<Long>()
         // Called on the main thread, from the collector and after sending.
         fun settle() {
@@ -150,16 +160,36 @@ class LiveLocationService : Service() {
             val sent = td.send(TdApi.SendMessage(chatId, null, null, null, null, content))
             pendingId = sent.id
             settle()
-            return withTimeoutOrNull(SEND_TIMEOUT_MS) { finalId.await() }
+            val id = withTimeoutOrNull(SEND_TIMEOUT_MS) { finalId.await() }
                 ?: throw IllegalStateException("No confirmation from Telegram")
+            confirmed = true
+            return id
         } finally {
             collector.cancel()
+            // Failed, timed out, stopped or replaced before Telegram confirmed it: TDLib would
+            // still send it later, a live location nobody updates or ends. Possibly cancelled,
+            // so without suspending.
+            val temporaryId = pendingId
+            if (!confirmed && temporaryId != null) {
+                val sentAs = results[temporaryId]?.getOrNull()
+                if (sentAs != null) {
+                    td.sendIgnoringResult(TdApi.EditMessageLiveLocation(chatId, sentAs, null, null))
+                } else {
+                    td.sendIgnoringResult(TdApi.DeleteMessages(chatId, longArrayOf(temporaryId), true))
+                }
+                AppLog.i(TAG, "Unconfirmed live location withdrawn")
+            }
         }
     }
 
     @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     private fun listenForUpdates() {
         val listener = LocationListenerCompat { location ->
+            if (now() >= endsAt) {
+                AppLog.i(TAG, "Period over (late)")
+                scope.launch { stopAndQuit() }
+                return@LocationListenerCompat
+            }
             scope.launch {
                 try {
                     td.send(TdApi.EditMessageLiveLocation(chatId, messageId, null, liveLocation(location, period)))
@@ -190,7 +220,17 @@ class LiveLocationService : Service() {
         quit()
     }
 
+    /** Ends sharing at [endsAt] (a Unix time), whether or not the phone is asleep then. */
+    private fun scheduleEnd(endsAt: Int) {
+        getSystemService(AlarmManager::class.java).setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, endsAt * 1000L, endIntent())
+    }
+
+    private fun endIntent() = PendingIntent.getService(
+        this, REQUEST_END, Intent(this, LiveLocationService::class.java).setAction(ACTION_END), PendingIntent.FLAG_IMMUTABLE,
+    )
+
     private fun quit() {
+        getSystemService(AlarmManager::class.java).cancel(endIntent())
         listener?.let(locations::removeUpdates)
         listener = null
         sharing.update(null)
@@ -214,9 +254,9 @@ class LiveLocationService : Service() {
         )
         val until = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(share.endsAt * 1000L))
         val stop = PendingIntent.getService(
-            this, 0, Intent(this, LiveLocationService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE,
+            this, REQUEST_STOP, Intent(this, LiveLocationService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE,
         )
-        val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+        val open = PendingIntent.getActivity(this, REQUEST_OPEN, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_location)
             .setContentTitle(getString(R.string.live_title))
@@ -237,6 +277,7 @@ class LiveLocationService : Service() {
     companion object {
         const val ACTION_START = "dev.otmgram.action.START_LIVE_LOCATION"
         const val ACTION_STOP = "dev.otmgram.action.STOP_LIVE_LOCATION"
+        private const val ACTION_END = "dev.otmgram.action.END_LIVE_LOCATION"
         const val EXTRA_CHAT_ID = "chatId"
         const val EXTRA_CHAT_TITLE = "chatTitle"
         const val EXTRA_PERIOD = "period"
@@ -244,6 +285,9 @@ class LiveLocationService : Service() {
         private const val TAG = "LiveLocationService"
         private const val CHANNEL_ID = "live_location"
         private const val NOTIFICATION_ID = 1
+        private const val REQUEST_STOP = 1
+        private const val REQUEST_END = 2
+        private const val REQUEST_OPEN = 3
         private const val MIN_INTERVAL_MS = 30_000L
         private const val MIN_DISTANCE_M = 25f
         private const val SEND_TIMEOUT_MS = 60_000L
