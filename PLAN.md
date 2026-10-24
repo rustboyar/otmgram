@@ -142,7 +142,8 @@ app/
 
 - TDLib's database and login are encrypted with a random 32-byte key (without one, TDLib uses a built-in key, i.e. none). The key is stored encrypted by an Android Keystore key, which never leaves the device (`core/td/DatabaseKey`)
 - Existing databases are encrypted once logged in. Opening (`core/td/DatabaseOpener`): if the database doesn't take its key (TDLib's error 401; stopped mid-switch), it opens without, and only then is the key file dropped and a new key applied; if it's encrypted and the key can never be read again, the local database is deleted and the app asks to log in again. Anything else (a busy Keystore, a full disk) is retried with backoff, never treated as a lost key
-- Downloaded and sent media are plain files (TDLib encrypts only its database)
+- Downloaded and sent media are plain files (TDLib encrypts only its database). Copies of sent files (`cache/outgoing`) are removed after 3 days
+- After logout, from this phone or elsewhere (`data/SessionCleanup`): TDLib deletes its database and downloads; the app removes sent copies, shared log archives, map tiles and its notification marks. Its own log stays (no message text or names), as do device settings
 - Session backups (`scripts/session.sh`) include the key file, so encrypted ones only restore into the same installation
 - Release builds are signed with a dedicated key (`~/.local/share/otmgram/release.jks`, password in `local.properties`, both outside git): back both up. Android installs updates only with the same key, so losing it means reinstalling and logging in again
 

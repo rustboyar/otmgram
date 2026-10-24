@@ -34,6 +34,11 @@ class NotificationState @Inject constructor(
 
     suspend fun markNotified(messages: Map<Long, Long>) = merge(NOTIFIED, messages)
 
+    /** Forgets everything, e.g. the chats of an account logged out of. */
+    suspend fun clear() {
+        context.notificationState.edit { it.clear() }
+    }
+
     /** Forgets what was notified, so the next check notifies again (for testing). */
     suspend fun forgetNotified() {
         context.notificationState.edit { it.remove(NOTIFIED) }

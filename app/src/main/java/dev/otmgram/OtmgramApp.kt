@@ -1,5 +1,6 @@
 package dev.otmgram
 
+import dev.otmgram.data.SessionCleanup
 import dev.otmgram.core.location.LiveLocationSharing
 import android.app.Application
 import android.os.Build
@@ -28,6 +29,9 @@ class OtmgramApp : Application(), SingletonImageLoader.Factory, Configuration.Pr
     lateinit var liveLocation: LiveLocationSharing
 
     @Inject
+    lateinit var sessionCleanup: SessionCleanup
+
+    @Inject
     lateinit var workerFactory: HiltWorkerFactory
 
     override val workManagerConfiguration: Configuration
@@ -44,6 +48,7 @@ class OtmgramApp : Application(), SingletonImageLoader.Factory, Configuration.Pr
         td.start()
         checkScheduler.start()
         liveLocation.endLeftovers()
+        sessionCleanup.start()
     }
 
     /** Images for Coil, including frames of local videos (e.g. picked for sending). */

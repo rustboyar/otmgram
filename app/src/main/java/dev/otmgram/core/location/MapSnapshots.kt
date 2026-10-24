@@ -1,5 +1,7 @@
 package dev.otmgram.core.location
 
+import org.maplibre.android.offline.OfflineManager
+import dev.otmgram.core.log.AppLog
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.LruCache
@@ -33,6 +35,17 @@ object MapSnapshots {
      */
     fun ensureMapEngine(context: Context) {
         MapLibre.getInstance(context.applicationContext)
+    }
+
+    /** Forgets downloaded map tiles (which show where locations in chats were). Main thread. */
+    fun clearTiles(context: Context) {
+        ensureMapEngine(context)
+        cache.evictAll()
+        OfflineManager.getInstance(context.applicationContext).clearAmbientCache(object : OfflineManager.FileSourceCallback {
+            override fun onSuccess() = Unit
+
+            override fun onError(message: String) = AppLog.w("MapSnapshots", "Clearing map tiles failed: $message")
+        })
     }
 
     /**
