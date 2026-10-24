@@ -124,9 +124,10 @@ fun ChatScreen(
             .collect(viewModel::onMessagesVisible)
     }
     // Follow new messages if the previous newest one was at the bottom (several can arrive
-    // at once, e.g. an album), and always after sending.
+    // at once, e.g. an album), and always after sending. Saved, so coming back from the
+    // viewer or a rotation keeps the place instead of jumping to the bottom.
     val newest = messages.firstOrNull()
-    var previousNewestId by remember { mutableStateOf<Long?>(null) }
+    var previousNewestId by rememberSaveable { mutableStateOf<Long?>(null) }
     LaunchedEffect(newest?.id) {
         val previousIndex = rows.indexOfFirst { it is ListRow.Message && it.message.id == previousNewestId }
         previousNewestId = newest?.id
