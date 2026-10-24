@@ -53,6 +53,16 @@ class ChatRepositoryTest {
     }
 
     @Test
+    fun `channels and secret chats are left out`() = runTest {
+        chats[40L] = chat(40, "news", type = TdApi.ChatTypeSupergroup(6, true))
+        chats[50L] = chat(50, "secret", type = TdApi.ChatTypeSecret(1, 10))
+        chats[60L] = chat(60, "big group", type = TdApi.ChatTypeSupergroup(7, false))
+        order = listOf(10L, 40L, 50L, 60L)
+        val list = ChatRepository(td).folderChats(folderId = 1).first()
+        assertEquals(listOf(10L, 60L), list.map { it.chat.id })
+    }
+
+    @Test
     fun `a sender name that can't be loaded doesn't lose the list`() = runTest {
         td.on<TdApi.GetUser> { error(400, "USER_NOT_FOUND") }
         val list = ChatRepository(td).folderChats(folderId = 1).first()

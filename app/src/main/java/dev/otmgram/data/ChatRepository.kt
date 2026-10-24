@@ -20,6 +20,10 @@ val TdApi.Chat.isGroup: Boolean
         else -> false
     }
 
+/** Private chats and groups: what the app shows. Channels and secret chats are left out. */
+val TdApi.Chat.isShown: Boolean
+    get() = type is TdApi.ChatTypePrivate || isGroup
+
 /** The chat with yourself. */
 fun TdApi.Chat.isSavedMessages(myUserId: Long): Boolean = (type as? TdApi.ChatTypePrivate)?.userId == myUserId
 
@@ -39,7 +43,7 @@ class ChatRepository @Inject constructor(
     private val td: TelegramClient,
 ) {
     /**
-     * Chats of a folder in display order, kept up to date.
+     * Chats of a folder in display order, kept up to date; only those the app shows.
      *
      * Loaded once, then each update reloads only the chat it's about (and the order, when
      * positions change); updates arriving close together are handled at once. Only a change
@@ -113,7 +117,8 @@ class ChatRepository @Inject constructor(
             return list()
         }
 
-        private fun list() = order.mapNotNull(chats::get)
+        // Chats that aren't shown stay loaded, so updates don't fetch them again.
+        private fun list() = order.mapNotNull(chats::get).filter { it.chat.isShown }
 
         private suspend fun loadOrder() = td.send(TdApi.GetChats(TdApi.ChatListFolder(folderId), MAX_CHATS)).chatIds.toList()
 
