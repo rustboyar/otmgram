@@ -148,4 +148,6 @@
 
     <!-- Chat screen -->
     <string name="jump_to_newest">Newest messages</string>
+    <string name="link_confirm_title">Open this link?</string>
+    <string name="link_open">Open</string>
 </resources>

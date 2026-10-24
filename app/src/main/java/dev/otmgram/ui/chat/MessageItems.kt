@@ -44,6 +44,8 @@ internal fun ChatHistory.toItems(isGroup: Boolean, strings: Strings): List<Messa
             text = if (media != null) message.content.caption() else message.summary(strings),
             media = media,
             isMediaPlaceholder = media == null && message.content !is TdApi.MessageText && !message.isService,
+            // Only where the text is the message's own; a summary has no formatting.
+            spans = if (media != null || message.content is TdApi.MessageText) message.content.formattedText()?.spans().orEmpty() else emptyList(),
             date = message.date,
             isEdited = message.editDate > 0,
             status = if (!message.isOutgoing) null else when {

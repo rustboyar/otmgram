@@ -1,5 +1,23 @@
 package dev.otmgram.ui.chat
 
+import kotlinx.coroutines.withTimeoutOrNull
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.ui.input.pointer.pointerInput
+import dev.otmgram.ui.theme.OtmDialog
+import dev.otmgram.ui.media.openLink
+import dev.otmgram.ui.highlight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -48,7 +66,6 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import dev.otmgram.R
 import dev.otmgram.core.media.AudioState
-import dev.otmgram.ui.highlightMatches
 import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmType
@@ -92,6 +109,7 @@ fun MessageBubble(
                     audio,
                     highlight,
                     onClick = if (selecting) onToggleSelected else ({}),
+                    selecting = selecting,
                     onLongClick = onLongClick,
                     onReactionClick = onReactionClick,
                     onOpenMedia = if (selecting) onToggleSelected else onOpenMedia,
@@ -128,6 +146,7 @@ private fun Bubble(
     onPlayVoice: (fileId: Int, path: String) -> Unit,
     onVideoNoteSound: () -> Unit,
     onCancelUpload: (() -> Unit)?,
+    selecting: Boolean,
 ) {
     val outgoing = message.isOutgoing
     val media = message.media
@@ -189,13 +208,42 @@ private fun Bubble(
             )
         }
         if (message.text.isNotEmpty()) {
+            val context = LocalContext.current
+            var revealed by rememberSaveable(message.id) { mutableStateOf(emptySet<Int>()) }
+            var confirmLink by rememberSaveable { mutableStateOf<String?>(null) }
             Text(
-                highlighted(message.text, highlight),
+                messageText(
+                    message.text,
+                    // While selecting, taps select: no links.
+                    if (selecting) message.spans.filter { it.kind !is SpanKind.Link && it.kind != SpanKind.Spoiler } else message.spans,
+                    highlight,
+                    revealed,
+                    onReveal = { revealed = revealed + it },
+                    onLink = { link -> if (link.hidden) confirmLink = link.url else openLink(context, link.url) },
+                ),
                 style = OtmType.Body,
                 color = Otm.Ink,
                 fontStyle = if (message.isMediaPlaceholder) FontStyle.Italic else FontStyle.Normal,
-                modifier = textPadding.then(if (media != null) Modifier.padding(top = 4.dp) else Modifier),
+                modifier = textPadding
+                    .then(if (media != null) Modifier.padding(top = 4.dp) else Modifier)
+                    // Text with links handles touches itself, so the bubble wouldn't get a long
+                    // press (the menu) on it.
+                    .then(if (!selecting && message.spans.any { it.kind is SpanKind.Link || it.kind == SpanKind.Spoiler }) Modifier.onLongPressFirst(onLongClick) else Modifier),
             )
+            // The text shown isn't the address: say where it really goes.
+            confirmLink?.let { url ->
+                OtmDialog(
+                    title = stringResource(R.string.link_confirm_title),
+                    text = url,
+                    onDismiss = { confirmLink = null },
+                    confirm = {
+                        TextAction(stringResource(R.string.link_open), {
+                            confirmLink = null
+                            openLink(context, url)
+                        }, Modifier.testTag("openLink"))
+                    },
+                )
+            }
         }
         if (message.reactions.isNotEmpty()) {
             FlowRow(
@@ -320,5 +368,58 @@ fun ReplyQuote(reply: ReplyPreview, modifier: Modifier = Modifier) {
 }
 
 /** [text] with matches of the search marked. */
-private fun highlighted(text: String, highlight: Highlight?): AnnotatedString =
-    if (highlight == null) AnnotatedString(text) else highlightMatches(text, highlight.query, if (highlight.current) Otm.MarkNow else Otm.Mark)
+/**
+ * Calls [onLongPress] on a long press here, seeing touches before what's inside (a text's
+ * links) does; after it fires, the rest of the touch is consumed, so the link doesn't open.
+ */
+private fun Modifier.onLongPressFirst(onLongPress: () -> Unit) = pointerInput(onLongPress) {
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+        val ended = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+            while (true) {
+                val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id } ?: break
+                if (!change.pressed || (change.position - down.position).getDistance() > viewConfiguration.touchSlop) break
+            }
+        }
+        if (ended == null) {
+            onLongPress()
+            do {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                event.changes.forEach { it.consume() }
+            } while (event.changes.any { it.pressed })
+        }
+    }
+}
+
+/** [text] with its links and formatting, spoilers hidden until tapped, and search matches. */
+private fun messageText(
+    text: String,
+    spans: List<TextSpan>,
+    highlight: Highlight?,
+    revealed: Set<Int>,
+    onReveal: (Int) -> Unit,
+    onLink: (SpanKind.Link) -> Unit,
+): AnnotatedString = buildAnnotatedString {
+    append(text)
+    spans.forEachIndexed { i, span ->
+        when (val kind = span.kind) {
+            is SpanKind.Link -> addLink(
+                LinkAnnotation.Clickable("link", LINK_STYLE) { onLink(kind) },
+                span.start,
+                span.end,
+            )
+            SpanKind.Bold -> addStyle(SpanStyle(fontWeight = FontWeight.SemiBold), span.start, span.end)
+            SpanKind.Italic -> addStyle(SpanStyle(fontStyle = FontStyle.Italic), span.start, span.end)
+            SpanKind.Strikethrough -> addStyle(SpanStyle(textDecoration = TextDecoration.LineThrough), span.start, span.end)
+            SpanKind.Code -> addStyle(SpanStyle(fontFamily = FontFamily.Monospace, background = Otm.Haze), span.start, span.end)
+            SpanKind.Spoiler -> if (i !in revealed) {
+                // A solid bar until tapped.
+                addStyle(SpanStyle(color = Otm.InkSoft, background = Otm.InkSoft), span.start, span.end)
+                addLink(LinkAnnotation.Clickable("spoiler") { onReveal(i) }, span.start, span.end)
+            }
+        }
+    }
+    if (highlight != null) highlight(text, highlight.query, if (highlight.current) Otm.MarkNow else Otm.Mark)
+}
+
+private val LINK_STYLE = TextLinkStyles(SpanStyle(color = Otm.SlateDeep, textDecoration = TextDecoration.Underline))

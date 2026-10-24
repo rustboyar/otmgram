@@ -1,5 +1,6 @@
 package dev.otmgram.ui.media
 
+import androidx.core.net.toUri
 import android.webkit.MimeTypeMap
 import android.content.ActivityNotFoundException
 import android.content.Context
@@ -12,6 +13,15 @@ import java.io.File
 
 private fun typeOf(path: String): String? =
     MimeTypeMap.getSingleton().getMimeTypeFromExtension(File(path).extension.lowercase())
+
+/** Opens a web, mail or phone link (see safeUrl) in the app for it. */
+fun openLink(context: Context, url: String) {
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    } catch (e: ActivityNotFoundException) {
+        Toast.makeText(context, R.string.open_link_no_app, Toast.LENGTH_SHORT).show()
+    }
+}
 
 /** Opens a downloaded file in another app, e.g. a PDF viewer. */
 fun openFile(context: Context, path: String, mimeType: String) {

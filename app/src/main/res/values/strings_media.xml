@@ -20,4 +20,5 @@
     <string name="open_failed">Can\'t open this file</string>
     <string name="map_open_elsewhere">Open in another app</string>
     <string name="map_no_app">No maps app installed</string>
+    <string name="open_link_no_app">No app can open this link</string>
 </resources>

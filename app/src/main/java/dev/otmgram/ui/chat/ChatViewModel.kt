@@ -92,6 +92,8 @@ data class MessageItem(
     /** Null for incoming messages. */
     val status: MessageStatus?,
     val reactions: List<ReactionChip>,
+    /** Links and formatting in [text]. */
+    val spans: List<TextSpan> = emptyList(),
 )
 
 /** What the input bar does with the next send. */

@@ -126,6 +126,18 @@ fun TdApi.MessageContent.toMedia(): MessageMedia? = when (this) {
 fun Sticker.toMedia() = MessageMedia.Sticker(fileId, kind, width, height, thumbnailFileId)
 
 /** Caption of media messages, empty if none. */
+/** The message's text or caption with its formatting, if it has one. */
+fun TdApi.MessageContent.formattedText(): TdApi.FormattedText? = when (this) {
+    is TdApi.MessageText -> text
+    is TdApi.MessagePhoto -> caption
+    is TdApi.MessageVideo -> caption
+    is TdApi.MessageAnimation -> caption
+    is TdApi.MessageVoiceNote -> caption
+    is TdApi.MessageDocument -> caption
+    is TdApi.MessageAudio -> caption
+    else -> null
+}
+
 fun TdApi.MessageContent.caption(): String = when (this) {
     is TdApi.MessagePhoto -> caption.text
     is TdApi.MessageVideo -> caption.text
