@@ -35,6 +35,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Dp
@@ -158,6 +160,17 @@ fun CountPill(count: Int, quiet: Boolean, modifier: Modifier = Modifier) {
             style = OtmType.Time.copy(fontWeight = if (quiet) FontWeight.Medium else FontWeight.SemiBold),
             color = if (quiet) Color(0xFF6E767E) else Otm.SlateDeep,
         )
+    }
+}
+
+/** "@": unread messages mention you or reply to you; shown strong even in muted chats. */
+@Composable
+fun MentionPill(description: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.size(22.dp).clip(CircleShape).background(Otm.Haze).semantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("@", style = OtmType.Time.copy(fontWeight = FontWeight.SemiBold), color = Otm.SlateDeep)
     }
 }
 

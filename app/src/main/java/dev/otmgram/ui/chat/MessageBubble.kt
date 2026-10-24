@@ -86,6 +86,7 @@ fun MessageBubble(
     onOpenMedia: () -> Unit,
     onPlayVoice: (fileId: Int, path: String) -> Unit,
     onVideoNoteSound: () -> Unit,
+    onOpenReply: (messageId: Long) -> Unit = {},
     highlight: Highlight? = null,
     selecting: Boolean = false,
     selected: Boolean = false,
@@ -117,6 +118,7 @@ fun MessageBubble(
                     onOpenMedia = if (selecting) onToggleSelected else onOpenMedia,
                     onPlayVoice = onPlayVoice,
                     onVideoNoteSound = onVideoNoteSound,
+                    onOpenReply = onOpenReply,
                     onCancelUpload = if (message.status == MessageStatus.Sending && !selecting) onDiscard else null,
                 )
             }
@@ -147,6 +149,7 @@ private fun Bubble(
     onOpenMedia: () -> Unit,
     onPlayVoice: (fileId: Int, path: String) -> Unit,
     onVideoNoteSound: () -> Unit,
+    onOpenReply: (Long) -> Unit,
     onCancelUpload: (() -> Unit)?,
     selecting: Boolean,
 ) {
@@ -196,7 +199,10 @@ private fun Bubble(
         message.forwardedFrom?.let {
             Text(stringResource(R.string.forwarded_from, it), style = OtmType.Time, fontStyle = FontStyle.Italic, color = Otm.Slate, modifier = textPadding)
         }
-        message.replyTo?.let { ReplyQuote(it, textPadding.padding(vertical = 4.dp)) }
+        message.replyTo?.let { reply ->
+            val onClickReply = reply.messageId?.takeIf { !selecting }?.let { id -> { onOpenReply(id) } }
+            ReplyQuote(reply, textPadding.padding(vertical = 4.dp).testTag("replyQuote"), onClickReply, onLongClick)
+        }
         if (media != null) {
             MediaContent(
                 media,
@@ -357,8 +363,10 @@ private fun Reaction(chip: ReactionChip, outgoing: Boolean, onClick: () -> Unit)
 
 /** Quoted message with a bar on the left, in bubbles and above the input. */
 @Composable
-fun ReplyQuote(reply: ReplyPreview, modifier: Modifier = Modifier) {
-    Row(modifier.height(IntrinsicSize.Min)) {
+fun ReplyQuote(reply: ReplyPreview, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, onLongClick: (() -> Unit)? = null) {
+    val label = stringResource(R.string.show_replied_message)
+    val clicks = if (onClick != null) Modifier.combinedClickable(onClickLabel = label, role = Role.Button, onLongClick = onLongClick, onClick = onClick) else Modifier
+    Row(modifier.height(IntrinsicSize.Min).then(clicks)) {
         Box(Modifier.width(2.dp).fillMaxHeight().background(Otm.Ridge))
         Column(Modifier.padding(start = 10.dp)) {
             reply.senderName?.let {
@@ -369,7 +377,6 @@ fun ReplyQuote(reply: ReplyPreview, modifier: Modifier = Modifier) {
     }
 }
 
-/** [text] with matches of the search marked. */
 /**
  * Calls [onLongPress] on a long press here, seeing touches before what's inside (a text's
  * links) does; after it fires, the rest of the touch is consumed, so the link doesn't open.

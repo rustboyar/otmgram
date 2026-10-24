@@ -245,6 +245,9 @@ fun ChatScreen(
                     actions = { IconBtn(OtmIcons.Search, stringResource(R.string.search_chat), search::open, tag = "search") },
                 )
             }
+            viewModel.pinned?.takeIf { !selecting && !searching }?.let { pinned ->
+                PinnedBar(pinned, onClick = { viewModel.jumpTo(pinned.id) })
+            }
             liveShare?.takeIf { it.chatId == viewModel.chatId }?.let { share ->
                 LiveShareBanner(share, onStop = viewModel::stopLiveLocation)
             }
@@ -293,13 +296,15 @@ fun ChatScreen(
                                 },
                                 onPlayVoice = { fileId, path -> viewModel.playVoice(message, fileId, path) },
                                 onVideoNoteSound = { viewModel.markContentOpened(message) },
+                                onOpenReply = viewModel::jumpTo,
                                 highlight = if (searching && message.id in resultIds) {
                                     Highlight(search.query.orEmpty(), current = message.id == currentMatch)
                                 } else {
                                     null
                                 },
                                 selecting = selecting,
-                                selected = message.id in selection,
+                                // Also marks, for a moment, a message just jumped to.
+                                selected = message.id in selection || message.id == viewModel.flashed,
                                 onToggleSelected = { viewModel.selection.toggle(message) },
                                 onRetry = { viewModel.retry(message) },
                                 onDiscard = { viewModel.discard(message) },
@@ -570,6 +575,19 @@ private fun ServiceNote(text: String) {
         textAlign = TextAlign.Center,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 6.dp),
     )
+}
+
+/** The newest pinned message, under the chat's bar; a tap shows it. */
+@Composable
+private fun PinnedBar(pinned: PinnedMessage, onClick: () -> Unit) {
+    Column(Modifier.fillMaxWidth().background(Otm.Card.copy(alpha = 0.7f))) {
+        ReplyQuote(
+            ReplyPreview(stringResource(R.string.pinned_message), pinned.text),
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag("pinned"),
+            onClick = onClick,
+        )
+        Hairline()
+    }
 }
 
 @Composable

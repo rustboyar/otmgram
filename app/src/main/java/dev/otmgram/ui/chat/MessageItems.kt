@@ -35,9 +35,11 @@ internal fun ChatHistory.toItems(isGroup: Boolean, strings: Strings): List<Messa
             forwardedFrom = message.forwardInfo?.origin?.let(::originName),
             replyTo = (message.replyTo as? TdApi.MessageReplyToMessage)?.let { replyTo ->
                 val replied = byId[replyTo.messageId] ?: repliedMessages[replyTo.messageId]
+                // A reply to a message of another chat can't be jumped to from here.
+                val here = replyTo.messageId.takeIf { replyTo.chatId == message.chatId }
                 when {
-                    replied != null -> ReplyPreview(senderNames[replied.senderKey()], replied.summary(strings))
-                    replyTo.content != null -> ReplyPreview(replyTo.origin?.let(::originName), replyTo.content.summary(strings))
+                    replied != null -> ReplyPreview(senderNames[replied.senderKey()], replied.summary(strings), here)
+                    replyTo.content != null -> ReplyPreview(replyTo.origin?.let(::originName), replyTo.content.summary(strings), here)
                     else -> ReplyPreview(null, strings.get(R.string.reply_deleted))
                 }
             },

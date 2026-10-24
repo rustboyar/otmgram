@@ -10,7 +10,7 @@
     <!-- Signing in -->
     <string name="sign_in">Sign in</string>
     <string name="phone_description">Enter the phone number of your Telegram account, with the country code.</string>
-    <string name="phone_footnote">Otmgram shows one folder of your chats.\nYou always appear offline.</string>
+    <string name="phone_footnote">Otmgram shows one folder of your chats.\nYou always appear offline, though messages you read show as read.</string>
     <string name="next">Next</string>
     <string name="code_sent_app">Telegram sent it to your other device, in the chat with “Telegram”. It’s not an SMS.</string>
     <string name="code_sent_sms">We sent it by SMS to %1$s.</string>

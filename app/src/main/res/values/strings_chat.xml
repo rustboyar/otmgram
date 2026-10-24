@@ -153,4 +153,6 @@
     <string name="permission_microphone">Voice messages need the microphone. You can allow it in Settings.</string>
     <string name="permission_location">Sending your location needs location access. You can allow it in Settings.</string>
     <string name="message_actions">Message actions</string>
+    <string name="pinned_message">Pinned message</string>
+    <string name="show_replied_message">Show the message</string>
 </resources>

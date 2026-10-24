@@ -24,7 +24,7 @@
     <!-- Settings -->
     <string name="settings">Settings</string>
     <string name="account_folder">folder %1$s</string>
-    <string name="account_offline">Always shown as offline</string>
+    <string name="account_offline">Always shown as offline. Read messages still show as read to the sender.</string>
     <string name="header_title">Name on top</string>
     <string name="header_description">Shown over the chat list. Leave it empty for no name. The folder in Telegram keeps its name.</string>
     <string name="header_none">No name</string>

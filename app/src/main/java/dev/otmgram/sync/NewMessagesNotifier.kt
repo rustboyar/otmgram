@@ -19,7 +19,8 @@ data class ChatNews(val chatId: Long, val title: String, val lines: List<String>
 
 /**
  * Decides what to notify about: messages in the folder's chats that arrived since the app
- * was last open, and not notified about yet. [NotificationDisplay] shows it.
+ * was last open, and not notified about yet; in muted chats, only mentions of you and
+ * replies to you. [NotificationDisplay] shows it.
  */
 @Singleton
 class NewMessagesNotifier @Inject constructor(
@@ -40,9 +41,14 @@ class NewMessagesNotifier @Inject constructor(
             return
         }
         val notified = state.notified()
-        val news = folder
-            .filter { !it.isMuted && it.chat.unreadCount > 0 }
-            .mapNotNull { newMessages(it, after = seen[it.chat.id] ?: 0) }
+        val news = folder.mapNotNull { chat ->
+            val after = seen[chat.chat.id] ?: 0
+            when {
+                !chat.isMuted && chat.chat.unreadCount > 0 -> newMessages(chat, unreadHistory(chat.chat), after)
+                chat.isMuted && chat.notifiesMentions && chat.chat.unreadMentionCount > 0 -> newMessages(chat, unreadMentions(chat.chat), after)
+                else -> null
+            }
+        }
         val count = news.sumOf { it.lines.size }
         when {
             news.isEmpty() -> cancel().also { AppLog.i(TAG, "Nothing new") } // Read elsewhere, or nothing new.
@@ -62,9 +68,9 @@ class NewMessagesNotifier @Inject constructor(
 
     fun cancel() = display.cancel()
 
-    /** Unread incoming messages of the chat after message [after], or null if none. */
-    private suspend fun newMessages(chat: FolderChat, after: Long): ChatNews? {
-        val messages = unreadHistory(chat.chat).filter { !it.isOutgoing && it.id > after }
+    /** The [unread] messages that are incoming and after message [after], or null if none. */
+    private suspend fun newMessages(chat: FolderChat, unread: List<TdApi.Message>, after: Long): ChatNews? {
+        val messages = unread.filter { !it.isOutgoing && it.id > after }
         if (messages.isEmpty()) return null
         val lines = messages.map { message ->
             val sender = (message.senderId as? TdApi.MessageSenderUser)
@@ -95,6 +101,12 @@ class NewMessagesNotifier @Inject constructor(
         return unread.take(limit)
     }
 
+    /** Unread messages that mention you or reply to you, newest first. */
+    private suspend fun unreadMentions(chat: TdApi.Chat): List<TdApi.Message> {
+        val limit = chat.unreadMentionCount.coerceAtMost(MAX_MESSAGES_PER_CHAT)
+        return td.send(TdApi.SearchChatMessages(chat.id, null, "", null, 0, 0, limit, TdApi.SearchMessagesFilterUnreadMention()))
+            .messages.toList()
+    }
 
     private companion object {
         const val TAG = "Notifier"

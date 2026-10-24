@@ -38,6 +38,8 @@ data class ChatItem(
     /** Unix time of the last message, or null if the chat has none. */
     val date: Int?,
     val unreadCount: Int,
+    /** Unread messages that mention you or reply to you. */
+    val unreadMentions: Int = 0,
     val isSavedMessages: Boolean,
     val isMuted: Boolean,
 )
@@ -113,6 +115,7 @@ private fun FolderChat.toItem(strings: Strings) = ChatItem(
     draft = (chat.draftMessage?.content as? TdApi.DraftMessageContentText)?.text?.text?.takeIf { it.isNotBlank() },
     date = chat.draftMessage?.date?.takeIf { it > 0 } ?: chat.lastMessage?.date,
     unreadCount = chat.unreadCount,
+    unreadMentions = chat.unreadMentionCount,
     isSavedMessages = isSavedMessages,
     isMuted = isMuted,
 )

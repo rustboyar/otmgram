@@ -52,13 +52,13 @@ class MessageItemsTest {
     }
 
     @Test
-    fun `replies quote the replied message, or say it's gone`() {
+    fun `replies quote the replied message to jump to, or say it's gone`() {
         val items = history(
             message(3, replyTo = 1),
             message(2, replyTo = 99),
             message(1, content = text("hello"), from = 3),
         ).toItems(isGroup = true, TestStrings)
-        assertEquals(ReplyPreview("Lea", "hello"), items[0].replyTo)
+        assertEquals(ReplyPreview("Lea", "hello", messageId = 1), items[0].replyTo)
         assertEquals(ReplyPreview(null, "Deleted message"), items[1].replyTo)
         assertNull(items[2].replyTo)
     }

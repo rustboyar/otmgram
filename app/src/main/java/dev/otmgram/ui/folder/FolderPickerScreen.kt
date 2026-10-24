@@ -42,6 +42,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.otmgram.R
+import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.data.Folder
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.ui.theme.Hero
@@ -50,6 +51,7 @@ import dev.otmgram.ui.theme.OtmType
 import dev.otmgram.ui.theme.PrimaryButton
 import dev.otmgram.ui.theme.paper
 import kotlinx.coroutines.launch
+import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
 
 /** One-time choice of the folder Otmgram shows. Changing it later requires logging out. */
@@ -141,12 +143,26 @@ private fun FolderCard(folder: Folder, count: Int?, selected: Boolean, onClick: 
 @HiltViewModel
 class FolderPickerViewModel @Inject constructor(
     private val folders: FolderRepository,
+    td: TelegramClient,
 ) : ViewModel() {
 
     /** Chat count per folder id, filled in as they load. */
     val counts = mutableStateMapOf<Int, Int>()
 
     private val requested = mutableSetOf<Int>()
+
+    init {
+        // It lives as long as the activity, past a logout, and the next account's folders
+        // have the same ids: forget the counts.
+        viewModelScope.launch {
+            td.authorizationState.collect {
+                if (it !is TdApi.AuthorizationStateReady) {
+                    counts.clear()
+                    requested.clear()
+                }
+            }
+        }
+    }
 
     fun loadCounts(list: List<Folder>) {
         list.filter { requested.add(it.id) }.forEach { folder ->

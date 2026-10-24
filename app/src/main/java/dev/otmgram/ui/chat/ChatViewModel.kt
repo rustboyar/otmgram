@@ -39,6 +39,7 @@ import dev.otmgram.ui.isService
 import dev.otmgram.ui.summary
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -48,6 +49,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import java.io.File
 import javax.inject.Inject
@@ -67,7 +69,10 @@ data class UnreadMark(val afterMessageId: Long, val count: Int)
 
 enum class MessageStatus { Sending, Sent, Read, Failed }
 
-data class ReplyPreview(val senderName: String?, val text: String)
+data class ReplyPreview(val senderName: String?, val text: String, val messageId: Long? = null)
+
+/** The chat's newest pinned message, shown above the messages. */
+data class PinnedMessage(val id: Long, val text: String)
 
 /** A reaction under a message. [emoji] is null for kinds Otmgram can't add (custom emoji, paid). */
 data class ReactionChip(val label: String, val emoji: String?, val count: Int, val isChosen: Boolean)
@@ -285,6 +290,13 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    init {
+        loadPinned()
+        viewModelScope.launch {
+            td.updates.collect { if (it is TdApi.UpdateMessageIsPinned && it.chatId == chatId) loadPinned() }
+        }
+    }
+
     fun loadOlder() = action { session.loadOlder() }
 
     fun type(value: String) {
@@ -499,6 +511,31 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /** Message briefly marked after jumping to it, so the eye finds it. */
+    var flashed by mutableStateOf<Long?>(null)
+        private set
+
+    /** Shows a message replied to, or the pinned one, marking it for a moment. */
+    fun jumpTo(messageId: Long) {
+        show(messageId)
+        viewModelScope.launch {
+            flashed = messageId
+            delay(FLASH_MS)
+            if (flashed == messageId) flashed = null
+        }
+    }
+
+    var pinned by mutableStateOf<PinnedMessage?>(null)
+        private set
+
+    private fun loadPinned() = viewModelScope.launchLogged(TAG) {
+        pinned = try {
+            td.send(TdApi.GetChatPinnedMessage(chatId)).let { PinnedMessage(it.id, it.summary(strings)) }
+        } catch (e: TdException) {
+            null // None pinned.
+        }
+    }
+
     fun scrolled() {
         scrollTarget = null
     }
@@ -617,3 +654,6 @@ private const val DRAFT_KEY = "draft"
 
 /** Opening at the first unread loads history back to it, but not further than this. */
 private const val FIRST_UNREAD_MAX_PAGES = 10
+
+/** How long a message jumped to stays marked. */
+private const val FLASH_MS = 1_500L

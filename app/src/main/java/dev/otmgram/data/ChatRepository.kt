@@ -24,6 +24,9 @@ val TdApi.Chat.isGroup: Boolean
 val TdApi.Chat.isShown: Boolean
     get() = type is TdApi.ChatTypePrivate || isGroup
 
+/** Most chats of a folder the app loads. */
+const val MAX_FOLDER_CHATS = 500
+
 /** The chat with yourself. */
 fun TdApi.Chat.isSavedMessages(myUserId: Long): Boolean = (type as? TdApi.ChatTypePrivate)?.userId == myUserId
 
@@ -36,6 +39,8 @@ data class FolderChat(
     val lastSenderName: String?,
     /** Notifications are off, for this chat or by the default for its kind. */
     val isMuted: Boolean = false,
+    /** Mentions and replies to you notify even when muted, as in Telegram, unless turned off. */
+    val notifiesMentions: Boolean = true,
 )
 
 @Singleton
@@ -90,16 +95,17 @@ class ChatRepository @Inject constructor(
     /** One folder's chats as last loaded; used by a single collector at a time. */
     private inner class FolderList(private val folderId: Int) {
         private var myId = 0L
-        private var mutedByDefault = mapOf(false to false, true to false)
+        /** Default notification settings of private chats (false) and groups (true). */
+        private var defaults = mapOf(false to TdApi.ScopeNotificationSettings(), true to TdApi.ScopeNotificationSettings())
         private var order = emptyList<Long>()
         private val chats = mutableMapOf<Long, FolderChat>()
         private val firstNames = mutableMapOf<Long, String>()
 
         suspend fun loadAll(): List<FolderChat> {
             myId = td.send(TdApi.GetMe()).id
-            mutedByDefault = mapOf(
-                false to (td.send(TdApi.GetScopeNotificationSettings(TdApi.NotificationSettingsScopePrivateChats())).muteFor > 0),
-                true to (td.send(TdApi.GetScopeNotificationSettings(TdApi.NotificationSettingsScopeGroupChats())).muteFor > 0),
+            defaults = mapOf(
+                false to td.send(TdApi.GetScopeNotificationSettings(TdApi.NotificationSettingsScopePrivateChats())),
+                true to td.send(TdApi.GetScopeNotificationSettings(TdApi.NotificationSettingsScopeGroupChats())),
             )
             order = loadOrder()
             chats.clear()
@@ -120,7 +126,7 @@ class ChatRepository @Inject constructor(
         // Chats that aren't shown stay loaded, so updates don't fetch them again.
         private fun list() = order.mapNotNull(chats::get).filter { it.chat.isShown }
 
-        private suspend fun loadOrder() = td.send(TdApi.GetChats(TdApi.ChatListFolder(folderId), MAX_CHATS)).chatIds.toList()
+        private suspend fun loadOrder() = td.send(TdApi.GetChats(TdApi.ChatListFolder(folderId), MAX_FOLDER_CHATS)).chatIds.toList()
 
         private suspend fun load(id: Long): FolderChat {
             val chat = td.send(TdApi.GetChat(id))
@@ -128,7 +134,8 @@ class ChatRepository @Inject constructor(
                 chat = chat,
                 isSavedMessages = chat.isSavedMessages(myId),
                 lastSenderName = lastSenderName(chat),
-                isMuted = chat.isMuted(mutedByDefault.getValue(chat.isGroup)),
+                isMuted = chat.isMuted(defaults.getValue(chat.isGroup)),
+                notifiesMentions = chat.notifiesMentions(defaults.getValue(chat.isGroup)),
             )
         }
 
@@ -148,11 +155,14 @@ class ChatRepository @Inject constructor(
         }
     }
 
-    private fun TdApi.Chat.isMuted(mutedByDefault: Boolean): Boolean =
-        if (notificationSettings.useDefaultMuteFor) mutedByDefault else notificationSettings.muteFor > 0
+    private fun TdApi.Chat.isMuted(defaults: TdApi.ScopeNotificationSettings): Boolean =
+        (if (notificationSettings.useDefaultMuteFor) defaults.muteFor else notificationSettings.muteFor) > 0
+
+    private fun TdApi.Chat.notifiesMentions(defaults: TdApi.ScopeNotificationSettings): Boolean = !with(notificationSettings) {
+        if (useDefaultDisableMentionNotifications) defaults.disableMentionNotifications else disableMentionNotifications
+    }
 
     private companion object {
-        const val MAX_CHATS = 500
         const val RELOAD_DELAY_MS = 200L
     }
 }

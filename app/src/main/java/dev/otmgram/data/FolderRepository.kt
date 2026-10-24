@@ -69,9 +69,12 @@ class FolderRepository @Inject constructor(
         }
     }
 
-    /** How many chats the folder has, channels included; null if TDLib can't tell. */
+    /**
+     * How many chats of the folder the app shows (not channels), as the chat list will load
+     * them; null if TDLib can't tell.
+     */
     suspend fun chatCount(id: Int): Int? = try {
-        td.send(TdApi.GetChatFolderChatCount(td.send(TdApi.GetChatFolder(id)))).count
+        td.send(TdApi.GetChats(TdApi.ChatListFolder(id), MAX_FOLDER_CHATS)).chatIds.count { td.send(TdApi.GetChat(it)).isShown }
     } catch (e: TdException) {
         null
     }

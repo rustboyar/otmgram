@@ -62,6 +62,7 @@ import dev.otmgram.ui.theme.Banner
 import dev.otmgram.ui.theme.ChatAvatar
 import dev.otmgram.ui.theme.CountPill
 import dev.otmgram.ui.theme.IconBtn
+import dev.otmgram.ui.theme.MentionPill
 import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmField
 import dev.otmgram.ui.theme.OtmIcons
@@ -261,7 +262,8 @@ private fun ChatRow(chat: ChatItem, highlight: String, onClick: () -> Unit) {
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
-                if (unread) CountPill(chat.unreadCount, quiet = chat.isMuted, Modifier.padding(start = 8.dp))
+                if (chat.unreadMentions > 0) MentionPill(stringResource(R.string.mentions_you), Modifier.padding(start = 8.dp).testTag("mention"))
+                if (unread) CountPill(chat.unreadCount, quiet = chat.isMuted, Modifier.padding(start = 6.dp))
             }
         }
     }
