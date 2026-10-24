@@ -1,8 +1,8 @@
 package dev.otmgram.core.location
 
-import android.app.AlarmManager
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -20,8 +20,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import dev.otmgram.MainActivity
 import dev.otmgram.R
 import dev.otmgram.core.log.AppLog
-import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
+import dev.otmgram.core.td.TelegramClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -49,7 +49,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class LiveLocationService : Service() {
 
-    @Inject lateinit var td: TdClient
+    @Inject lateinit var td: TelegramClient
 
     @Inject lateinit var locations: LocationSource
 

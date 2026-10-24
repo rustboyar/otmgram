@@ -9,8 +9,8 @@ import androidx.work.WorkerParameters
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import dev.otmgram.core.log.AppLog
-import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
+import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.StorageRepository
 import kotlinx.coroutines.Dispatchers
@@ -24,7 +24,7 @@ import org.drinkless.tdlib.TdApi
 class CheckWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
-    private val td: TdClient,
+    private val td: TelegramClient,
     private val folders: FolderRepository,
     private val notifier: NewMessagesNotifier,
     private val storage: StorageRepository,

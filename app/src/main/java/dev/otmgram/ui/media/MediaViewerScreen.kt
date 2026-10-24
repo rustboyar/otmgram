@@ -1,8 +1,5 @@
 package dev.otmgram.ui.media
 
-import kotlinx.coroutines.CoroutineScope
-import dev.otmgram.di.onMain
-import dev.otmgram.di.ApplicationScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
@@ -52,17 +49,20 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.otmgram.R
 import dev.otmgram.core.Strings
 import dev.otmgram.core.launchLogged
-import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
+import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.core.userMessage
 import dev.otmgram.data.DownloadsFolder
 import dev.otmgram.data.FileRepository
+import dev.otmgram.di.ApplicationScope
+import dev.otmgram.di.onMain
 import dev.otmgram.ui.chat.formatTime
 import dev.otmgram.ui.theme.DarkSystemBars
 import dev.otmgram.ui.theme.IconBtn
 import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmType
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import java.io.File
@@ -211,7 +211,7 @@ data class ViewerInfo(val sender: String, val time: String)
 @HiltViewModel
 class MediaViewerViewModel @Inject constructor(
     savedState: SavedStateHandle,
-    private val td: TdClient,
+    private val td: TelegramClient,
     private val files: FileRepository,
     private val downloads: DownloadsFolder,
     private val strings: Strings,

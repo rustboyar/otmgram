@@ -9,6 +9,8 @@ import dev.otmgram.core.AndroidStrings
 import dev.otmgram.core.Strings
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TelegramClient
+import dev.otmgram.sync.MessagesNotification
+import dev.otmgram.sync.NotificationDisplay
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -34,6 +36,9 @@ abstract class TelegramModule {
 
     @Binds
     abstract fun strings(strings: AndroidStrings): Strings
+
+    @Binds
+    abstract fun notificationDisplay(notification: MessagesNotification): NotificationDisplay
 }
 
 @Module

@@ -2,7 +2,7 @@ package dev.otmgram.data
 
 import dev.otmgram.R
 import dev.otmgram.core.Strings
-import dev.otmgram.core.td.TdClient
+import dev.otmgram.core.td.TelegramClient
 import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -38,7 +38,7 @@ data class StickerTab(val setId: Long?, val title: String, val cover: Sticker? =
 
 @Singleton
 class StickerRepository @Inject constructor(
-    private val td: TdClient,
+    private val td: TelegramClient,
     private val strings: Strings,
 ) {
     /** "Recent" followed by the installed sticker sets. */

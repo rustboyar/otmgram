@@ -1,6 +1,5 @@
 package dev.otmgram.ui.settings
 
-import dev.otmgram.ui.chat.SelectionMark
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -51,8 +50,8 @@ import dev.otmgram.R
 import dev.otmgram.core.launchLogged
 import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.log.LogArchive
-import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
+import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.data.AppSettings
 import dev.otmgram.data.AuthRepository
 import dev.otmgram.data.CacheLimit
@@ -63,6 +62,7 @@ import dev.otmgram.data.StorageKind
 import dev.otmgram.data.StorageRepository
 import dev.otmgram.data.StorageUsage
 import dev.otmgram.data.limitTo
+import dev.otmgram.ui.chat.SelectionMark
 import dev.otmgram.ui.media.formatSize
 import dev.otmgram.ui.theme.Card
 import dev.otmgram.ui.theme.ChatAvatar
@@ -340,7 +340,7 @@ data class Account(val id: Long, val name: String, val phone: String?, val photo
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val td: TdClient,
+    private val td: TelegramClient,
     private val auth: AuthRepository,
     private val folders: FolderRepository,
     private val settings: AppSettings,

@@ -2,7 +2,7 @@ package dev.otmgram.data
 
 import androidx.annotation.StringRes
 import dev.otmgram.R
-import dev.otmgram.core.td.TdClient
+import dev.otmgram.core.td.TelegramClient
 import kotlinx.coroutines.flow.first
 import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
@@ -22,7 +22,7 @@ data class StorageUsage(val total: Long, val byKind: Map<StorageKind, Long>)
 /** Downloaded files: how much space they take, and keeping them within the limit. */
 @Singleton
 class StorageRepository @Inject constructor(
-    private val td: TdClient,
+    private val td: TelegramClient,
     private val settings: AppSettings,
 ) {
     suspend fun usage(): StorageUsage {

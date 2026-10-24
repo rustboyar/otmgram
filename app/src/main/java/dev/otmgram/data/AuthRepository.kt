@@ -1,9 +1,9 @@
 package dev.otmgram.data
 
-import dev.otmgram.core.location.LiveLocationSharing
 import androidx.annotation.StringRes
 import dev.otmgram.R
-import dev.otmgram.core.td.TdClient
+import dev.otmgram.core.location.LiveLocationSharing
+import dev.otmgram.core.td.TelegramClient
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.drinkless.tdlib.TdApi
@@ -36,7 +36,7 @@ enum class CodeDelivery { TelegramApp, Sms, Call, Other }
 
 @Singleton
 class AuthRepository @Inject constructor(
-    private val td: TdClient,
+    private val td: TelegramClient,
     private val liveLocation: LiveLocationSharing,
 ) {
     val state: Flow<AuthState> = td.authorizationState.map { it.toAuthState() }

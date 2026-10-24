@@ -11,8 +11,8 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.otmgram.core.log.AppLog
-import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
+import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.data.AppSettings
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.StorageRepository
@@ -36,7 +36,7 @@ import javax.inject.Singleton
 @Singleton
 class CheckScheduler @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val td: TdClient,
+    private val td: TelegramClient,
     private val folders: FolderRepository,
     private val notifier: NewMessagesNotifier,
     private val settings: AppSettings,

@@ -2,9 +2,8 @@ package dev.otmgram.data
 
 import dev.otmgram.core.launchLogged
 import dev.otmgram.core.media.VoiceRecording
-import dev.otmgram.core.td.TdClient
-import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.core.td.TdException
+import dev.otmgram.core.td.TelegramClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
@@ -20,7 +19,7 @@ import javax.inject.Singleton
 
 @Singleton
 class MessageRepository @Inject constructor(
-    private val td: TdClient,
+    private val td: TelegramClient,
 ) {
     /** Sends a square video message of [length] px from a local file. */
     suspend fun sendVideoNote(chatId: Long, file: File, duration: Int, length: Int) {

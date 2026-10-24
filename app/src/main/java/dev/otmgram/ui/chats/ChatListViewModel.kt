@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.otmgram.R
 import dev.otmgram.core.Strings
-import dev.otmgram.core.td.TdClient
+import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.data.ChatRepository
 import dev.otmgram.data.FolderChat
 import dev.otmgram.data.FolderRepository
@@ -42,7 +42,7 @@ data class ChatItem(
 class ChatListViewModel @Inject constructor(
     folders: FolderRepository,
     chats: ChatRepository,
-    td: TdClient,
+    td: TelegramClient,
     private val strings: Strings,
 ) : ViewModel() {
 

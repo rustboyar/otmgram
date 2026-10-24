@@ -11,8 +11,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.otmgram.core.launchLogged
 import dev.otmgram.core.location.LocationSource
 import dev.otmgram.core.log.AppLog
-import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
+import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.ui.chat.MessageMedia
 import dev.otmgram.ui.chat.toMedia
 import kotlinx.coroutines.CoroutineStart
@@ -28,7 +28,7 @@ data class MapSender(val id: Long, val name: String, val photoFileId: Int?, val 
 @HiltViewModel
 class MapViewModel @Inject constructor(
     savedState: SavedStateHandle,
-    private val td: TdClient,
+    private val td: TelegramClient,
     private val locationSource: LocationSource,
 ) : ViewModel() {
 

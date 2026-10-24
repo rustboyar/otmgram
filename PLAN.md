@@ -126,13 +126,14 @@ app/
 
 ## Testing
 
-- Unit tests (`./gradlew :app:testDebugUnitTest`): message mapping, list rows, media mapping, wording, login steps, storage, and the open chat and folder list against a fake TDLib (`testing/FakeTelegram`, behind the `TelegramClient` interface)
+- Unit tests (`./gradlew :app:testDebugUnitTest`): message mapping, list rows, media mapping, wording, the mapping of login states and storage kinds, opening the database with its key, and against a fake TDLib (`testing/FakeTelegram`, behind the `TelegramClient` interface): the open chat, the folder list, file states and what gets notified. Settings and notification marks use DataStore files of the test's own (they're injected)
 - UI tests on a device (`scripts/ui-tests.sh`): bubble states, delete dialog. Not `connectedAndroidTest`, which uninstalls the app and so logs it out
 - Before committing: `scripts/check.sh` (lint, failing on any issue, and unit tests; `--release` also builds the release APK). No CI: building TDLib takes too long for it
 
 ## Structure
 
-- `core` (TDLib client, media, location, logging), `data` (repositories; `TelegramClient` is what they need from TDLib), `sync` (background checks), `ui` (screens and their view models)
+- `core` (TDLib client, media, location, logging), `data` (repositories), `sync` (background checks), `ui` (screens and their view models). Everything takes `TelegramClient` (requests, updates, the states the app watches), not `TdClient`, which only app start uses
+- The notifier decides (`NewMessagesNotifier`); `MessagesNotification` shows it, behind `NotificationDisplay`
 - Composables take app types only (`FileState`, `Sticker`, `Account`, thumbnails as JPEG bytes); view models are where TDLib types turn into those
 - TDLib's message objects are mutable and can't be copied; the open chat changes them in place and `ChatHistory.version` marks each change, before they become immutable `MessageItem`s
 - The chat screen's state is split: `ChatSearch`, `ChatSelection`, `StickerPanel`, `OutgoingQueue`, wired together by `ChatViewModel`

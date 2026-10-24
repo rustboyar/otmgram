@@ -4,7 +4,7 @@ import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.otmgram.core.location.MapSnapshots
 import dev.otmgram.core.log.AppLog
-import dev.otmgram.core.td.TdClient
+import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.di.ApplicationScope
 import dev.otmgram.sync.NotificationState
 import kotlinx.coroutines.CoroutineScope
@@ -25,7 +25,7 @@ import javax.inject.Singleton
 @Singleton
 class SessionCleanup @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val td: TdClient,
+    private val td: TelegramClient,
     private val outgoing: OutgoingFiles,
     private val notifications: NotificationState,
     @ApplicationScope private val scope: CoroutineScope,

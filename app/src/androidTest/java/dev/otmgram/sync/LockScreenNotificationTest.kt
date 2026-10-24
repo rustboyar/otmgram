@@ -6,10 +6,6 @@ import androidx.core.app.NotificationCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.otmgram.core.AndroidStrings
-import dev.otmgram.core.td.DatabaseKey
-import dev.otmgram.core.td.TdClient
-import dev.otmgram.data.AppSettings
-import dev.otmgram.data.ChatRepository
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -25,9 +21,7 @@ class LockScreenNotificationTest {
     private val news = listOf(ChatNews(1, "Anna", listOf("see you at 7, by the bridge", "bring the tent"), newestId = 2))
 
     private fun show(withText: Boolean): Notification {
-        val td = TdClient(context, DatabaseKey(context))
-        val notifier = NewMessagesNotifier(context, td, ChatRepository(td), NotificationState(context), AppSettings(context), AndroidStrings(context))
-        notifier.show(news, withText)
+        MessagesNotification(context, AndroidStrings(context)).show(news, withText)
         return context.getSystemService(NotificationManager::class.java).activeNotifications.single().notification
     }
 

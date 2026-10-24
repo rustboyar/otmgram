@@ -6,8 +6,8 @@ import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.otmgram.R
 import dev.otmgram.core.log.AppLog
-import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
+import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.di.ApplicationScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -27,7 +27,7 @@ data class LiveShare(val chatId: Long, val chatTitle: String, val endsAt: Int)
 @Singleton
 class LiveLocationSharing @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val td: TdClient,
+    private val td: TelegramClient,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
     private val _share = MutableStateFlow<LiveShare?>(null)

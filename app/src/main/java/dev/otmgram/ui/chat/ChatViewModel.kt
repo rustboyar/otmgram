@@ -1,8 +1,5 @@
 package dev.otmgram.ui.chat
 
-import kotlinx.coroutines.CoroutineScope
-import dev.otmgram.di.onMain
-import dev.otmgram.di.ApplicationScope
 import android.annotation.SuppressLint
 import android.net.Uri
 import androidx.compose.runtime.getValue
@@ -22,8 +19,8 @@ import dev.otmgram.core.media.AudioPlayer
 import dev.otmgram.core.media.AudioState
 import dev.otmgram.core.media.RecorderState
 import dev.otmgram.core.media.VoiceRecorder
-import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TdException
+import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.core.userMessage
 import dev.otmgram.data.AppSettings
 import dev.otmgram.data.ChatRepository
@@ -36,8 +33,11 @@ import dev.otmgram.data.Sticker
 import dev.otmgram.data.StickerRepository
 import dev.otmgram.data.isGroup
 import dev.otmgram.data.isSavedMessages
+import dev.otmgram.di.ApplicationScope
+import dev.otmgram.di.onMain
 import dev.otmgram.ui.isService
 import dev.otmgram.ui.summary
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -146,7 +146,7 @@ class ChatViewModel @Inject constructor(
     private val liveLocation: LiveLocationSharing,
     private val files: FileRepository,
     private val downloads: DownloadsFolder,
-    private val td: TdClient,
+    private val td: TelegramClient,
     private val audioPlayer: AudioPlayer,
     appSettings: AppSettings,
     private val strings: Strings,

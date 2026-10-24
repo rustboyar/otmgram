@@ -1,12 +1,13 @@
 package dev.otmgram.data
 
-import android.content.Context
 import androidx.annotation.StringRes
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.otmgram.R
+import dev.otmgram.di.SettingsStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -37,35 +38,35 @@ private val MESSAGE_TEXT = booleanPreferencesKey("notification_message_text")
 /** Settings of the app on this phone; they stay across logins. */
 @Singleton
 class AppSettings @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @SettingsStore private val settings: DataStore<Preferences>,
 ) {
-    val checkInterval: Flow<CheckInterval> = context.settings.data.map { prefs ->
+    val checkInterval: Flow<CheckInterval> = settings.data.map { prefs ->
         CheckInterval.entries.find { it.name == prefs[CHECK_INTERVAL] } ?: CheckInterval.Minutes15
     }
 
     /** Whether "Compress" starts on when sending photos and videos. */
-    val compressByDefault: Flow<Boolean> = context.settings.data.map { it[COMPRESS] ?: true }
+    val compressByDefault: Flow<Boolean> = settings.data.map { it[COMPRESS] ?: true }
 
-    val cacheLimit: Flow<CacheLimit> = context.settings.data.map { prefs ->
+    val cacheLimit: Flow<CacheLimit> = settings.data.map { prefs ->
         CacheLimit.entries.find { it.name == prefs[CACHE_LIMIT] } ?: CacheLimit.Gb2
     }
 
     /** Whether notifications include message text; off keeps it off the lock screen. */
-    val showMessageText: Flow<Boolean> = context.settings.data.map { it[MESSAGE_TEXT] ?: false }
+    val showMessageText: Flow<Boolean> = settings.data.map { it[MESSAGE_TEXT] ?: false }
 
     suspend fun setShowMessageText(show: Boolean) {
-        context.settings.edit { it[MESSAGE_TEXT] = show }
+        settings.edit { it[MESSAGE_TEXT] = show }
     }
 
     suspend fun setCheckInterval(interval: CheckInterval) {
-        context.settings.edit { it[CHECK_INTERVAL] = interval.name }
+        settings.edit { it[CHECK_INTERVAL] = interval.name }
     }
 
     suspend fun setCompressByDefault(compress: Boolean) {
-        context.settings.edit { it[COMPRESS] = compress }
+        settings.edit { it[COMPRESS] = compress }
     }
 
     suspend fun setCacheLimit(limit: CacheLimit) {
-        context.settings.edit { it[CACHE_LIMIT] = limit.name }
+        settings.edit { it[CACHE_LIMIT] = limit.name }
     }
 }

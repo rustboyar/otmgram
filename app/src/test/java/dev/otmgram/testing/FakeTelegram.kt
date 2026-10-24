@@ -3,6 +3,7 @@ package dev.otmgram.testing
 import dev.otmgram.core.td.TdException
 import dev.otmgram.core.td.TelegramClient
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import org.drinkless.tdlib.TdApi
@@ -15,6 +16,19 @@ import kotlin.reflect.KClass
 class FakeTelegram : TelegramClient {
     private val _updates = MutableSharedFlow<TdApi.Update>(extraBufferCapacity = 64)
     override val updates: SharedFlow<TdApi.Update> = _updates.asSharedFlow()
+
+    // States as the test sets them; ready and connected unless it says otherwise.
+    override val authorizationState = MutableStateFlow<TdApi.AuthorizationState?>(TdApi.AuthorizationStateReady())
+    override val connectionState = MutableStateFlow<TdApi.ConnectionState?>(TdApi.ConnectionStateReady())
+    override val chatFolders = MutableStateFlow<List<TdApi.ChatFolderInfo>?>(emptyList())
+    override val activeLiveLocations = MutableStateFlow<List<TdApi.Message>?>(emptyList())
+
+    /** How often [reconnect] was called. */
+    var reconnects = 0
+
+    override fun reconnect() {
+        reconnects++
+    }
 
     /** Every request sent, in order. */
     val requests = mutableListOf<TdApi.Function<*>>()

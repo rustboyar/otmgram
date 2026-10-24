@@ -55,7 +55,7 @@ class TdClient @Inject constructor(
     private val _authorizationState = MutableStateFlow<TdApi.AuthorizationState?>(null)
 
     /** Current authorization state, or null until TDLib reports the first one. */
-    val authorizationState: StateFlow<TdApi.AuthorizationState?> = _authorizationState.asStateFlow()
+    override val authorizationState: StateFlow<TdApi.AuthorizationState?> = _authorizationState.asStateFlow()
 
     private val _chatFolders = MutableStateFlow<List<TdApi.ChatFolderInfo>?>(null)
 
@@ -63,7 +63,7 @@ class TdClient @Inject constructor(
      * The user's chat folders, or null until TDLib sends them. TDLib sends them only once
      * after startup and has no request to get them, so they are kept here.
      */
-    val chatFolders: StateFlow<List<TdApi.ChatFolderInfo>?> = _chatFolders.asStateFlow()
+    override val chatFolders: StateFlow<List<TdApi.ChatFolderInfo>?> = _chatFolders.asStateFlow()
 
     private val _activeLiveLocations = MutableStateFlow<List<TdApi.Message>?>(null)
 
@@ -71,12 +71,12 @@ class TdClient @Inject constructor(
      * Live location messages this app sent that are still running, or null until TDLib
      * tells; like [chatFolders], only sent as updates.
      */
-    val activeLiveLocations: StateFlow<List<TdApi.Message>?> = _activeLiveLocations.asStateFlow()
+    override val activeLiveLocations: StateFlow<List<TdApi.Message>?> = _activeLiveLocations.asStateFlow()
 
     private val _connectionState = MutableStateFlow<TdApi.ConnectionState?>(null)
 
     /** Connection to Telegram; ready once TDLib has caught up with what happened offline. */
-    val connectionState: StateFlow<TdApi.ConnectionState?> = _connectionState.asStateFlow()
+    override val connectionState: StateFlow<TdApi.ConnectionState?> = _connectionState.asStateFlow()
 
     @Volatile
     private var client: Client? = null
@@ -121,7 +121,7 @@ class TdClient @Inject constructor(
      * Makes TDLib reopen its connections now. A process that was frozen between background
      * checks still reports [connectionState] as ready from before, over dead connections.
      */
-    fun reconnect() {
+    override fun reconnect() {
         sendIgnoringResult(TdApi.SetNetworkType(context.tdNetworkType()))
     }
 

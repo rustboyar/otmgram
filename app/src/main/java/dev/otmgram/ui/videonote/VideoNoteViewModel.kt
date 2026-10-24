@@ -1,8 +1,5 @@
 package dev.otmgram.ui.videonote
 
-import kotlinx.coroutines.CoroutineScope
-import dev.otmgram.di.onMain
-import dev.otmgram.di.ApplicationScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -14,12 +11,15 @@ import dev.otmgram.R
 import dev.otmgram.core.Strings
 import dev.otmgram.core.launchLogged
 import dev.otmgram.core.media.MediaTranscoder
-import dev.otmgram.core.td.TdClient
+import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.core.userMessage
 import dev.otmgram.data.MessageRepository
 import dev.otmgram.data.OutgoingFiles
 import dev.otmgram.data.OutgoingMedia
 import dev.otmgram.data.isSavedMessages
+import dev.otmgram.di.ApplicationScope
+import dev.otmgram.di.onMain
+import kotlinx.coroutines.CoroutineScope
 import org.drinkless.tdlib.TdApi
 import java.io.File
 import javax.inject.Inject
@@ -33,7 +33,7 @@ class VideoNoteViewModel @Inject constructor(
     private val transcoder: MediaTranscoder,
     private val outgoing: OutgoingMedia,
     private val files: OutgoingFiles,
-    td: TdClient,
+    td: TelegramClient,
     private val strings: Strings,
     @ApplicationScope appScope: CoroutineScope,
 ) : ViewModel() {
