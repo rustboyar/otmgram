@@ -20,4 +20,7 @@
     <string name="folder_left_out">Channels and forum topics in the folder are left out.</string>
     <string name="folder_use_this">Use this folder</string>
     <string name="folder_use">Use %1$s</string>
+
+    <!-- Chat list -->
+    <string name="draft_label">Draft:</string>
 </resources>

@@ -30,6 +30,8 @@ data class ChatItem(
     val photoFileId: Int?,
     val photoMinithumbnail: ByteArray?,
     val preview: String,
+    /** What's typed but not sent, shown instead of [preview]. */
+    val draft: String? = null,
     /** Unix time of the last message, or null if the chat has none. */
     val date: Int?,
     val unreadCount: Int,
@@ -90,7 +92,8 @@ private fun FolderChat.toItem(strings: Strings) = ChatItem(
             else -> text
         }
     }.orEmpty(),
-    date = chat.lastMessage?.date,
+    draft = (chat.draftMessage?.content as? TdApi.DraftMessageContentText)?.text?.text?.takeIf { it.isNotBlank() },
+    date = chat.draftMessage?.date?.takeIf { it > 0 } ?: chat.lastMessage?.date,
     unreadCount = chat.unreadCount,
     isSavedMessages = isSavedMessages,
     isMuted = isMuted,

@@ -1,5 +1,7 @@
 package dev.otmgram.ui.chat
 
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.Lifecycle
 import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
@@ -121,6 +123,8 @@ fun ChatScreen(
             (layout.visibleItemsInfo.lastOrNull()?.index ?: 0) >= layout.totalItemsCount - LOAD_MORE_THRESHOLD
         }.distinctUntilChanged().collect { nearEnd -> if (nearEnd) viewModel.loadOlder() }
     }
+    // Save the draft when the app goes to the background: the process may not come back.
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.saveDraft() }
     // Mark messages on screen as read.
     LaunchedEffect(listState) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? Long } }
@@ -299,6 +303,8 @@ fun ChatScreen(
                 searching -> FindStepper(results, search.index, search.query.orEmpty(), onStep = search::step)
                 current != null -> RecordingBar(current, onCancel = viewModel::cancelVoice, onSend = viewModel::sendVoice)
                 else -> InputBar(
+                    text = viewModel.text,
+                    onTextChange = viewModel::type,
                     composer = viewModel.composer,
                     chatTitle = title,
                     stickersOpen = viewModel.stickers.isOpen,
@@ -534,20 +540,17 @@ private fun ServiceNote(text: String) {
 
 @Composable
 private fun InputBar(
+    text: String,
+    onTextChange: (String) -> Unit,
     composer: Composer,
     chatTitle: String,
     stickersOpen: Boolean,
     onCancel: () -> Unit,
-    onSend: (String) -> Unit,
+    onSend: () -> Unit,
     onStickers: () -> Unit,
     onAttach: () -> Unit,
     onRecordVideoNote: () -> Unit,
 ) {
-    var text by rememberSaveable { mutableStateOf("") }
-    // Editing starts from the message text.
-    LaunchedEffect(composer) {
-        if (composer is Composer.Edit) text = composer.message.text
-    }
     Column(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.6f)).then(if (stickersOpen) Modifier else Modifier.navigationBarsPadding())) {
         Hairline()
         val banner = when (composer) {
@@ -565,10 +568,7 @@ private fun InputBar(
                 ReplyQuote(ReplyPreview(label, quote), Modifier.weight(1f).padding(start = 10.dp))
                 IconBtn(
                     OtmIcons.Close, stringResource(R.string.cancel),
-                    {
-                        if (composer is Composer.Edit) text = ""
-                        onCancel()
-                    },
+                    onCancel,
                     tint = Otm.InkSoft,
                     tag = "cancelComposer",
                 )
@@ -582,7 +582,7 @@ private fun InputBar(
             IconBtn(OtmIcons.Attach, stringResource(R.string.attach), onAttach, tint = Color(0xFF56626B), tag = "attach")
             OtmField(
                 value = text,
-                onValueChange = { text = it },
+                onValueChange = onTextChange,
                 placeholder = if (chatTitle.isEmpty()) stringResource(R.string.composer_message) else stringResource(R.string.composer_write_to, chatTitle),
                 textStyle = OtmType.Body,
                 singleLine = false,
@@ -611,10 +611,7 @@ private fun InputBar(
                 IconBtn(
                     if (composer is Composer.Edit) OtmIcons.Check else OtmIcons.Send,
                     if (composer is Composer.Edit) stringResource(R.string.save) else stringResource(R.string.send),
-                    {
-                        onSend(text)
-                        text = ""
-                    },
+                    onSend,
                     tint = Color.White,
                     background = if (canSend) Otm.Slate else Otm.RidgeLight,
                     enabled = canSend,

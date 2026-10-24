@@ -137,7 +137,7 @@ data class ForwardTarget(
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
-    savedState: SavedStateHandle,
+    private val savedState: SavedStateHandle,
     messages: MessageRepository,
     private val chats: ChatRepository,
     private val folders: FolderRepository,
@@ -199,6 +199,16 @@ class ChatViewModel @Inject constructor(
     var unreadMark by mutableStateOf<UnreadMark?>(null)
         private set
 
+    /** What's typed in the input bar; here, so searching, selecting or recording keeps it. */
+    var text by mutableStateOf(savedState.get<String>(DRAFT_KEY).orEmpty())
+        private set
+
+    /** The draft set aside while editing a message, back once done. */
+    private var draftBeforeEdit = ""
+
+    /** The draft as Telegram has it (text, reply), so only changes are saved. */
+    private var savedDraft: Pair<String, Long?> = "" to null
+
     /** The first unread message, to open the chat at; null once there or if none. */
     var openAt by mutableStateOf<Long?>(null)
         private set
@@ -258,6 +268,7 @@ class ChatViewModel @Inject constructor(
                     minithumbnail = chat.photo?.minithumbnail?.data,
                     isSavedMessages = saved,
                 )
+                restoreDraft(chat.draftMessage)
                 if (chat.unreadCount > 0) {
                     unreadMark = UnreadMark(chat.lastReadInboxMessageId, chat.unreadCount)
                     // Open at the first unread message: opening at the newest would mark them all
@@ -274,12 +285,51 @@ class ChatViewModel @Inject constructor(
 
     fun loadOlder() = action { session.loadOlder() }
 
-    fun send(text: String) {
+    fun type(value: String) {
+        text = value
+        if (composer !is Composer.Edit) savedState[DRAFT_KEY] = value
+    }
+
+    /** A draft from Telegram (typed here before, or on another device), unless something's typed. */
+    private fun restoreDraft(draft: TdApi.DraftMessage?) {
+        val draftText = (draft?.content as? TdApi.DraftMessageContentText)?.text?.text.orEmpty()
+        val replyId = (draft?.replyTo as? TdApi.InputMessageReplyToMessage)?.messageId
+        savedDraft = draftText to replyId
+        if (text.isNotEmpty() || draftText.isEmpty()) return
+        type(draftText)
+        // The reply only if that message is loaded already.
+        messages.value.find { it.id == replyId }?.let { composer = Composer.Reply(it) }
+    }
+
+    /** Saves what's typed as the chat's draft on Telegram, if it changed; on leaving the chat. */
+    fun saveDraft() {
+        val draftText = (if (composer is Composer.Edit) draftBeforeEdit else text).trim()
+        val replyId = (composer as? Composer.Reply)?.message?.id?.takeIf { draftText.isNotEmpty() }
+        if (draftText to replyId == savedDraft) return
+        savedDraft = draftText to replyId
+        val draft = draftText.takeIf { it.isNotEmpty() }?.let {
+            TdApi.DraftMessage(
+                replyId?.let { id -> TdApi.InputMessageReplyToMessage(id, null, 0, "") },
+                0,
+                TdApi.DraftMessageContentText(TdApi.FormattedText(it, emptyArray()), null),
+                0,
+                null,
+            )
+        }
+        // Not suspending: also called as the view model goes away.
+        td.sendIgnoringResult(TdApi.SetChatDraftMessage(chatId, null, draft))
+    }
+
+    fun send() {
+        val text = text
         val mode = composer
         // A caption may be removed by saving it empty; text messages can't be empty.
         val removingCaption = mode is Composer.Edit && mode.message.media != null
         if (text.isBlank() && !removingCaption) return
         composer = Composer.New
+        type(if (mode is Composer.Edit) draftBeforeEdit else "")
+        // Sending clears the draft on Telegram.
+        if (mode !is Composer.Edit) savedDraft = "" to null
         action {
             when (mode) {
                 Composer.New -> session.sendText(text.trim())
@@ -405,6 +455,7 @@ class ChatViewModel @Inject constructor(
     fun cancelVoice() = voiceRecorder.cancel()
 
     override fun onCleared() {
+        saveDraft()
         if (voiceRecorder.state.value != null) voiceRecorder.cancel()
     }
 
@@ -457,11 +508,15 @@ class ChatViewModel @Inject constructor(
 
     fun edit(message: MessageItem) {
         menu = null
+        if (composer !is Composer.Edit) draftBeforeEdit = text
         composer = Composer.Edit(message)
+        text = message.text
     }
 
     fun cancelComposer() {
+        val wasEditing = composer is Composer.Edit
         composer = Composer.New
+        if (wasEditing) type(draftBeforeEdit)
     }
 
     fun askDelete(menu: MessageMenu) {
@@ -555,6 +610,8 @@ class ChatViewModel @Inject constructor(
 }
 
 private const val TAG = "ChatViewModel"
+
+private const val DRAFT_KEY = "draft"
 
 /** Opening at the first unread loads history back to it, but not further than this. */
 private const val FIRST_UNREAD_MAX_PAGES = 10

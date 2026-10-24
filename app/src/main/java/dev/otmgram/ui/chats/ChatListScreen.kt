@@ -219,7 +219,13 @@ private fun ChatRow(chat: ChatItem, highlight: String, onClick: () -> Unit) {
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    chat.preview,
+                    chat.draft?.let { draft ->
+                        buildAnnotatedString {
+                            withStyle(SpanStyle(color = Otm.Error)) { append(stringResource(R.string.draft_label)) }
+                            append(" ")
+                            append(draft)
+                        }
+                    } ?: AnnotatedString(chat.preview),
                     style = OtmType.Preview,
                     color = if (unread && !chat.isMuted) Otm.InkBody else Otm.InkSoft,
                     maxLines = 1,
