@@ -12,10 +12,15 @@ import dev.otmgram.core.td.TelegramClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.plus
 import javax.inject.Qualifier
 import javax.inject.Singleton
 
-/** Scope for work that lives as long as the app process. */
+/**
+ * Scope for work that lives as long as the app process (on a background thread). Screens
+ * use it, on the main thread, for work that must finish when they're left: sending,
+ * saving. See [onMain].
+ */
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class ApplicationScope
@@ -40,3 +45,6 @@ object AppModule {
     @ApplicationScope
     fun applicationScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 }
+
+/** This scope on the main thread. */
+fun CoroutineScope.onMain(): CoroutineScope = this + Dispatchers.Main.immediate

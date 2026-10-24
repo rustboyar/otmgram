@@ -1,5 +1,8 @@
 package dev.otmgram.ui.media
 
+import kotlinx.coroutines.CoroutineScope
+import dev.otmgram.di.onMain
+import dev.otmgram.di.ApplicationScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
@@ -212,7 +215,11 @@ class MediaViewerViewModel @Inject constructor(
     private val files: FileRepository,
     private val downloads: DownloadsFolder,
     private val strings: Strings,
+    @ApplicationScope appScope: CoroutineScope,
 ) : ViewModel() {
+
+    /** Saving finishes even if the viewer is closed. */
+    private val lasting = appScope.onMain()
 
     /** The opened photo or video, and the rest of its album around it. */
     var pages by mutableStateOf<List<ViewerPage>>(emptyList())
@@ -264,7 +271,7 @@ class MediaViewerViewModel @Inject constructor(
             is ViewerContent.Video -> c.fileId
         }
         val (name, mimeType) = page.saveAs
-        viewModelScope.launchLogged(TAG, onError = { notice = strings.get(R.string.viewer_save_failed, it.userMessage(strings)) }) {
+        lasting.launchLogged(TAG, onError = { notice = strings.get(R.string.viewer_save_failed, it.userMessage(strings)) }) {
             downloads.save(File(files.downloadNow(fileId)), name, mimeType)
             notice = strings.get(R.string.notice_saved_to_downloads)
         }

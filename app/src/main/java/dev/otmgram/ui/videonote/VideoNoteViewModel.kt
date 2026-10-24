@@ -1,5 +1,8 @@
 package dev.otmgram.ui.videonote
 
+import kotlinx.coroutines.CoroutineScope
+import dev.otmgram.di.onMain
+import dev.otmgram.di.ApplicationScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -17,7 +20,6 @@ import dev.otmgram.data.MessageRepository
 import dev.otmgram.data.OutgoingFiles
 import dev.otmgram.data.OutgoingMedia
 import dev.otmgram.data.isSavedMessages
-import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import java.io.File
 import javax.inject.Inject
@@ -33,7 +35,11 @@ class VideoNoteViewModel @Inject constructor(
     private val files: OutgoingFiles,
     td: TdClient,
     private val strings: Strings,
+    @ApplicationScope appScope: CoroutineScope,
 ) : ViewModel() {
+
+    /** Sending finishes even if the camera screen is left meanwhile. */
+    private val lasting = appScope.onMain()
 
     private val chatId: Long = checkNotNull(savedState["chatId"])
 
@@ -42,7 +48,7 @@ class VideoNoteViewModel @Inject constructor(
         private set
 
     init {
-        viewModelScope.launchLogged("VideoNoteViewModel") {
+        viewModelScope.launchLogged(TAG) {
             val chat = td.send(TdApi.GetChat(chatId))
             chatTitle = if (chat.isSavedMessages(td.send(TdApi.GetMe()).id)) strings.get(R.string.saved_messages) else chat.title
         }
@@ -59,16 +65,14 @@ class VideoNoteViewModel @Inject constructor(
     /** Crops the recording to a square and sends it. */
     fun send(recording: File) {
         state = VideoNoteState.Processing
-        viewModelScope.launch {
-            try {
-                val videoNote = transcoder.videoNote(recording)
-                val duration = outgoing.videoInfo(videoNote).duration.coerceAtLeast(1)
-                messages.sendVideoNote(chatId, videoNote, duration, MediaTranscoder.VIDEO_NOTE_SIZE)
-                state = VideoNoteState.Sent
-            } catch (e: Exception) {
-                error = strings.get(R.string.video_note_send_failed, e.userMessage(strings))
-                state = VideoNoteState.Recording
-            }
+        lasting.launchLogged(TAG, onError = { e ->
+            error = strings.get(R.string.video_note_send_failed, e.userMessage(strings))
+            state = VideoNoteState.Recording
+        }) {
+            val videoNote = transcoder.videoNote(recording)
+            val duration = outgoing.videoInfo(videoNote).duration.coerceAtLeast(1)
+            messages.sendVideoNote(chatId, videoNote, duration, MediaTranscoder.VIDEO_NOTE_SIZE)
+            state = VideoNoteState.Sent
         }
     }
 
@@ -82,3 +86,5 @@ class VideoNoteViewModel @Inject constructor(
         error = strings.get(R.string.video_note_record_failed, reason ?: strings.get(R.string.video_note_unknown_error))
     }
 }
+
+private const val TAG = "VideoNoteViewModel"

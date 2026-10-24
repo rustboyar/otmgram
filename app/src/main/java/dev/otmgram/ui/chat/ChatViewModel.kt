@@ -1,5 +1,8 @@
 package dev.otmgram.ui.chat
 
+import kotlinx.coroutines.CoroutineScope
+import dev.otmgram.di.onMain
+import dev.otmgram.di.ApplicationScope
 import android.annotation.SuppressLint
 import android.net.Uri
 import androidx.compose.runtime.getValue
@@ -147,7 +150,11 @@ class ChatViewModel @Inject constructor(
     private val audioPlayer: AudioPlayer,
     appSettings: AppSettings,
     private val strings: Strings,
+    @ApplicationScope appScope: CoroutineScope,
 ) : ViewModel() {
+
+    /** For work that must finish even if the chat is left: sending, saving. */
+    private val lasting = appScope.onMain()
 
     val chatId: Long = checkNotNull(savedState["chatId"])
     private val session = messages.openChat(chatId, viewModelScope)
@@ -217,6 +224,7 @@ class ChatViewModel @Inject constructor(
     /** Picked media and files in the send preview. */
     val outgoing = OutgoingQueue<Uri>(
         viewModelScope,
+        lasting,
         estimate = outgoingMedia::estimate,
         prepareMedia = outgoingMedia::fromGallery,
         prepareFile = outgoingMedia::document,
@@ -327,8 +335,8 @@ class ChatViewModel @Inject constructor(
     fun saveToDownloads(message: MessageItem) {
         menu = null
         val document = message.media as? MessageMedia.Document ?: return
-        action {
-            notice = strings.get(R.string.notice_downloading, document.name)
+        notice = strings.get(R.string.notice_downloading, document.name)
+        lasting.launchLogged(TAG, onError = ::showError) {
             downloads.save(File(files.downloadNow(document.fileId)), document.name, document.mimeType)
             notice = strings.get(R.string.notice_saved_to_downloads)
         }

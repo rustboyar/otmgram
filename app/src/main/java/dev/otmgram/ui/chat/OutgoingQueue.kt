@@ -12,9 +12,13 @@ import org.drinkless.tdlib.TdApi
 /**
  * Picked photos, videos and files waiting in the send preview, and sending them: several
  * go as one album, captioned on the first. [T] is what the picker returns (a Uri).
+ *
+ * Preparing and sending run in [sendScope], which should outlive the screen: leaving the
+ * chat while media is being compressed must still send it.
  */
 class OutgoingQueue<T>(
     private val scope: CoroutineScope,
+    private val sendScope: CoroutineScope,
     private val estimate: suspend (List<T>) -> SizeEstimate,
     private val prepareMedia: suspend (item: T, caption: String, compress: Boolean) -> TdApi.InputMessageContent?,
     private val prepareFile: suspend (item: T, caption: String) -> TdApi.InputMessageContent,
@@ -51,7 +55,7 @@ class OutgoingQueue<T>(
         val items = media
         media = emptyList()
         preparing = true
-        scope.launch {
+        sendScope.launch {
             try {
                 guarded {
                     send(items.mapIndexedNotNull { i, item -> prepareMedia(item, if (i == 0) caption else "", compress) })
@@ -65,7 +69,7 @@ class OutgoingQueue<T>(
     fun sendFiles(caption: String) {
         val items = files
         files = emptyList()
-        scope.launch { guarded { send(items.mapIndexed { i, item -> prepareFile(item, if (i == 0) caption else "") }) } }
+        sendScope.launch { guarded { send(items.mapIndexed { i, item -> prepareFile(item, if (i == 0) caption else "") }) } }
     }
 
     fun cancelMedia() {
