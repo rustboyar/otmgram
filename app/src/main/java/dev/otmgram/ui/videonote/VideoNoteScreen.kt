@@ -131,6 +131,7 @@ private fun Recorder(viewModel: VideoNoteViewModel, onCancel: () -> Unit) {
     var front by remember { mutableStateOf(true) }
     var videoCapture by remember { mutableStateOf<VideoCapture<Recorder>?>(null) }
     var recording by remember { mutableStateOf<Recording?>(null) }
+    var take by remember { mutableStateOf<Take?>(null) }
     var elapsedMs by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(front) {
@@ -145,8 +146,14 @@ private fun Recorder(viewModel: VideoNoteViewModel, onCancel: () -> Unit) {
         provider.bindToLifecycle(lifecycleOwner, camera, preview, capture)
         videoCapture = capture
     }
-    // Leaving the screen discards a recording in progress.
-    DisposableEffect(Unit) { onDispose { recording?.close() } }
+    // Leaving the screen (or rotating it) discards a recording in progress, and frees the
+    // camera, which would otherwise stay on until the screen's lifecycle ends.
+    DisposableEffect(Unit) {
+        onDispose {
+            recording?.close()
+            ProcessCameraProvider.getInstance(context).takeIf { it.isDone }?.get()?.unbindAll()
+        }
+    }
 
     val active = recording
     val record = stringResource(R.string.video_note_record)
@@ -218,11 +225,13 @@ private fun Recorder(viewModel: VideoNoteViewModel, onCancel: () -> Unit) {
                     .background(Otm.NightText)
                     .clickable(enabled = videoCapture != null) {
                         if (active != null) {
+                            take?.send = true
                             active.stop()
                             return@clickable
                         }
                         val capture = videoCapture ?: return@clickable
                         val file = viewModel.newRecordingFile()
+                        val thisTake = Take(file).also { take = it }
                         val output = FileOutputOptions.Builder(file).setDurationLimitMillis(MAX_SECONDS * 1000L).build()
                         recording = capture.output.prepareRecording(context, output)
                             .withAudioEnabled()
@@ -232,7 +241,7 @@ private fun Recorder(viewModel: VideoNoteViewModel, onCancel: () -> Unit) {
                                         TimeUnit.NANOSECONDS.toMillis(event.recordingStats.recordedDurationNanos)
                                     is VideoRecordEvent.Finalize -> {
                                         recording = null
-                                        onRecorded(viewModel, file, event)
+                                        onRecorded(viewModel, thisTake, event)
                                     }
                                 }
                             }
@@ -252,10 +261,23 @@ private fun Recorder(viewModel: VideoNoteViewModel, onCancel: () -> Unit) {
     }
 }
 
-private fun onRecorded(viewModel: VideoNoteViewModel, file: File, event: VideoRecordEvent.Finalize) {
-    // Hitting the duration limit still produces a complete file.
-    val ok = !event.hasError() || event.error == VideoRecordEvent.Finalize.ERROR_DURATION_LIMIT_REACHED
-    if (ok) viewModel.send(file) else viewModel.discard(file, event.cause?.message)
+/** One recording; [send] once the user asked for it to be sent. */
+private class Take(val file: File) {
+    @Volatile
+    var send = false
+}
+
+/**
+ * Sends a finished recording only if the user stopped it to send, or it reached the time
+ * limit; closing, leaving or rotating the screen also finish it, without an error.
+ */
+private fun onRecorded(viewModel: VideoNoteViewModel, take: Take, event: VideoRecordEvent.Finalize) {
+    when {
+        event.error == VideoRecordEvent.Finalize.ERROR_DURATION_LIMIT_REACHED -> viewModel.send(take.file)
+        !take.send -> viewModel.drop(take.file)
+        event.hasError() -> viewModel.discard(take.file, event.cause?.message)
+        else -> viewModel.send(take.file)
+    }
 }
 
 private val RING_SIZE = 300.dp

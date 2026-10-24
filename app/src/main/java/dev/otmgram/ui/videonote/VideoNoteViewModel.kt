@@ -72,6 +72,11 @@ class VideoNoteViewModel @Inject constructor(
         }
     }
 
+    /** A recording nobody wants: closed, left or rotated away. */
+    fun drop(recording: File) {
+        recording.delete()
+    }
+
     fun discard(recording: File, reason: String?) {
         recording.delete()
         error = strings.get(R.string.video_note_record_failed, reason ?: strings.get(R.string.video_note_unknown_error))
