@@ -12,7 +12,7 @@ A minimal Android Telegram client that only shows chats from one chat folder, to
 - Media, view + send: photos, videos, voice messages, video circles, stickers, files
 - Sending compresses photos and videos by default (toggle per send; files keep the original)
 - Location: view received (static and live) locations, send current location, share live location
-- Media auto-download: always (bounded by a cache size limit)
+- Media auto-download: photos, stickers, circles, avatars and thumbnails when shown; videos, voice messages, GIFs and files on tap (bounded by a cache size limit)
 - Notifications for folder chats only, via a periodic background check (no push)
 - Always appear offline: the `online` option is never set to true
 - Personal sideload APK, own `api_id` / `api_hash`
@@ -23,21 +23,11 @@ Links, @mentions and "forwarded from" headers do not navigate to chats: web link
 
 ## Stack
 
-- Kotlin + Jetpack Compose, minSdk 29, arm64-v8a only
+- Kotlin + Jetpack Compose, minSdk 29; arm64-v8a (debug builds add x86_64 for the emulator)
 - TDLib built from source (pinned version)
 - Coroutines/Flow, Hilt, Navigation Compose, DataStore
 - Coil (images), Media3 ExoPlayer + Transformer (video/audio, circle cropping), CameraX (circle recording), lottie-android (TGS stickers)
 - `api_id` / `api_hash` in `local.properties` → `BuildConfig`, never committed
-
-## Structure
-
-```
-app/
-  core/td     TdClient: TDLib JNI wrapper → suspend requests + update Flows
-  data/       repositories: Auth, Folder, Chats, Messages, Files, Stickers
-  ui/         auth, folder picker, chat list, chat, media viewer, settings
-  sync/       periodic WorkManager check + notifications
-```
 
 ## Milestones
 
@@ -69,7 +59,7 @@ app/
 - Voice: waveform with playback progress, one shared player (no seeking yet)
 - Circles: inline muted autoplay clipped to a circle, tap for sound
 - GIFs: inline muted loop
-- Inline videos use software decoders first (few hardware decoder instances; the emulator's fails)
+- Inline videos use hardware decoders first and fall back to software ones when one fails (as the emulator's does)
 - Stickers: WEBP, TGS (Lottie, merge paths enabled); WEBM shows its still thumbnail (alpha video unsupported by Android decoders)
 - Chat photos as avatars in the chat list
 - Downloads: photos, video circles, stickers, avatars and video thumbnails automatically once their message is on screen; videos, voice messages and GIFs on tap (voice then plays, a GIF then loops in place; tap again to stop the download); files on tap. Cache limit in settings (`optimizeStorage`)

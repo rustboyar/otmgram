@@ -12,3 +12,15 @@ captures/
 .tdlib-build/
 tdlib/src/main/jniLibs/
 tdlib/src/main/java/org/drinkless/tdlib/
+
+# Signing keys and signed APKs, wherever they end up
+*.jks
+*.keystore
+app/release/
+
+# Local tool and OS files
+.vscode/
+.DS_Store
+*.hprof
+*.log
+.claude/settings.local.json

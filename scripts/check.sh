@@ -7,7 +7,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
 
-tasks=(:app:lintDebug :app:testDebugUnitTest)
+# Compiling the UI tests too catches them breaking without a device.
+tasks=(:app:lintDebug :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin)
 [ "${1:-}" = "--release" ] && tasks+=(:app:assembleRelease)
 
 if ! ./gradlew -q "${tasks[@]}"; then

@@ -4,7 +4,12 @@ A minimal Android Telegram client that only shows chats from one chat folder. Se
 
 ## Setup
 
-Requirements: JDK 17+, Android SDK with NDK `29.0.14206865`, `cmake`, `ninja`, `gperf`, `perl`.
+Builds on Linux (the scripts use the NDK's `linux-x86_64` tools and GNU tools).
+
+Requirements: JDK 17+, Android SDK platform 37 and NDK `29.0.14206865`
+(`sdkmanager "platforms;android-37.0" "ndk;29.0.14206865"`), `cmake`, `ninja`, `gperf`,
+`perl`, `make`, `git`, `curl`, `sha256sum`. Building TDLib needs about 2 GB of disk
+(`.tdlib-build/`) and plenty of RAM: lower `JOBS` (default 8) if the build runs out.
 
 1. Build TDLib (takes a while; outputs go to `tdlib/src/main`, not committed):
 
@@ -25,6 +30,28 @@ Requirements: JDK 17+, Android SDK with NDK `29.0.14206865`, `cmake`, `ninja`, `
    ```sh
    ./gradlew installDebug
    ```
+
+## Checks
+
+```sh
+scripts/check.sh             # lint (fails on any issue), unit tests, UI tests compile
+scripts/check.sh --release   # and the release APK
+scripts/ui-tests.sh          # UI tests on the device; keeps the app's data (unlike connectedAndroidTest)
+```
+
+## Release builds
+
+Signed with your own key, kept outside the repo; a release build stops if any of this is
+missing from `local.properties`:
+
+```properties
+release.storeFile=/home/you/.local/share/otmgram/release.jks
+release.storePassword=…
+release.keyAlias=otmgram
+release.keyPassword=…
+```
+
+Back up the keystore and its passwords: Android installs updates only with the same key.
 
 ## Debug builds and the emulator
 
