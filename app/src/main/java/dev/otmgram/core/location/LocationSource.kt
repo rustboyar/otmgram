@@ -8,6 +8,7 @@ import android.location.LocationManager
 import android.location.LocationRequest
 import android.os.Build
 import android.os.CancellationSignal
+import android.os.SystemClock
 import androidx.annotation.RequiresPermission
 import androidx.core.content.ContextCompat
 import androidx.core.location.LocationListenerCompat
@@ -38,8 +39,9 @@ class LocationSource @Inject constructor(
     }
 
     /**
-     * A fresh, accurate fix, or the last known one if none arrives in time; null if location
-     * is off. High accuracy makes the fused provider use GPS, not just network location.
+     * A fresh, accurate fix, or the last known one if none arrives in time and it's recent;
+     * null if location is off or no recent position is known. High accuracy makes the fused
+     * provider use GPS, not just network location.
      */
     @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     suspend fun current(): Location? {
@@ -56,8 +58,11 @@ class LocationSource @Inject constructor(
                 }
                 continuation.invokeOnCancellation { signal.cancel() }
             }
-        } ?: manager.getLastKnownLocation(provider)
+        } ?: manager.getLastKnownLocation(provider)?.takeIf { it.age() <= MAX_FALLBACK_AGE_MS }
     }
+
+    /** How long ago the position was taken. */
+    private fun Location.age(): Long = (SystemClock.elapsedRealtimeNanos() - elapsedRealtimeNanos) / 1_000_000
 
     /** The last position any app got, without waiting for a new one; null if none or location is off. */
     @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
@@ -83,5 +88,8 @@ class LocationSource @Inject constructor(
 
     private companion object {
         const val FIX_TIMEOUT_MS = 20_000L
+
+        /** An older position may be somewhere else entirely: hours old, it's another town. */
+        const val MAX_FALLBACK_AGE_MS = 5 * 60_000L
     }
 }

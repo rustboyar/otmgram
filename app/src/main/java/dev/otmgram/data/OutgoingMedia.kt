@@ -2,12 +2,19 @@ package dev.otmgram.data
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.ImageDecoder
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.webkit.MimeTypeMap
+import androidx.annotation.OptIn
+import androidx.core.graphics.applyCanvas
+import androidx.core.graphics.createBitmap
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.transformer.ExportException
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.media.MediaTranscoder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -36,17 +43,39 @@ class OutgoingMedia @Inject constructor(
         val type = context.contentResolver.getType(uri).orEmpty()
         val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(type)
         return when {
+            // A GIF goes as an animation, which plays; as a photo it would be its first frame.
+            type == "image/gif" -> withContext(Dispatchers.IO) { animation(copy(uri, files.newFile("gif")), caption) }
             type.startsWith("image/") -> withContext(Dispatchers.IO) {
                 val original = copy(uri, files.newFile(extension ?: "jpg"))
                 photo(if (compress) compressedPhoto(original, type) else original, caption)
             }
             type.startsWith("video/") -> {
                 val original = withContext(Dispatchers.IO) { copy(uri, files.newFile(extension ?: "mp4")) }
-                // The transcoder runs on the main thread.
-                val file = if (compress && needsCompression(original)) transcoder.compressVideo(original) else original
+                val file = if (compress && needsCompression(original)) compressedVideo(original) else original
                 withContext(Dispatchers.IO) { video(file, caption) }
             }
             else -> null
+        }
+    }
+
+    /**
+     * The video re-encoded smaller, or [original] if that fails (some phones' encoders
+     * can't take some videos) or doesn't make it smaller: it's sent as it is then.
+     */
+    @OptIn(UnstableApi::class)
+    private suspend fun compressedVideo(original: File): File {
+        val compressed = try {
+            transcoder.compressVideo(original) // On the main thread.
+        } catch (e: ExportException) {
+            AppLog.w(TAG, "Compressing a video failed; sending it as it is", e)
+            return original
+        }
+        return if (compressed.length() < original.length()) {
+            original.delete()
+            compressed
+        } else {
+            compressed.delete()
+            original
         }
     }
 
@@ -145,11 +174,27 @@ class OutgoingMedia @Inject constructor(
             decoder.setTargetSize((info.size.width * scale).roundToInt(), (info.size.height * scale).roundToInt())
             decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
         }
+        // JPEG has no transparency: transparent parts (a PNG logo, a sticker-like image) go
+        // white rather than black.
+        val opaque = if (bitmap.hasAlpha()) {
+            createBitmap(bitmap.width, bitmap.height).applyCanvas {
+                drawColor(Color.WHITE)
+                drawBitmap(bitmap, 0f, 0f, null)
+            }.also { bitmap.recycle() }
+        } else {
+            bitmap
+        }
         val output = files.newFile("jpg")
-        output.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, it) }
-        bitmap.recycle()
+        output.outputStream().use { opaque.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, it) }
+        opaque.recycle()
         file.delete()
         return output
+    }
+
+    private fun animation(file: File, caption: String): TdApi.InputMessageContent {
+        val (width, height) = imageSize(file)
+        val animation = TdApi.InputAnimation(local(file), null, intArrayOf(), 0, width, height)
+        return TdApi.InputMessageAnimation(animation, formatted(caption), false, false)
     }
 
     private fun video(file: File, caption: String): TdApi.InputMessageContent {
@@ -195,6 +240,7 @@ class OutgoingMedia @Inject constructor(
     private fun formatted(text: String) = TdApi.FormattedText(text.trim(), emptyArray())
 
     private companion object {
+        const val TAG = "OutgoingMedia"
         const val MAX_PHOTO_SIDE = 2560
         const val SMALL_PHOTO_BYTES = 1_500_000L
         const val JPEG_QUALITY = 87

@@ -137,9 +137,14 @@ class ChatSession internal constructor(
         send(TdApi.InputMessageVoiceNote(voice, null, null))
     }
 
-    /** Sends media; several items go as one album (up to 10, Telegram's limit). */
+    /**
+     * Sends media; several photos and videos go as one album (up to 10, Telegram's limit).
+     * GIFs can't be in an album: they go on their own.
+     */
     suspend fun sendMedia(contents: List<TdApi.InputMessageContent>) {
-        for (album in contents.chunked(ALBUM_SIZE)) {
+        val (alone, together) = contents.partition { it is TdApi.InputMessageAnimation }
+        alone.forEach { send(it) }
+        for (album in together.chunked(ALBUM_SIZE)) {
             if (album.size == 1) {
                 send(album.single())
             } else {

@@ -42,20 +42,26 @@ class MediaTranscoder @Inject constructor(
     suspend fun videoNote(input: File): File =
         transcode(input, Presentation.createForWidthAndHeight(VIDEO_NOTE_SIZE, VIDEO_NOTE_SIZE, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP))
 
-    /** A smaller video: [COMPRESSED_SHORT_SIDE] px on the short side at [COMPRESSED_BITRATE]. */
+    /**
+     * A smaller video: [COMPRESSED_SHORT_SIDE] px on the short side at [COMPRESSED_BITRATE].
+     * Keeps [input], to fall back on.
+     */
     suspend fun compressVideo(input: File): File =
-        transcode(input, Presentation.createForShortSide(COMPRESSED_SHORT_SIDE), bitrate = COMPRESSED_BITRATE)
+        transcode(input, Presentation.createForShortSide(COMPRESSED_SHORT_SIDE), bitrate = COMPRESSED_BITRATE, keepInput = true)
 
-    /** Transcodes to H.264/AAC, deleting [input]. Retries with software decoders if the hardware one fails. */
+    /**
+     * Transcodes to H.264/AAC, deleting [input] unless [keepInput]. Retries with software
+     * decoders if the hardware one fails.
+     */
     @OptIn(UnstableApi::class)
-    private suspend fun transcode(input: File, effect: Effect, bitrate: Int? = null): File {
+    private suspend fun transcode(input: File, effect: Effect, bitrate: Int? = null, keepInput: Boolean = false): File {
         val output = try {
             export(input, effect, bitrate, softwareDecoders = false)
         } catch (e: ExportException) {
             if (e.errorCode != ExportException.ERROR_CODE_DECODING_FAILED) throw e
             export(input, effect, bitrate, softwareDecoders = true)
         }
-        input.delete()
+        if (!keepInput) input.delete()
         return output
     }
 
