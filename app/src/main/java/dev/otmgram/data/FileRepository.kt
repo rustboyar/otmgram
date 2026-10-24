@@ -1,5 +1,7 @@
 package dev.otmgram.data
 
+import dev.otmgram.core.td.TdException
+import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.di.ApplicationScope
 import kotlinx.coroutines.CoroutineScope
@@ -99,14 +101,20 @@ class FileRepository @Inject constructor(
         val listener: (TdApi.File) -> Unit = { latest.trySend(it) }
         listeners.compute(fileId) { _, set -> (set ?: CopyOnWriteArraySet()).apply { add(listener) } }
         launch { for (file in latest) emit(file) }
-        emit(initial())
+        try {
+            emit(initial())
+        } catch (e: TdException) {
+            // E.g. a file that can't be downloaded (no copy left anywhere). Shown as unknown
+            // rather than crashing the screen; later updates still come through.
+            AppLog.w(TAG, "File $fileId: ${e.error.message}")
+        }
         awaitClose {
             listeners.computeIfPresent(fileId) { _, set -> set.apply { remove(listener) }.takeIf { it.isNotEmpty() } }
         }
     }
 
     companion object {
-        const val PRIORITY_BACKGROUND = 1
+        private const val TAG = "FileRepository"
         const val PRIORITY_VISIBLE = 16
         const val PRIORITY_VIEWER = 32
     }

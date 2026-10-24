@@ -2,6 +2,7 @@
 
 package dev.otmgram.ui.chat
 
+import dev.otmgram.core.launchLogged
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -60,9 +61,7 @@ import com.airbnb.lottie.compose.rememberLottieComposition
 import dev.otmgram.R
 import dev.otmgram.core.Strings
 import dev.otmgram.core.location.MapSnapshots
-import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.media.AudioState
-import dev.otmgram.core.td.TdException
 import dev.otmgram.data.FileState
 import dev.otmgram.data.StickerKind
 import dev.otmgram.ui.media.LocalFileRepository
@@ -152,14 +151,8 @@ private fun DocumentContent(media: MessageMedia.Document, onLongClick: () -> Uni
             .combinedClickable(onLongClick = onLongClick) {
                 when {
                     path != null -> openFile(context, path, media.mimeType)
-                    downloading -> scope.launch { files.cancelDownload(media.fileId) }
-                    else -> scope.launch {
-                        try {
-                            files.startDownload(media.fileId)
-                        } catch (e: TdException) {
-                            AppLog.w("DocumentContent", "Download failed", e)
-                        }
-                    }
+                    downloading -> scope.launchLogged("DocumentContent") { files.cancelDownload(media.fileId) }
+                    else -> scope.launchLogged("DocumentContent") { files.startDownload(media.fileId) }
                 }
             }
             .padding(vertical = 2.dp)

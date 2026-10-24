@@ -1,6 +1,7 @@
 package dev.otmgram.data
 
 import dev.otmgram.testing.FakeTelegram
+import dev.otmgram.testing.error
 import dev.otmgram.testing.file
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -54,6 +55,26 @@ class FileRepositoryTest {
         td.emit(progress(1, 500))
         runCurrent()
         assertTrue(seen.last())
+    }
+
+    @Test
+    fun `a file TDLib can't get doesn't fail the flow`() = runTest {
+        val files = FileRepository(td, backgroundScope)
+        td.on<TdApi.DownloadFile> { error(400, "Can't download or generate the file") }
+        val seen = mutableListOf<Boolean>()
+        var failed: Throwable? = null
+        backgroundScope.launch {
+            try {
+                files.download(4).collect { seen += it.isDownloaded }
+            } catch (e: Exception) {
+                failed = e
+            }
+        }
+        runCurrent()
+        td.emit(progress(4, 1000, done = true))
+        runCurrent()
+        assertEquals(null, failed)
+        assertEquals(listOf(true), seen)
     }
 
     @Test
