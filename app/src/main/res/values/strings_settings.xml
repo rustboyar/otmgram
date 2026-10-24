@@ -53,4 +53,9 @@
     <string name="log_out_title">Log out?</string>
     <string name="log_out_text">Otmgram will forget this account and remove its downloaded media from the phone. Your chats stay in Telegram.</string>
     <string name="storage_empty">Nothing downloaded yet.</string>
+
+    <!-- Sharing logs -->
+    <string name="logs_share_text">The app\'s log has no message text, names or phone numbers. TDLib\'s log helps with connection and sync problems, but it can contain all of these.</string>
+    <string name="logs_share_confirm">Share</string>
+    <string name="logs_with_tdlib">Include TDLib\'s log</string>
 </resources>

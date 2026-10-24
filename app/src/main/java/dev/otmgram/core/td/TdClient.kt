@@ -95,7 +95,7 @@ class TdClient @Inject constructor(
         if (client != null) return
         // Warnings and errors to a file next to the app's log, shared from settings.
         AppLog.folder?.let {
-            Client.execute(TdApi.SetLogStream(TdApi.LogStreamFile(File(it, "tdlib.log").path, TDLIB_LOG_BYTES, false)))
+            Client.execute(TdApi.SetLogStream(TdApi.LogStreamFile(File(it, AppLog.TDLIB_FILE).path, TDLIB_LOG_BYTES, false)))
         }
         Client.execute(TdApi.SetLogVerbosityLevel(2))
         client = Client.create(::onUpdate, ::onException, ::onException)

@@ -19,6 +19,9 @@ import java.util.concurrent.Executors
  */
 @SuppressLint("LogNotTimber") // This is the app's logger; it writes to logcat on purpose.
 object AppLog {
+    /** TDLib's log, in the same folder. Unlike this one, it can contain message text and names. */
+    const val TDLIB_FILE = "tdlib.log"
+
     private const val MAX_BYTES = 512 * 1024L
     private const val FILE = "app.log"
     private const val OLD_FILE = "app.log.1"

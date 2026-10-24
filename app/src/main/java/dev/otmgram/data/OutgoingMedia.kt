@@ -184,7 +184,7 @@ class OutgoingMedia @Inject constructor(
 
     private fun copy(uri: Uri, file: File): File {
         context.contentResolver.openInputStream(uri).use { input ->
-            requireNotNull(input) { "Can't read $uri" }
+            requireNotNull(input) { "Can't read the picked file" }
             file.outputStream().use { input.copyTo(it) }
         }
         return file

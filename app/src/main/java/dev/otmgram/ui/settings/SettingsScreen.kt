@@ -1,5 +1,6 @@
 package dev.otmgram.ui.settings
 
+import dev.otmgram.ui.chat.SelectionMark
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -98,6 +99,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
     val cacheLimit by viewModel.cacheLimit.collectAsStateWithLifecycle()
     var confirmLogout by rememberSaveable { mutableStateOf(false) }
     var confirmClear by rememberSaveable { mutableStateOf(false) }
+    var askShareLogs by rememberSaveable { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().paper().imePadding()) {
         ScreenBar(stringResource(R.string.settings), onBack = onBack)
@@ -218,9 +220,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                 val context = LocalContext.current
                 SoftButton(
                     if (viewModel.sharingLogs) stringResource(R.string.logs_preparing) else stringResource(R.string.logs_share),
-                    {
-                        viewModel.shareLogs { zip -> context.startActivity(LogArchive.shareIntent(context, zip)) }
-                    },
+                    { askShareLogs = true },
                     Modifier.testTag("shareLogs"),
                 )
             }
@@ -253,6 +253,33 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                 }, Modifier.testTag("confirmClear"), color = Otm.Error)
             },
         )
+    }
+    if (askShareLogs) {
+        val context = LocalContext.current
+        var withTdlib by rememberSaveable { mutableStateOf(false) }
+        OtmDialog(
+            title = stringResource(R.string.logs_share),
+            text = stringResource(R.string.logs_share_text),
+            onDismiss = { askShareLogs = false },
+            confirm = {
+                TextAction(stringResource(R.string.logs_share_confirm), {
+                    askShareLogs = false
+                    viewModel.shareLogs(withTdlib) { zip -> context.startActivity(LogArchive.shareIntent(context, zip)) }
+                }, Modifier.testTag("confirmShareLogs"))
+            },
+        ) {
+            Row(
+                modifier = Modifier
+                    .toggleable(withTdlib, role = Role.Checkbox) { withTdlib = it }
+                    .testTag("withTdlibLog")
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                SelectionMark(withTdlib)
+                Text(stringResource(R.string.logs_with_tdlib), style = OtmType.Body, color = Otm.Ink)
+            }
+        }
     }
     if (confirmLogout) {
         OtmDialog(
@@ -402,12 +429,12 @@ class SettingsViewModel @Inject constructor(
     }
 
     /** Zips the logs, then hands the file to [share]. */
-    fun shareLogs(share: (File) -> Unit) {
+    fun shareLogs(withTdlib: Boolean, share: (File) -> Unit) {
         if (sharingLogs) return
         sharingLogs = true
         viewModelScope.launchLogged(TAG) {
             try {
-                share(LogArchive.create(context))
+                share(LogArchive.create(context, withTdlib))
             } finally {
                 sharingLogs = false
             }

@@ -17,8 +17,11 @@ import java.util.zip.ZipOutputStream
 /** The logs as one zip to send, e.g. to yourself in Telegram. */
 object LogArchive {
 
-    /** Zips the app's and TDLib's logs with a short header about the device. */
-    suspend fun create(context: Context): File = withContext(Dispatchers.IO) {
+    /**
+     * Zips the app's log with a short header about the device; TDLib's log (and its older
+     * part) only with [withTdlib], as it can contain message text, names and phone numbers.
+     */
+    suspend fun create(context: Context, withTdlib: Boolean): File = withContext(Dispatchers.IO) {
         val stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
         val dir = File(context.cacheDir, "logs").apply {
             mkdirs()
@@ -29,7 +32,7 @@ object LogArchive {
             out.putNextEntry(ZipEntry("about.txt"))
             out.write(header(stamp).toByteArray())
             out.closeEntry()
-            AppLog.folder?.listFiles()?.sortedBy { it.name }?.forEach { file ->
+            AppLog.folder?.listFiles()?.filter { withTdlib || !it.name.startsWith(AppLog.TDLIB_FILE) }?.sortedBy { it.name }?.forEach { file ->
                 out.putNextEntry(ZipEntry(file.name))
                 file.inputStream().use { it.copyTo(out) }
                 out.closeEntry()

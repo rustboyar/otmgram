@@ -21,7 +21,8 @@ fun openFile(context: Context, path: String, mimeType: String) {
         Toast.makeText(context, R.string.open_no_app, Toast.LENGTH_SHORT).show()
     } catch (e: IllegalArgumentException) {
         // A path outside the folders shared in file_paths.xml.
-        AppLog.w("openFile", "Can't share $path", e)
+        // Without the exception: its message has the path, and so the file's name.
+        AppLog.w("openFile", "Can't share a file outside the shared folders")
         Toast.makeText(context, R.string.open_failed, Toast.LENGTH_SHORT).show()
     }
 }

@@ -150,9 +150,9 @@ app/
 
 - No remote crash reporting (it would send data to a third party); logs stay on the phone
 - `AppLog`: logcat plus `files/logs/app.log` (512 KB, rotated once): app start with version and device, authorization and connection changes, each background check and its outcome, notifications, live location, every caught failure with its stack trace, and crashes
-- TDLib's warnings and errors to `files/logs/tdlib.log` (2 MB)
-- Settings → Share logs: a zip with both logs and the device info, via the share sheet
-- Never log message text, names or phone numbers
+- TDLib's warnings and errors to `files/logs/tdlib.log` (2 MB). TDLib prints whole messages and users in some of them, so this log can contain message text, names and phone numbers
+- Settings → Share logs: a zip with the app's log and the device info, via the share sheet; TDLib's log only if chosen in the dialog, which says what it may contain
+- Never log message text, names, phone numbers or file names (exceptions that carry a path aren't logged with it)
 
 ## Open questions
 
