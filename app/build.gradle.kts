@@ -19,9 +19,20 @@ val telegramApiId = localProperties.getProperty("telegram.apiId") ?: "0"
 val telegramApiHash = localProperties.getProperty("telegram.apiHash") ?: ""
 val telegramTestDc = localProperties.getProperty("telegram.testDc")?.toBoolean() ?: false
 
-// Release signing key, outside the repo (see local.properties); without it, the debug key.
-// Keep using the same key: Android only installs updates signed like the installed app.
+// Release signing key, outside the repo (see local.properties). Keep using the same key:
+// Android only installs updates signed like the installed app.
 val releaseStoreFile = localProperties.getProperty("release.storeFile")?.let(::file)?.takeIf { it.exists() }
+
+// What a release build can't do without; checked before building one, so a missing key
+// can't end up as an APK signed with another one (or credentials as a login that fails).
+val missingForRelease = buildList {
+    if (telegramApiId == "0") add("telegram.apiId")
+    if (telegramApiHash.isEmpty()) add("telegram.apiHash")
+    if (releaseStoreFile == null) add("release.storeFile (missing, or the file isn't there)")
+    listOf("release.storePassword", "release.keyAlias", "release.keyPassword").forEach {
+        if (localProperties.getProperty(it).isNullOrEmpty()) add(it)
+    }
+}
 
 android {
     namespace = "dev.otmgram"
@@ -64,7 +75,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 
@@ -90,6 +101,16 @@ android {
         unitTests.isReturnDefaultValues = true
     }
 }
+
+val checkReleaseSetup by tasks.registering {
+    val missing = missingForRelease
+    doLast {
+        if (missing.isNotEmpty()) {
+            throw GradleException("A release build needs these in local.properties: ${missing.joinToString()}")
+        }
+    }
+}
+tasks.matching { it.name == "preReleaseBuild" }.configureEach { dependsOn(checkReleaseSetup) }
 
 dependencies {
     implementation(project(":tdlib"))
