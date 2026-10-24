@@ -22,7 +22,7 @@ class LockScreenNotificationTest {
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
-    private val news = listOf(ChatNews("Anna", listOf("see you at 7, by the bridge", "bring the tent"), newest = 0))
+    private val news = listOf(ChatNews(1, "Anna", listOf("see you at 7, by the bridge", "bring the tent"), newestId = 2))
 
     private fun show(withText: Boolean): Notification {
         val td = TdClient(context, DatabaseKey(context))

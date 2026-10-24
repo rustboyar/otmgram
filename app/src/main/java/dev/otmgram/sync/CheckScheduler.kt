@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import org.drinkless.tdlib.TdApi
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -38,7 +39,6 @@ class CheckScheduler @Inject constructor(
     private val td: TdClient,
     private val folders: FolderRepository,
     private val notifier: NewMessagesNotifier,
-    private val state: NotificationState,
     private val settings: AppSettings,
     private val storage: StorageRepository,
     @ApplicationScope private val scope: CoroutineScope,
@@ -68,13 +68,25 @@ class CheckScheduler @Inject constructor(
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
                 notifier.cancel()
-                scope.launch { state.markSeen() }
+                markSeen()
             }
 
-            override fun onStop(owner: LifecycleOwner) {
-                scope.launch { state.markSeen() }
-            }
+            override fun onStop(owner: LifecycleOwner) = markSeen()
         })
+    }
+
+    /** Records what's in the folder now as seen; only once TDLib is ready (not yet on a cold start). */
+    private fun markSeen() {
+        if (td.authorizationState.value !is TdApi.AuthorizationStateReady) return
+        scope.launch {
+            val folderId = folders.selectedFolderId.first() ?: return@launch
+            try {
+                withTimeoutOrNull(MARK_SEEN_TIMEOUT_MS) { notifier.markSeen(folderId) }
+                    ?: AppLog.w("CheckScheduler", "Recording what was seen timed out")
+            } catch (e: TdException) {
+                AppLog.w("CheckScheduler", "Couldn't record what was seen", e)
+            }
+        }
     }
 
     private fun schedule(minutes: Long) {
@@ -93,6 +105,7 @@ class CheckScheduler @Inject constructor(
 
     private companion object {
         const val WORK_NAME = "check_new_messages"
+        const val MARK_SEEN_TIMEOUT_MS = 10_000L
 
         /** Not checking: logged out, no folder, or checks turned off. */
         const val OFF = 0L

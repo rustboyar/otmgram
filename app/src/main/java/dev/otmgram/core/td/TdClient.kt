@@ -1,6 +1,8 @@
 package dev.otmgram.core.td
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
 import android.os.Build
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.otmgram.BuildConfig
@@ -79,6 +81,7 @@ class TdClient @Inject constructor(
         }
         Client.execute(TdApi.SetLogVerbosityLevel(2))
         client = Client.create(::onUpdate, ::onException, ::onException)
+        watchNetwork()
     }
 
     /** Sends [function] to TDLib and returns its result, throwing [TdException] on error. */
@@ -94,6 +97,27 @@ class TdClient @Inject constructor(
                 }
             }
         }
+    }
+
+    /**
+     * Makes TDLib reopen its connections now. A process that was frozen between background
+     * checks still reports [connectionState] as ready from before, over dead connections.
+     */
+    fun reconnect() {
+        sendIgnoringResult(TdApi.SetNetworkType(context.tdNetworkType()))
+    }
+
+    private var watchingNetwork = false
+
+    /** Tells TDLib when the network changes, so it reconnects right away rather than on a timeout. */
+    private fun watchNetwork() {
+        if (watchingNetwork) return
+        watchingNetwork = true
+        context.getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) = reconnect()
+
+            override fun onLost(network: Network) = reconnect()
+        })
     }
 
     private fun onUpdate(update: TdApi.Object) {

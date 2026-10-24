@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
         <!-- Debug builds only: run the new messages check now, for testing via adb
              (see RunCheckReceiver for the command and options). -->
         <receiver
             android:name=".debug.RunCheckReceiver"
             android:exported="true"
-            tools:ignore="ExportedReceiver" />
+            android:permission="android.permission.DUMP" />
     </application>
 </manifest>

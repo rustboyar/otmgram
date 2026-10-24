@@ -27,7 +27,6 @@ class CheckWorker @AssistedInject constructor(
     private val td: TdClient,
     private val folders: FolderRepository,
     private val notifier: NewMessagesNotifier,
-    private val state: NotificationState,
     private val storage: StorageRepository,
 ) : CoroutineWorker(context, params) {
 
@@ -37,9 +36,8 @@ class CheckWorker @AssistedInject constructor(
             ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
         }
         if (foreground) {
-            // The user is looking at the app right now.
+            // The user is looking at the app right now; leaving it records what was seen.
             AppLog.i(TAG, "Skipped: the app is open")
-            state.markSeen()
             return Result.success()
         }
         // The process may have just been started for this check; TDLib starts with it.
@@ -51,7 +49,11 @@ class CheckWorker @AssistedInject constructor(
             return Result.success()
         }
         val folderId = folders.selectedFolderId.first() ?: return Result.success().also { AppLog.i(TAG, "Skipped: no folder") }
-        // Let TDLib catch up with what happened while it was offline.
+        // Let TDLib catch up with what happened while it was offline. Reconnecting first, as
+        // "ready" may be left over from before the process was frozen; the reconnect shows
+        // as another state, unless it's over before this looks.
+        td.reconnect()
+        withTimeoutOrNull(RECONNECT_TIMEOUT_MS) { td.connectionState.first { it !is TdApi.ConnectionStateReady } }
         withTimeoutOrNull(SYNC_TIMEOUT_MS) { td.connectionState.first { it is TdApi.ConnectionStateReady } }
             ?: return Result.success().also { AppLog.w(TAG, "Skipped: no connection within ${SYNC_TIMEOUT_MS / 1000} s") }
         return try {
@@ -68,6 +70,7 @@ class CheckWorker @AssistedInject constructor(
     private companion object {
         const val TAG = "CheckWorker"
         const val START_TIMEOUT_MS = 20_000L
+        const val RECONNECT_TIMEOUT_MS = 5_000L
         const val SYNC_TIMEOUT_MS = 60_000L
     }
 }

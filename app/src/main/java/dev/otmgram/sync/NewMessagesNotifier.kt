@@ -24,8 +24,8 @@ import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** New messages of one chat: its title, message lines newest first, the newest one's time. */
-internal class ChatNews(val title: String, val lines: List<String>, val newest: Int)
+/** New messages of one chat: its title, message lines newest first, the newest one's id. */
+internal class ChatNews(val chatId: Long, val title: String, val lines: List<String>, val newestId: Long)
 
 /**
  * Notifies about messages in the folder's chats that arrived since the app was last open:
@@ -41,27 +41,42 @@ class NewMessagesNotifier @Inject constructor(
     private val strings: Strings,
 ) {
     suspend fun check(folderId: Int) {
-        val seenUpTo = state.seenUpTo()
-        val notifiedUpTo = state.notifiedUpTo()
-        val news = chats.folderChats(folderId).first()
+        val folder = chats.folderChats(folderId).first()
+        val seen = state.seen()
+        if (seen == null) {
+            // First check ever: what's there now counts as seen, rather than one big notification.
+            state.markSeen(newestMessages(folder))
+            AppLog.i(TAG, "First check: noted what's there")
+            return
+        }
+        val notified = state.notified()
+        val news = folder
             .filter { !it.isMuted && it.chat.unreadCount > 0 }
-            .mapNotNull { newMessages(it, since = seenUpTo) }
+            .mapNotNull { newMessages(it, after = seen[it.chat.id] ?: 0) }
         val count = news.sumOf { it.lines.size }
         when {
             news.isEmpty() -> cancel().also { AppLog.i(TAG, "Nothing new") } // Read elsewhere, or nothing new.
-            news.any { it.newest > notifiedUpTo } -> show(news, withText = settings.showMessageText.first()).also { AppLog.i(TAG, "Notified: $count new in ${news.size} chats") }
+            news.any { it.newestId > (notified[it.chatId] ?: 0) } ->
+                show(news, withText = settings.showMessageText.first()).also { AppLog.i(TAG, "Notified: $count new in ${news.size} chats") }
             else -> AppLog.i(TAG, "Already notified about $count new") // Already notified about all of it.
         }
-        state.markNotified()
+        state.markNotified(news.associate { it.chatId to it.newestId })
     }
+
+    /** Records the folder's messages as seen: the app is open, so they're on screen or a tap away. */
+    suspend fun markSeen(folderId: Int) {
+        state.markSeen(newestMessages(chats.folderChats(folderId).first()))
+    }
+
+    private fun newestMessages(folder: List<FolderChat>) = folder.associate { it.chat.id to (it.chat.lastMessage?.id ?: 0) }
 
     fun cancel() {
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
     }
 
-    /** Unread incoming messages of the chat newer than [since], or null if none. */
-    private suspend fun newMessages(chat: FolderChat, since: Int): ChatNews? {
-        val messages = unreadHistory(chat.chat).filter { !it.isOutgoing && it.date > since }
+    /** Unread incoming messages of the chat after message [after], or null if none. */
+    private suspend fun newMessages(chat: FolderChat, after: Long): ChatNews? {
+        val messages = unreadHistory(chat.chat).filter { !it.isOutgoing && it.id > after }
         if (messages.isEmpty()) return null
         val lines = messages.map { message ->
             val sender = (message.senderId as? TdApi.MessageSenderUser)
@@ -70,7 +85,7 @@ class NewMessagesNotifier @Inject constructor(
             if (sender != null) strings.get(R.string.notification_sender_line, sender, message.summary(strings)) else message.summary(strings)
         }
         val title = if (chat.isSavedMessages) strings.get(R.string.saved_messages) else chat.chat.title
-        return ChatNews(title, lines, newest = messages.maxOf { it.date })
+        return ChatNews(chat.chat.id, title, lines, newestId = messages.maxOf { it.id })
     }
 
     /**

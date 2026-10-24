@@ -93,8 +93,8 @@ app/
 
 ### M7 — Notifications (periodic check)
 - `PeriodicWorkRequest` every 15 minutes (WorkManager minimum), requires network; scheduled while logged in with a folder picked, cancelled on logout
-- The worker uses the in-process TdClient (started with the process), waits for TDLib to be connected and caught up; the account stays offline
-- New = unread incoming messages in unmuted folder chats that arrived since the app was last open; checks while the app is open just record that
+- The worker uses the in-process TdClient (started with the process), makes it reconnect (a frozen process still says "ready" from before) and waits for it to catch up; the account stays offline. The app also tells TDLib about network changes
+- New = unread incoming messages in unmuted folder chats newer than what was in the folder when the app was last open. Kept per chat as message ids, not times: ids only grow within a chat, so late arrivals and the phone's clock don't matter. The first check after install only records what's there
 - One notification: a single message shows chat and message; several are grouped ("4 new messages") with the messages of one chat, or a line per chat for several chats; updated on each check, alerting only when something is newer than the last notification, removed when nothing is unread anymore
 - Tap opens the chat list (fresh task); opening the app clears it
 - Debug builds: `adb shell am broadcast -n dev.otmgram/.debug.RunCheckReceiver [--ez renotify true]` runs the check now
