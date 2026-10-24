@@ -12,8 +12,8 @@
 set -euo pipefail
 
 TD_COMMIT=ea3f69ce11aef458bfbb09869b809ede4447486f # TDLib 1.8.69
-OPENSSL_VERSION=1.1.1w
-OPENSSL_SHA256=cf3098950cb4d853ad95c0841f1f9c6d3dc102dccfcacd521d93925208b76ac8
+OPENSSL_VERSION=3.5.9 # Long-term support until 2030
+OPENSSL_SHA256=603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a
 NDK_VERSION=29.0.14206865
 API_LEVEL=29
 read -ra ABIS <<< "${ABIS:-arm64-v8a x86_64}"
@@ -51,13 +51,13 @@ build_openssl() {
     x86_64) target=android-x86_64 ;;
     *) echo "error: unsupported ABI $abi" >&2; exit 1 ;;
   esac
-  local prefix=$WORK/openssl/$abi
+  local prefix=$WORK/openssl-$OPENSSL_VERSION/$abi
   [ -f "$prefix/lib/libssl.a" ] && return
 
   echo "==> OpenSSL $OPENSSL_VERSION for $abi"
   local tarball=$WORK/openssl-$OPENSSL_VERSION.tar.gz
   if [ ! -f "$tarball" ]; then
-    curl -fL -o "$tarball.part" "https://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz"
+    curl -fL -o "$tarball.part" "https://github.com/openssl/openssl/releases/download/openssl-$OPENSSL_VERSION/openssl-$OPENSSL_VERSION.tar.gz"
     mv "$tarball.part" "$tarball"
   fi
   echo "$OPENSSL_SHA256  $tarball" | sha256sum -c -
@@ -67,7 +67,7 @@ build_openssl() {
   tar xzf "$tarball" -C "$src" --strip-components=1
   (
     cd "$src"
-    export ANDROID_NDK_HOME=$NDK PATH=$NDK_BIN:$PATH
+    export ANDROID_NDK_ROOT=$NDK PATH=$NDK_BIN:$PATH
     LDFLAGS=-Wl,-z,max-page-size=16384 ./Configure "$target" no-shared \
       -U__ANDROID_API__ -D__ANDROID_API__=$API_LEVEL
     sed -i 's/-O3/-O3 -ffunction-sections -fdata-sections/g' Makefile
@@ -91,13 +91,14 @@ for abi in "${ABIS[@]}"; do
 
   echo "==> TDLib for $abi (API $API_LEVEL, NDK $NDK_VERSION)"
   build=$WORK/build-$abi
-  cmake -S "$TD/example/android" -B "$build" -G Ninja \
+  # -U: forget OpenSSL paths found by an earlier build, e.g. of another version.
+  cmake -S "$TD/example/android" -B "$build" -G Ninja -U 'OPENSSL_*' \
     -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DANDROID_ABI="$abi" \
     -DANDROID_PLATFORM="android-$API_LEVEL" \
     -DANDROID_STL=c++_static \
-    -DOPENSSL_ROOT_DIR="$WORK/openssl/$abi" \
+    -DOPENSSL_ROOT_DIR="$WORK/openssl-$OPENSSL_VERSION/$abi" \
     -DTD_ENABLE_PCH=ON
   cmake --build "$build" --target tdjni -j "$JOBS"
 
