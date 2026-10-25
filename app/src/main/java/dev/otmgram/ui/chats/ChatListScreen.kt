@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
@@ -30,6 +31,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -123,10 +125,22 @@ fun ChatListScreen(
 
         val list = chats
         val searchText = query.trim()
+        val listState = rememberLazyListState()
+        // A chat moving to the top stays in sight: the list would otherwise keep showing the
+        // chat that was first, with the new one above it.
+        // Runs before the new order is laid out, while the position is still the old one.
+        val firstId = list?.firstOrNull()?.id
+        val shownFirstId = remember { mutableStateOf(firstId) }
+        SideEffect {
+            if (firstId == shownFirstId.value) return@SideEffect
+            shownFirstId.value = firstId
+            if (listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0) listState.requestScrollToItem(0)
+        }
         when {
             list == null -> LoadingScreen()
             list.isEmpty() -> Empty(if (searchText.isEmpty()) stringResource(R.string.chats_empty) else stringResource(R.string.chats_no_match))
             else -> LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize().testTag("chats"),
                 contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 16.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
             ) {
@@ -136,7 +150,9 @@ fun ChatListScreen(
                     }
                 }
                 items(list, key = { it.id }) { chat ->
-                    ChatRow(chat, highlight = if (searching) searchText else "", onClick = { onOpenChat(chat.id) })
+                    // Slides to its new place when the order changes, rather than the rows
+                    // swapping at once.
+                    ChatRow(chat, highlight = if (searching) searchText else "", onClick = { onOpenChat(chat.id) }, Modifier.animateItem())
                 }
                 if (searching) {
                     item(key = "hint") {
@@ -223,10 +239,10 @@ private fun RowScope.SearchField(query: String, onQueryChange: (String) -> Unit,
 }
 
 @Composable
-private fun ChatRow(chat: ChatItem, highlight: String, onClick: () -> Unit) {
+private fun ChatRow(chat: ChatItem, highlight: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val unread = chat.unreadCount > 0
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick, role = Role.Button)
