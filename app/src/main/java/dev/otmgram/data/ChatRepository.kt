@@ -41,6 +41,8 @@ data class FolderChat(
     val isMuted: Boolean = false,
     /** Mentions and replies to you notify even when muted, as in Telegram, unless turned off. */
     val notifiesMentions: Boolean = true,
+    /** Pinned to the top of the folder. */
+    val isPinned: Boolean = false,
 )
 
 @Singleton
@@ -67,6 +69,14 @@ class ChatRepository @Inject constructor(
             while (true) batch += changes.tryReceive().getOrNull() ?: break
             send(folder.apply(batch))
         }
+    }
+
+    /**
+     * Pins a chat to the top of the folder, or unpins it. It's the folder's setting in
+     * Telegram, so it shows on other devices too.
+     */
+    suspend fun setPinned(folderId: Int, chatId: Long, pinned: Boolean) {
+        td.send(TdApi.ToggleChatIsPinned(TdApi.ChatListFolder(folderId), chatId, pinned))
     }
 
     /** What an update means for a folder list. */
@@ -136,6 +146,7 @@ class ChatRepository @Inject constructor(
                 lastSenderName = lastSenderName(chat),
                 isMuted = chat.isMuted(defaults.getValue(chat.isGroup)),
                 notifiesMentions = chat.notifiesMentions(defaults.getValue(chat.isGroup)),
+                isPinned = chat.positions.any { (it.list as? TdApi.ChatListFolder)?.chatFolderId == folderId && it.isPinned },
             )
         }
 

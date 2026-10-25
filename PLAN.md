@@ -44,6 +44,7 @@ Links, @mentions and "forwarded from" headers do not navigate to chats: web link
 - Folder picker after login, stored in DataStore; Settings → Folder → Change opens it again
 - `getChats(chatListFolder(id))`, reloaded shortly after any update that affects the list
 - Search: filter the folder's chats by title, locally
+- Long press on a chat: pin to the top of the folder, or unpin (`toggleChatIsPinned` on the folder's list, so it shows in Telegram too); pinned chats without unread messages show a pushpin
 
 ### M3 — Messages
 - Paged history, send text

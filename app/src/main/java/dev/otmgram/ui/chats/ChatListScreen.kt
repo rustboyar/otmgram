@@ -6,6 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,11 +56,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.otmgram.R
 import dev.otmgram.ui.auth.LoadingScreen
+import dev.otmgram.ui.chat.OtmSheet
 import dev.otmgram.sync.MessagesNotification
 import dev.otmgram.ui.highlightMatches
 import dev.otmgram.ui.openNotificationSettings
@@ -69,6 +72,7 @@ import dev.otmgram.ui.theme.CountPill
 import dev.otmgram.ui.theme.IconBtn
 import dev.otmgram.ui.theme.MentionPill
 import dev.otmgram.ui.theme.Otm
+import dev.otmgram.ui.theme.OtmDialog
 import dev.otmgram.ui.theme.OtmField
 import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmType
@@ -102,6 +106,23 @@ fun ChatListScreen(
     val askNotifications by viewModel.askNotifications.collectAsStateWithLifecycle()
     val notifies by viewModel.notifies.collectAsStateWithLifecycle()
     BackHandler(enabled = searching, onBack = closeSearch)
+    var actionsFor by remember { mutableStateOf<ChatItem?>(null) }
+
+    actionsFor?.let { chat ->
+        ChatActions(chat, onPin = { pinned ->
+            actionsFor = null
+            viewModel.setPinned(chat, pinned)
+        }, onDismiss = { actionsFor = null })
+    }
+    viewModel.pinError?.let { error ->
+        OtmDialog(
+            title = stringResource(R.string.chat_pin_failed),
+            text = error,
+            onDismiss = viewModel::pinErrorShown,
+            confirm = {},
+            dismissLabel = stringResource(R.string.ok),
+        )
+    }
 
     Column(Modifier.fillMaxSize().paper()) {
         if (searching) {
@@ -152,7 +173,13 @@ fun ChatListScreen(
                 items(list, key = { it.id }) { chat ->
                     // Slides to its new place when the order changes, rather than the rows
                     // swapping at once.
-                    ChatRow(chat, highlight = if (searching) searchText else "", onClick = { onOpenChat(chat.id) }, Modifier.animateItem())
+                    ChatRow(
+                        chat,
+                        highlight = if (searching) searchText else "",
+                        onClick = { onOpenChat(chat.id) },
+                        onLongClick = { actionsFor = chat },
+                        Modifier.animateItem(),
+                    )
                 }
                 if (searching) {
                     item(key = "hint") {
@@ -239,13 +266,13 @@ private fun RowScope.SearchField(query: String, onQueryChange: (String) -> Unit,
 }
 
 @Composable
-private fun ChatRow(chat: ChatItem, highlight: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun ChatRow(chat: ChatItem, highlight: String, onClick: () -> Unit, onLongClick: () -> Unit, modifier: Modifier = Modifier) {
     val unread = chat.unreadCount > 0
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick, role = Role.Button)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, role = Role.Button)
             .testTag("chat-${chat.title}")
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -288,7 +315,39 @@ private fun ChatRow(chat: ChatItem, highlight: String, onClick: () -> Unit, modi
                 )
                 if (chat.unreadMentions > 0) MentionPill(stringResource(R.string.mentions_you), Modifier.padding(start = 8.dp).testTag("mention"))
                 if (unread) CountPill(chat.unreadCount, quiet = chat.isMuted, Modifier.padding(start = 6.dp))
+                if (chat.isPinned && !unread && chat.unreadMentions == 0) {
+                    Icon(OtmIcons.Pushpin, stringResource(R.string.chat_pinned), tint = Otm.InkFaint, modifier = Modifier.padding(start = 6.dp).size(16.dp).testTag("pinnedChat"))
+                }
             }
+        }
+    }
+}
+
+/** A long press on a chat: pin it to the top of the folder, or unpin it. */
+@Composable
+private fun ChatActions(chat: ChatItem, onPin: (Boolean) -> Unit, onDismiss: () -> Unit) {
+    OtmSheet(onDismiss) {
+        Text(
+            chat.title,
+            style = OtmType.BarTitle.copy(fontSize = 20.sp),
+            color = Otm.Ink,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .clickable(role = Role.Button) { onPin(!chat.isPinned) }
+                .testTag(if (chat.isPinned) "unpinChat" else "pinChat")
+                .padding(horizontal = 12.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Icon(if (chat.isPinned) OtmIcons.Unpin else OtmIcons.Pushpin, null, tint = Otm.Ink, modifier = Modifier.size(22.dp))
+            Text(stringResource(if (chat.isPinned) R.string.chat_unpin else R.string.chat_pin), style = OtmType.Body, color = Otm.Ink)
         }
     }
 }

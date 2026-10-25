@@ -49,12 +49,15 @@ fun chat(
     lastMessage: TdApi.Message? = null,
     muteFor: Int? = null,
     unread: Int = 0,
+    /** A folder the chat is pinned in. */
+    pinnedIn: Int? = null,
 ) = TdApi.Chat().apply {
     this.id = id
     this.title = title
     this.type = type
     this.lastMessage = lastMessage
     unreadCount = unread
+    positions = if (pinnedIn == null) emptyArray() else arrayOf(TdApi.ChatPosition(TdApi.ChatListFolder(pinnedIn), 1, true, null))
     notificationSettings = TdApi.ChatNotificationSettings().apply {
         useDefaultMuteFor = muteFor == null
         this.muteFor = muteFor ?: 0

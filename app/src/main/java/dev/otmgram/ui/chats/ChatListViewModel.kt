@@ -1,11 +1,15 @@
 package dev.otmgram.ui.chats
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.otmgram.R
 import dev.otmgram.core.Strings
 import dev.otmgram.core.launchLogged
+import dev.otmgram.core.userMessage
 import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.data.AppSettings
 import dev.otmgram.data.ChatRepository
@@ -22,6 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -46,13 +51,14 @@ data class ChatItem(
     val unreadMentions: Int = 0,
     val isSavedMessages: Boolean,
     val isMuted: Boolean,
+    val isPinned: Boolean = false,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ChatListViewModel @Inject constructor(
-    folders: FolderRepository,
-    chats: ChatRepository,
+    private val folders: FolderRepository,
+    private val chatRepository: ChatRepository,
     td: TelegramClient,
     private val settings: AppSettings,
     private val strings: Strings,
@@ -72,7 +78,7 @@ class ChatListViewModel @Inject constructor(
      * during the animation.
      */
     val chats: StateFlow<List<ChatItem>?> = combine(
-        folders.selectedFolderId.filterNotNull().flatMapLatest(chats::folderChats),
+        folders.selectedFolderId.filterNotNull().flatMapLatest(chatRepository::folderChats),
         _query,
     ) { all, query ->
         all.map { it.toItem(strings) }.filter { it.title.contains(query.trim(), ignoreCase = true) }
@@ -108,6 +114,21 @@ class ChatListViewModel @Inject constructor(
     fun setQuery(query: String) {
         _query.value = query
     }
+
+    /** Why pinning or unpinning failed, e.g. too many pinned; null if it didn't. */
+    var pinError by mutableStateOf<String?>(null)
+        private set
+
+    fun setPinned(chat: ChatItem, pinned: Boolean) {
+        viewModelScope.launchLogged(TAG, onError = { pinError = it.userMessage(strings) }) {
+            val folderId = folders.selectedFolderId.first() ?: return@launchLogged
+            chatRepository.setPinned(folderId, chat.id, pinned)
+        }
+    }
+
+    fun pinErrorShown() {
+        pinError = null
+    }
 }
 
 private const val TAG = "ChatList"
@@ -133,4 +154,5 @@ private fun FolderChat.toItem(strings: Strings) = ChatItem(
     unreadMentions = chat.unreadMentionCount,
     isSavedMessages = isSavedMessages,
     isMuted = isMuted,
+    isPinned = isPinned,
 )

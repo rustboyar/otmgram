@@ -53,6 +53,24 @@ class ChatRepositoryTest {
     }
 
     @Test
+    fun `chats pinned in the folder are marked, not those pinned in another`() = runTest {
+        chats[10L] = chat(10, "Anna", pinnedIn = 1)
+        chats[20L] = chat(20, "band", type = group, pinnedIn = 2)
+        val list = ChatRepository(td).folderChats(folderId = 1).first()
+        assertEquals(listOf(true, false, false, false), list.map { it.isPinned })
+    }
+
+    @Test
+    fun `pinning is the folder's`() = runTest {
+        td.on<TdApi.ToggleChatIsPinned> { TdApi.Ok() }
+        ChatRepository(td).setPinned(folderId = 1, chatId = 10, pinned = true)
+        val request = td.sent<TdApi.ToggleChatIsPinned>().single()
+        assertEquals(1, (request.chatList as TdApi.ChatListFolder).chatFolderId)
+        assertEquals(10L, request.chatId)
+        assertEquals(true, request.isPinned)
+    }
+
+    @Test
     fun `channels and secret chats are left out`() = runTest {
         chats[40L] = chat(40, "news", type = TdApi.ChatTypeSupergroup(6, true))
         chats[50L] = chat(50, "secret", type = TdApi.ChatTypeSecret(1, 10))
