@@ -2,6 +2,18 @@ package dev.otmgram.ui.chat
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import dev.otmgram.ui.theme.DialogTags
+import dev.otmgram.ui.theme.PlainDialogWindow
+import dev.otmgram.ui.theme.SoftButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,6 +66,18 @@ fun StickerPicker(
     onSend: (Sticker) -> Unit,
 ) {
     val sendLabel = stringResource(R.string.send)
+    val previewLabel = stringResource(R.string.sticker_preview)
+    var previewing by remember { mutableStateOf<Sticker?>(null) }
+    previewing?.let { sticker ->
+        StickerPreview(
+            sticker,
+            onSend = {
+                previewing = null
+                onSend(sticker)
+            },
+            onDismiss = { previewing = null },
+        )
+    }
     Column(Modifier.fillMaxWidth().height(PICKER_HEIGHT).background(Otm.Sheet).navigationBarsPadding()) {
         Hairline()
         LazyRow(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -93,7 +117,18 @@ fun StickerPicker(
                 }
                 items(stickers, key = { it.fileId }) { sticker ->
                     Box(
-                        Modifier.height(80.dp).clip(RoundedCornerShape(14.dp)).clickable(onClickLabel = sendLabel, role = Role.Button) { onSend(sticker) }.semantics { contentDescription = sticker.emoji }.testTag("pick-${sticker.fileId}"),
+                        Modifier
+                            .height(80.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .combinedClickable(
+                                onClickLabel = sendLabel,
+                                role = Role.Button,
+                                onLongClickLabel = previewLabel,
+                                onLongClick = { previewing = sticker },
+                                onClick = { onSend(sticker) },
+                            )
+                            .semantics { contentDescription = sticker.emoji }
+                            .testTag("pick-${sticker.fileId}"),
                         contentAlignment = Alignment.Center,
                     ) {
                         StickerView(sticker.toMedia(), Modifier.size(STICKER_CELL))
@@ -104,5 +139,29 @@ fun StickerPicker(
     }
 }
 
+/** A sticker shown large, from a long press in the picker; a tap elsewhere closes it. */
+@Composable
+private fun StickerPreview(sticker: Sticker, onSend: () -> Unit, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        PlainDialogWindow()
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Otm.Paper.copy(alpha = 0.78f))
+                .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onDismiss)
+                .systemBarsPadding()
+                .then(DialogTags)
+                .testTag("stickerPreview"),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                StickerView(sticker.toMedia(), Modifier.size(PREVIEW_SIZE).semantics { contentDescription = sticker.emoji })
+                SoftButton(stringResource(R.string.send), onSend, Modifier.testTag("previewSend"))
+            }
+        }
+    }
+}
+
 private val PICKER_HEIGHT = 330.dp
+private val PREVIEW_SIZE = 220.dp
 private val STICKER_CELL = 68.dp
