@@ -305,8 +305,8 @@ fun ChatScreen(
                                     null
                                 },
                                 selecting = selecting,
-                                // Also marks, for a moment, a message just jumped to.
-                                selected = message.id in selection || message.id == viewModel.flashed,
+                                selected = message.id in selection,
+                                flashed = message.id == viewModel.flashed,
                                 onToggleSelected = { viewModel.selection.toggle(message) },
                                 onRetry = { viewModel.retry(message) },
                                 onDiscard = { viewModel.discard(message) },

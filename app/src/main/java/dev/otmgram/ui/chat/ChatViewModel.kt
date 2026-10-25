@@ -529,14 +529,13 @@ class ChatViewModel @Inject constructor(
     var flashed by mutableStateOf<Long?>(null)
         private set
 
-    /** Shows a message replied to, or the pinned one, marking it for a moment. */
+    /** Jumped to, to mark once the list is there: loading older history can take a while. */
+    private var flashOnArrival: Long? = null
+
+    /** Shows a message replied to, or a pinned one, marking it for a moment. */
     fun jumpTo(messageId: Long) {
+        flashOnArrival = messageId
         show(messageId)
-        viewModelScope.launch {
-            flashed = messageId
-            delay(FLASH_MS)
-            if (flashed == messageId) flashed = null
-        }
     }
 
     /** The chat's pinned messages, newest first. */
@@ -588,7 +587,15 @@ class ChatViewModel @Inject constructor(
     }
 
     fun scrolled() {
+        val target = scrollTarget
         scrollTarget = null
+        if (target == null || target != flashOnArrival) return
+        flashOnArrival = null
+        viewModelScope.launch {
+            flashed = target
+            delay(FLASH_MS)
+            if (flashed == target) flashed = null
+        }
     }
 
     fun reply(message: MessageItem) {
@@ -707,4 +714,4 @@ private const val DRAFT_KEY = "draft"
 private const val FIRST_UNREAD_MAX_PAGES = 10
 
 /** How long a message jumped to stays marked. */
-private const val FLASH_MS = 1_500L
+private const val FLASH_MS = 2_500L

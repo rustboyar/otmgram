@@ -1,5 +1,7 @@
 package dev.otmgram.ui.chat
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
 import kotlinx.coroutines.withTimeoutOrNull
@@ -92,17 +94,25 @@ fun MessageBubble(
     highlight: Highlight? = null,
     selecting: Boolean = false,
     selected: Boolean = false,
+    /** Just jumped to: marked for a moment, so the eye finds it. */
+    flashed: Boolean = false,
     onToggleSelected: () -> Unit = {},
     onRetry: () -> Unit = {},
     onDiscard: () -> Unit = {},
 ) {
     val outgoing = message.isOutgoing
     val failed = message.status == MessageStatus.Failed
+    // Comes on at once and fades slowly; to its own colour, as fading to transparent black greys it.
+    val flash by animateColorAsState(
+        Otm.MarkNow.copy(alpha = if (flashed) 0.55f else 0f),
+        tween(if (flashed) FLASH_IN_MS else FLASH_OUT_MS),
+        label = "flash",
+    )
     Column(Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(if (selected) Otm.Haze.copy(alpha = 0.7f) else Color.Transparent)
+                .background(if (selected) Otm.Haze.copy(alpha = 0.7f) else flash)
                 .then(if (selecting) Modifier.toggleable(value = selected, onValueChange = { onToggleSelected() }, role = Role.Checkbox) else Modifier)
                 .padding(horizontal = 12.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -439,3 +449,6 @@ private fun messageText(
 }
 
 private val LINK_STYLE = TextLinkStyles(SpanStyle(color = Otm.SlateDeep, textDecoration = TextDecoration.Underline))
+
+private const val FLASH_IN_MS = 150
+private const val FLASH_OUT_MS = 900
