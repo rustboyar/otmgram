@@ -101,4 +101,19 @@ class FileRepositoryTest {
         val listeners = FileRepository::class.java.getDeclaredField("listeners").apply { isAccessible = true }.get(files) as Map<*, *>
         assertTrue(listeners.isEmpty())
     }
+
+    @Test
+    fun `a downloaded file is known at once, until the account changes`() = runTest {
+        val files = FileRepository(td, backgroundScope)
+        val job = backgroundScope.launch { files.observe(5).collect {} }
+        runCurrent()
+        assertEquals(null, files.lastKnown(5))
+        td.emit(progress(5, 1000, done = true))
+        runCurrent()
+        job.cancel()
+        assertEquals("/files/5", files.lastKnown(5)?.path)
+        td.emit(TdApi.UpdateAuthorizationState(TdApi.AuthorizationStateLoggingOut()))
+        runCurrent()
+        assertEquals(null, files.lastKnown(5))
+    }
 }

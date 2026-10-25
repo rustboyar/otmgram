@@ -13,6 +13,7 @@ import dev.otmgram.data.CheckInterval
 import dev.otmgram.data.FolderChat
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.ui.summary
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -64,13 +66,17 @@ class ChatListViewModel @Inject constructor(
     /** Search text; filters chats by title. */
     val query: StateFlow<String> = _query.asStateFlow()
 
-    /** Chats of the folder matching [query], or null while loading. */
+    /**
+     * Chats of the folder matching [query], or null while loading. Kept up to date while a
+     * chat is open too, so coming back shows the list at once instead of reloading it all
+     * during the animation.
+     */
     val chats: StateFlow<List<ChatItem>?> = combine(
         folders.selectedFolderId.filterNotNull().flatMapLatest(chats::folderChats),
         _query,
     ) { all, query ->
         all.map { it.toItem(strings) }.filter { it.title.contains(query.trim(), ignoreCase = true) }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /**
      * What the connection is doing while it isn't ready, or null when it is. Only after a

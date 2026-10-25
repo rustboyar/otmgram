@@ -62,7 +62,7 @@ val LocalFileRepository = staticCompositionLocalOf<FileRepository> { error("No F
 fun rememberFile(fileId: Int?, priority: Int = FileRepository.PRIORITY_VISIBLE): FileState? {
     val files = LocalFileRepository.current
     val flow = remember(fileId, priority) { fileId?.let { files.download(it, priority) } ?: emptyFlow() }
-    val file by flow.collectAsState(initial = null)
+    val file by flow.collectAsState(initial = fileId?.let(files::lastKnown))
     return file
 }
 
@@ -71,7 +71,7 @@ fun rememberFile(fileId: Int?, priority: Int = FileRepository.PRIORITY_VISIBLE):
 fun rememberFileState(fileId: Int): FileState? {
     val files = LocalFileRepository.current
     val flow = remember(fileId) { files.observe(fileId) }
-    val file by flow.collectAsState(initial = null)
+    val file by flow.collectAsState(initial = files.lastKnown(fileId))
     return file
 }
 

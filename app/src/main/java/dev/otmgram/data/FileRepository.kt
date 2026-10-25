@@ -53,14 +53,27 @@ class FileRepository @Inject constructor(
     /** Who waits for which file; one collector routes file updates to them. */
     private val listeners = ConcurrentHashMap<Int, MutableSet<(TdApi.File) -> Unit>>()
 
+    /** Files seen fully downloaded, see [lastKnown]. */
+    private val downloaded = ConcurrentHashMap<Int, FileState>()
+
     init {
         // One pass over all updates, off the main thread, instead of one per visible file.
         scope.launch(start = CoroutineStart.UNDISPATCHED) {
             td.updates.collect { update ->
                 if (update is TdApi.UpdateFile) listeners[update.file.id]?.forEach { it(update.file) }
+                // File ids belong to the account's TDLib instance; another login reuses them.
+                if (update is TdApi.UpdateAuthorizationState && update.authorizationState !is TdApi.AuthorizationStateReady) {
+                    downloaded.clear()
+                }
             }
         }
     }
+
+    /**
+     * The file's state if it was seen downloaded, for drawing it at once when a screen is
+     * shown again, instead of its placeholder until TDLib answers; null otherwise.
+     */
+    fun lastKnown(fileId: Int): FileState? = downloaded[fileId]
 
     /**
      * Starts downloading [fileId] (if not done yet) and emits its state until collection
@@ -92,7 +105,9 @@ class FileRepository @Inject constructor(
             // The request's result may arrive after newer updates; never go back from completed.
             if (!completed || file.local.isDownloadingCompleted) {
                 completed = file.local.isDownloadingCompleted
-                send(file.toState())
+                val state = file.toState()
+                if (state.isDownloaded) downloaded[fileId] = state else downloaded.remove(fileId)
+                send(state)
             }
         }
         // Listening starts before the request, so no update can slip in between; only the
