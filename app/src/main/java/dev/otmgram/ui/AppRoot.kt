@@ -1,10 +1,7 @@
 package dev.otmgram.ui
 
 import android.net.Uri
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleOut
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -15,6 +12,10 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.NamedNavArgument
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavController
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -73,32 +74,20 @@ private fun MainNavHost(openChatId: Long?) {
             navController.navigate("chat/$openChatId")
         }
     }
-    NavHost(
-        navController,
-        startDestination = "chats",
-        predictivePopEnterTransition = { fadeIn(tween(PREDICTIVE_BACK_MS)) },
-        // The default only shrinks the screen being left, so at the end it vanished at once,
-        // still opaque: on a quick back (or the back button, which animates the same way
-        // since Android 16) it looked stuck for a moment. It fades out at the end now, late
-        // enough that a slow swipe still shows it.
-        predictivePopExitTransition = {
-            scaleOut(tween(PREDICTIVE_BACK_MS), targetScale = 0.85f) +
-                fadeOut(tween(PREDICTIVE_BACK_MS / 3, delayMillis = PREDICTIVE_BACK_MS * 2 / 3))
-        },
-    ) {
+    NavHost(navController, startDestination = "chats") {
         composable("chats") {
             ChatListScreen(
                 onOpenChat = { navController.navigate("chat/$it") },
                 onOpenSettings = { navController.navigate("settings") },
             )
         }
-        composable("settings") {
+        screen(navController, "settings") {
             SettingsScreen(onBack = navController::popBackStack, onChangeFolder = { navController.navigate("folder") })
         }
-        composable("folder") {
+        screen(navController, "folder") {
             ChangeFolderScreen(onBack = navController::popBackStack)
         }
-        composable("chat/{chatId}", arguments = listOf(navArgument("chatId") { type = NavType.LongType })) {
+        screen(navController, "chat/{chatId}", arguments = listOf(navArgument("chatId") { type = NavType.LongType })) {
             ChatScreen(
                 onBack = navController::popBackStack,
                 onOpenMedia = { chatId, messageId -> navController.navigate("media/$chatId/$messageId") },
@@ -107,10 +96,11 @@ private fun MainNavHost(openChatId: Long?) {
                 onOpenEmbed = { url -> navController.navigate("embed?url=${Uri.encode(url)}") },
             )
         }
-        composable("embed?url={url}", arguments = listOf(navArgument("url") { type = NavType.StringType })) { entry ->
+        screen(navController, "embed?url={url}", arguments = listOf(navArgument("url") { type = NavType.StringType })) { entry ->
             EmbedPlayerScreen(entry.arguments?.getString("url").orEmpty(), onBack = navController::popBackStack)
         }
-        composable(
+        screen(
+            navController,
             "map/{chatId}/{messageId}",
             arguments = listOf(
                 navArgument("chatId") { type = NavType.LongType },
@@ -119,10 +109,11 @@ private fun MainNavHost(openChatId: Long?) {
         ) {
             MapScreen(onBack = navController::popBackStack)
         }
-        composable("videoNote/{chatId}", arguments = listOf(navArgument("chatId") { type = NavType.LongType })) {
+        screen(navController, "videoNote/{chatId}", arguments = listOf(navArgument("chatId") { type = NavType.LongType })) {
             VideoNoteScreen(onDone = navController::popBackStack)
         }
-        composable(
+        screen(
+            navController,
             "media/{chatId}/{messageId}",
             arguments = listOf(
                 navArgument("chatId") { type = NavType.LongType },
@@ -134,7 +125,24 @@ private fun MainNavHost(openChatId: Long?) {
     }
 }
 
-private const val PREDICTIVE_BACK_MS = 300
+/**
+ * A screen above the chat list. Back leaves it the way its own back arrow does, with the
+ * usual animation. Left to Navigation, the device's back button (animated as a predictive back
+ * since Android 16) and the gesture went through a predictive back driven by the system's
+ * progress, which then hands over to the pop animation, and sometimes stalled midway. First
+ * on the screen, so its own back handling (closing search, a selection, a full-screen video)
+ * still comes first.
+ */
+private fun NavGraphBuilder.screen(
+    navController: NavController,
+    route: String,
+    arguments: List<NamedNavArgument> = emptyList(),
+    content: @Composable (NavBackStackEntry) -> Unit,
+) = composable(route, arguments) { entry ->
+    // Not for a screen already on its way out.
+    BackHandler { if (navController.currentBackStackEntry?.id == entry.id) navController.popBackStack() }
+    content(entry)
+}
 
 @HiltViewModel
 class RootViewModel @Inject constructor(
