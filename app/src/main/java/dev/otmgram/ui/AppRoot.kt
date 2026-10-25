@@ -1,5 +1,9 @@
 package dev.otmgram.ui
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleOut
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -66,7 +70,19 @@ private fun MainNavHost(openChatId: Long?) {
             navController.navigate("chat/$openChatId")
         }
     }
-    NavHost(navController, startDestination = "chats") {
+    NavHost(
+        navController,
+        startDestination = "chats",
+        predictivePopEnterTransition = { fadeIn(tween(PREDICTIVE_BACK_MS)) },
+        // The default only shrinks the screen being left, so at the end it vanished at once,
+        // still opaque: on a quick back (or the back button, which animates the same way
+        // since Android 16) it looked stuck for a moment. It fades out at the end now, late
+        // enough that a slow swipe still shows it.
+        predictivePopExitTransition = {
+            scaleOut(tween(PREDICTIVE_BACK_MS), targetScale = 0.85f) +
+                fadeOut(tween(PREDICTIVE_BACK_MS / 3, delayMillis = PREDICTIVE_BACK_MS * 2 / 3))
+        },
+    ) {
         composable("chats") {
             ChatListScreen(
                 onOpenChat = { navController.navigate("chat/$it") },
@@ -107,6 +123,8 @@ private fun MainNavHost(openChatId: Long?) {
         }
     }
 }
+
+private const val PREDICTIVE_BACK_MS = 300
 
 @HiltViewModel
 class RootViewModel @Inject constructor(
