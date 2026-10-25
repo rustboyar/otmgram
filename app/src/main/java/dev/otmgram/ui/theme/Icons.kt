@@ -28,6 +28,10 @@ object OtmIcons {
     val Check = stroke("Check", "M5 12l5 5 9-10", width = 2.4f)
     val Mic = stroke("Mic", "M12 3a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z", "M5 11a7 7 0 0 0 14 0M12 18v3")
     val Pin = stroke("Pin", "M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z", circle(12f, 9.5f, 2.5f))
+    /** A pushpin, for pinned messages (not [Pin], a map pin). */
+    val Pushpin = stroke("Pushpin", "M9 3h6M10 3v6l-3 4h10l-3-4V3", "M12 13v8")
+    val Unpin = stroke("Unpin", "M9 3h6M10 3v6l-3 4h10l-3-4V3", "M12 13v8", "M4 4l16 16")
+    val List = stroke("List", "M9 6h11M9 12h11M9 18h11", "M4.5 6h.01M4.5 12h.01M4.5 18h.01", width = 2f)
     val LiveLocation = stroke(
         "LiveLocation", circle(12f, 10f, 3f),
         "M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z", "M3 4a12 12 0 0 1 4-2M21 4a12 12 0 0 0-4-2",

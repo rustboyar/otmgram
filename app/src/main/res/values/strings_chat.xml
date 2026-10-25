@@ -157,4 +157,11 @@
     <string name="show_replied_message">Show the message</string>
     <string name="location_finding">Finding your location…</string>
     <string name="sticker_preview">Preview</string>
+
+    <!-- Pinned messages: the bar's position, the list, the menu -->
+    <string name="pinned_position">Pinned message %1$d of %2$d</string>
+    <string name="pinned_title">Pinned messages</string>
+    <string name="pinned_list">All pinned messages</string>
+    <string name="action_pin">Pin</string>
+    <string name="action_unpin">Unpin</string>
 </resources>

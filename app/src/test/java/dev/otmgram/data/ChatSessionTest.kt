@@ -52,6 +52,23 @@ class ChatSessionTest {
     }
 
     @Test
+    fun `pinned messages are searched for, and pinned quietly for everyone`() = runTest {
+        td.on<TdApi.SearchChatMessages> { TdApi.FoundChatMessages(1, arrayOf(message(20)), 0) }
+        td.on<TdApi.PinChatMessage> { TdApi.Ok() }
+        td.on<TdApi.UnpinChatMessage> { TdApi.Ok() }
+        val session = open()
+        assertEquals(listOf(20L), session.pinned().map { it.id })
+        assertTrue(td.sent<TdApi.SearchChatMessages>().single().filter is TdApi.SearchMessagesFilterPinned)
+        session.setPinned(10, pinned = true)
+        session.setPinned(20, pinned = false)
+        val pin = td.sent<TdApi.PinChatMessage>().single()
+        assertEquals(10L, pin.messageId)
+        assertTrue(pin.disableNotification)
+        assertFalse(pin.onlyForSelf)
+        assertEquals(20L, td.sent<TdApi.UnpinChatMessage>().single().messageId)
+    }
+
+    @Test
     fun `a new message comes first`() = runTest {
         val session = open()
         td.emit(TdApi.UpdateNewMessage(message(40)))

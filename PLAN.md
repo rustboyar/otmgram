@@ -52,6 +52,7 @@ Links, @mentions and "forwarded from" headers do not navigate to chats: web link
 - Mark as read on screen (`viewMessages`)
 - Groups: sender names + avatars
 - In-chat message search (`searchChatMessages`)
+- Pinned messages: the bar under the chat's title shows the newest; a tap goes to it and moves the bar on to the next older one ("Pinned message 2 of 3"), and with several, a list button shows them all. Pin and unpin from the message menu, where `canBePinned` allows: for everyone, without notifying
 
 ### M4 — Media viewing
 - Photos: fullscreen + zoom

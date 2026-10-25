@@ -245,8 +245,8 @@ fun ChatScreen(
                     actions = { IconBtn(OtmIcons.Search, stringResource(R.string.search_chat), search::open, tag = "search") },
                 )
             }
-            viewModel.pinned?.takeIf { !selecting && !searching }?.let { pinned ->
-                PinnedBar(pinned, onClick = { viewModel.jumpTo(pinned.id) })
+            if (viewModel.pinned.isNotEmpty() && !selecting && !searching) {
+                PinnedBar(viewModel.pinned, viewModel.pinnedShown, onClick = viewModel::showPinned, onList = viewModel::openPinnedList)
             }
             liveShare?.takeIf { it.chatId == viewModel.chatId }?.let { share ->
                 LiveShareBanner(share, onStop = viewModel::stopLiveLocation)
@@ -462,9 +462,13 @@ fun ChatScreen(
             onForward = { viewModel.startForward(menu.message) },
             onSave = { viewModel.saveToDownloads(menu.message) },
             onSelect = { viewModel.select(menu.message) },
+            onPin = { viewModel.togglePin(menu) },
             onDelete = { viewModel.askDelete(menu) },
             onDismiss = viewModel::closeMenu,
         )
+    }
+    if (viewModel.pinnedListOpen) {
+        PinnedSheet(viewModel.pinned, onGoTo = viewModel::goToPinned, onDismiss = viewModel::closePinnedList)
     }
     viewModel.deleting?.let { request ->
         DeleteDialog(request, onDelete = viewModel::delete, onDismiss = viewModel::cancelDelete)
@@ -580,15 +584,25 @@ private fun ServiceNote(text: String) {
     )
 }
 
-/** The newest pinned message, under the chat's bar; a tap shows it. */
+/**
+ * A pinned message under the chat's bar, the newest at first: a tap shows it and moves on
+ * to the next older one. With several, a button lists them all.
+ */
 @Composable
-private fun PinnedBar(pinned: PinnedMessage, onClick: () -> Unit) {
+private fun PinnedBar(pinned: List<SearchResult>, shown: Int, onClick: () -> Unit, onList: () -> Unit) {
+    val message = pinned.getOrNull(shown) ?: return
     Column(Modifier.fillMaxWidth().background(Otm.Card.copy(alpha = 0.7f))) {
-        ReplyQuote(
-            ReplyPreview(stringResource(R.string.pinned_message), pinned.text),
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag("pinned"),
-            onClick = onClick,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ReplyQuote(
+                ReplyPreview(
+                    if (pinned.size > 1) stringResource(R.string.pinned_position, pinned.size - shown, pinned.size) else stringResource(R.string.pinned_message),
+                    message.text,
+                ),
+                Modifier.weight(1f).padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp).testTag("pinned"),
+                onClick = onClick,
+            )
+            if (pinned.size > 1) IconBtn(OtmIcons.List, stringResource(R.string.pinned_list), onList, tag = "pinnedList", tint = Otm.InkSoft)
+        }
         Hairline()
     }
 }

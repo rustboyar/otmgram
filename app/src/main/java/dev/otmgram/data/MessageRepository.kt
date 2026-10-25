@@ -206,6 +206,17 @@ class ChatSession internal constructor(
     suspend fun search(query: String): List<TdApi.Message> =
         td.send(TdApi.SearchChatMessages(chatId, null, query, null, 0, 0, SEARCH_LIMIT, null)).messages.toList()
 
+    /** This chat's pinned messages, newest first. */
+    suspend fun pinned(): List<TdApi.Message> =
+        td.send(TdApi.SearchChatMessages(chatId, null, "", null, 0, 0, SEARCH_LIMIT, TdApi.SearchMessagesFilterPinned())).messages.toList()
+
+    /** Pins (for everyone, without notifying) or unpins a message. */
+    suspend fun setPinned(messageId: Long, pinned: Boolean) {
+        if (pinned) td.send(TdApi.PinChatMessage(chatId, messageId, true, false)) else td.send(TdApi.UnpinChatMessage(chatId, messageId))
+    }
+
+    suspend fun isPinned(messageId: Long): Boolean = td.send(TdApi.GetMessage(chatId, messageId)).isPinned
+
     /**
      * Loads older pages until [messageId] is loaded, at most [maxPages]; false if it wasn't
      * reached. Waits for a load already running instead of giving up.
