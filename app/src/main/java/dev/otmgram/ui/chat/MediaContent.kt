@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -567,13 +568,11 @@ private fun VideoNote(media: MessageMedia.VideoNote, onSound: () -> Unit, onLong
         } else {
             TdImage(media.thumbnailFileId, media.minithumbnail, Modifier.matchParentSize())
         }
-        Label(formatDuration(media.duration), Modifier.align(Alignment.BottomCenter))
-        if (!withSound) {
-            Icon(
-                OtmIcons.Muted, stringResource(R.string.sound_off),
-                tint = Color.White,
-                modifier = Modifier.align(Alignment.TopEnd).padding(14.dp).size(26.dp).background(Otm.Ink.copy(alpha = 0.45f), CircleShape).padding(5.dp),
-            )
+        // Next to the duration rather than in a corner, which the circle cuts off.
+        Label(formatDuration(media.duration), Modifier.align(Alignment.BottomCenter)) {
+            if (!withSound) {
+                Icon(OtmIcons.Muted, stringResource(R.string.sound_off), tint = Color.White, modifier = Modifier.padding(start = 5.dp).size(13.dp))
+            }
         }
     }
 }
@@ -625,16 +624,17 @@ private fun readTgs(file: File): String? = try {
 private const val TGS_MAX_BYTES = 2 * 1024 * 1024
 
 @Composable
-private fun Label(text: String, modifier: Modifier) {
-    Text(
-        text,
-        color = Color.White,
-        style = OtmType.Time,
+private fun Label(text: String, modifier: Modifier, trailing: @Composable RowScope.() -> Unit = {}) {
+    Row(
         modifier = modifier
             .padding(8.dp)
             .background(Otm.Ink.copy(alpha = 0.55f), RoundedCornerShape(10.dp))
             .padding(horizontal = 8.dp, vertical = 2.dp),
-    )
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text, color = Color.White, style = OtmType.Time)
+        trailing()
+    }
 }
 
 /** Width / height, kept within a range that looks reasonable in a bubble. */
