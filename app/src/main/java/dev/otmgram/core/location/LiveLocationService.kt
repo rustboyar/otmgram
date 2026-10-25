@@ -110,6 +110,7 @@ class LiveLocationService : Service() {
     private suspend fun share(chatId: Long, period: Int, endsAt: Int) {
         try {
             val first = locations.current() ?: throw IllegalStateException("Location is off")
+            sharing.share.value?.let { sharing.update(it.copy(located = true)) }
             this.messageId = sendLiveLocation(chatId, period, first)
             AppLog.i(TAG, "Live location message confirmed")
             this.chatId = chatId

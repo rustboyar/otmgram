@@ -42,10 +42,16 @@ class LocationSource @Inject constructor(
      * A fresh, accurate fix, or the last known one if none arrives in time and it's recent;
      * null if location is off or no recent position is known. High accuracy makes the fused
      * provider use GPS, not just network location.
+     *
+     * An accurate fix from moments ago, e.g. the one the location sheet just got for its
+     * map, is returned at once: a new one would be no better, only seconds later.
      */
     @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     suspend fun current(): Location? {
         val provider = provider() ?: return null
+        manager.getLastKnownLocation(provider)
+            ?.takeIf { it.age() <= JUST_NOW_MS && it.hasAccuracy() && it.accuracy <= JUST_NOW_ACCURACY_M }
+            ?.let { return it }
         return withTimeoutOrNull(FIX_TIMEOUT_MS) {
             suspendCancellableCoroutine { continuation ->
                 val signal = CancellationSignal()
@@ -91,5 +97,9 @@ class LocationSource @Inject constructor(
 
         /** An older position may be somewhere else entirely: hours old, it's another town. */
         const val MAX_FALLBACK_AGE_MS = 5 * 60_000L
+
+        /** A fix this recent and accurate needs no new one. */
+        const val JUST_NOW_MS = 30_000L
+        const val JUST_NOW_ACCURACY_M = 50f
     }
 }

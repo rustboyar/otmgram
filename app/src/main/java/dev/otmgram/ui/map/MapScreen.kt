@@ -69,6 +69,7 @@ import kotlin.math.roundToInt
 @Composable
 fun MapScreen(onBack: () -> Unit, viewModel: MapViewModel = hiltViewModel()) {
     val location by viewModel.location.collectAsStateWithLifecycle()
+    val sharing by viewModel.sharing.collectAsStateWithLifecycle()
     val mapView = rememberMapViewWithLifecycle()
     val context = LocalContext.current
     LaunchedEffect(Unit) {
@@ -147,6 +148,15 @@ fun MapScreen(onBack: () -> Unit, viewModel: MapViewModel = hiltViewModel()) {
                         modifier = Modifier.testTag("mapLiveStatus"),
                     )
                 }
+            }
+            if (sharing) {
+                SoftButton(
+                    stringResource(R.string.live_stop),
+                    onClick = viewModel::stopSharing,
+                    modifier = Modifier.fillMaxWidth().testTag("mapStopSharing"),
+                    background = Otm.ErrorSoft,
+                    color = Otm.Error,
+                )
             }
             location?.let { point ->
                 SoftButton(

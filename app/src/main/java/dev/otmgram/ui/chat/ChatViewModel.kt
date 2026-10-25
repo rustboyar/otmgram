@@ -473,11 +473,20 @@ class ChatViewModel @Inject constructor(
         if (voiceRecorder.state.value != null) voiceRecorder.cancel()
     }
 
+    /** True while waiting for a position to send; the chat shows where the message will be. */
+    var locating by mutableStateOf(false)
+        private set
+
     /** Sends the current position; the location permission must be granted. */
     @SuppressLint("MissingPermission")
     fun sendCurrentLocation() {
         action {
-            val location = locationSource.current()
+            locating = true
+            val location = try {
+                locationSource.current()
+            } finally {
+                locating = false
+            }
             if (location == null) {
                 notice = strings.get(R.string.notice_no_location)
             } else {

@@ -21,7 +21,13 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /** An active live location share. [endsAt] is a Unix time. */
-data class LiveShare(val chatId: Long, val chatTitle: String, val endsAt: Int)
+data class LiveShare(
+    val chatId: Long,
+    val chatTitle: String,
+    val endsAt: Int,
+    /** False until the first position is known; the message is sent only then. */
+    val located: Boolean = false,
+)
 
 /** Starts and stops sharing live location (one chat at a time) via [LiveLocationService]. */
 @Singleton

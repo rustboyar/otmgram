@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.otmgram.core.launchLogged
+import dev.otmgram.core.location.LiveLocationSharing
 import dev.otmgram.core.location.LocationSource
 import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TdException
@@ -17,8 +18,11 @@ import dev.otmgram.ui.chat.MessageMedia
 import dev.otmgram.ui.chat.toMedia
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
@@ -30,6 +34,7 @@ class MapViewModel @Inject constructor(
     savedState: SavedStateHandle,
     private val td: TelegramClient,
     private val locationSource: LocationSource,
+    private val liveLocation: LiveLocationSharing,
 ) : ViewModel() {
 
     private val chatId: Long = checkNotNull(savedState["chatId"])
@@ -53,6 +58,23 @@ class MapViewModel @Inject constructor(
     fun locateMe() {
         myLocation = locationSource.lastKnown()
         viewModelScope.launchLogged(TAG) { locationSource.current()?.let { myLocation = it } }
+    }
+
+    /** True while this is your live location and it's still being shared. */
+    val sharing: StateFlow<Boolean> = td.activeLiveLocations
+        .map { messages -> messages.orEmpty().any { it.chatId == chatId && it.id == messageId } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /**
+     * Stops sharing: through the service if this phone shares it now, otherwise (left
+     * running after the app was killed) by ending the message directly.
+     */
+    fun stopSharing() {
+        if (liveLocation.share.value?.chatId == chatId) {
+            liveLocation.stop()
+        } else {
+            viewModelScope.launchLogged(TAG) { td.send(TdApi.EditMessageLiveLocation(chatId, messageId, null, null)) }
+        }
     }
 
     /** Who shared the location, for the card under the map. */

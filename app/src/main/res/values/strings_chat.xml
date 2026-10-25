@@ -155,5 +155,6 @@
     <string name="message_actions">Message actions</string>
     <string name="pinned_message">Pinned message</string>
     <string name="show_replied_message">Show the message</string>
+    <string name="location_finding">Finding your location…</string>
     <string name="sticker_preview">Preview</string>
 </resources>

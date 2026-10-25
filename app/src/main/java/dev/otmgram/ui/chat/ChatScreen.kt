@@ -327,6 +327,9 @@ fun ChatScreen(
                 )
             }
             }
+            // Under the list rather than in it, which would move the rows' indexes.
+            val liveLocating = liveShare?.let { it.chatId == viewModel.chatId && !it.located } == true
+            if (viewModel.locating || liveLocating) LocatingBubble(Modifier.padding(bottom = 10.dp))
 
             val current = recording
             when {

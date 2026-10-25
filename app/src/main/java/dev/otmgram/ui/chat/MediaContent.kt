@@ -28,6 +28,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -48,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -284,6 +291,44 @@ private fun LocationPreview(media: MessageMedia.Location, outgoing: Boolean, onO
             } else {
                 Text(stringResource(R.string.summary_location), style = OtmType.Time, color = Color(0xFF56626B))
             }
+        }
+    }
+}
+
+/**
+ * Where your location message will be while the phone finds out where you are: a fix can
+ * take a while, and an empty chat meanwhile looked like nothing happened.
+ */
+@Composable
+fun LocatingBubble(modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(18.dp, 18.dp, 6.dp, 18.dp)
+    val pulse by rememberInfiniteTransition(label = "locating").animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
+        label = "pin",
+    )
+    Box(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp), contentAlignment = Alignment.CenterEnd) {
+        Column(
+            Modifier
+                .shadow(1.dp, shape, ambientColor = Otm.Ink.copy(alpha = 0.3f), spotColor = Otm.Ink.copy(alpha = 0.3f))
+                .clip(shape)
+                .background(Otm.Apricot)
+                .padding(5.dp)
+                .testTag("locating"),
+        ) {
+            Box(
+                Modifier.width(MAP_WIDTH_DP.dp).height(MAP_HEIGHT_DP.dp).clip(RoundedCornerShape(13.dp)).background(Color(0xFFEFEDE6)),
+                contentAlignment = Alignment.Center,
+            ) {
+                MapPin(Modifier.graphicsLayer { alpha = pulse })
+            }
+            Text(
+                stringResource(R.string.location_finding),
+                style = OtmType.Time,
+                color = Color(0xFF56626B),
+                modifier = Modifier.padding(start = 7.dp, end = 7.dp, top = 4.dp, bottom = 2.dp),
+            )
         }
     }
 }
