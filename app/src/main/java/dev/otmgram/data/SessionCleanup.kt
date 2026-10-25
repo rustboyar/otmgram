@@ -6,6 +6,7 @@ import dev.otmgram.core.location.MapSnapshots
 import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.di.ApplicationScope
+import dev.otmgram.sync.NotificationDisplay
 import dev.otmgram.sync.NotificationState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +29,7 @@ class SessionCleanup @Inject constructor(
     private val td: TelegramClient,
     private val outgoing: OutgoingFiles,
     private val notifications: NotificationState,
+    private val shownNotifications: NotificationDisplay,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
     fun start() {
@@ -44,6 +46,7 @@ class SessionCleanup @Inject constructor(
             File(context.cacheDir, "logs").deleteRecursively() // Shared log archives.
         }
         notifications.clear()
+        shownNotifications.cancelAll()
         withContext(Dispatchers.Main) { MapSnapshots.clearTiles(context) }
         AppLog.i(TAG, "Removed the account's files after logout")
     }

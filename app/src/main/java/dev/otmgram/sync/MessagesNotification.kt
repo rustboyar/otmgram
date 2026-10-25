@@ -6,55 +6,54 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.BitmapShader
+import android.graphics.Paint
+import android.graphics.Shader
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.Person
+import androidx.core.graphics.applyCanvas
+import androidx.core.graphics.createBitmap
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.otmgram.MainActivity
 import dev.otmgram.R
 import dev.otmgram.core.Strings
 import javax.inject.Inject
 
-/** Where the notifier's decisions end up: Android's notification, or a test's record. */
+/** Where [NotificationCenter]'s decisions end up: Android's notifications, or a test's record. */
 interface NotificationDisplay {
-    /** Shows [news] (replacing what's shown); [withText]: message text in it, not only who wrote. */
-    fun show(news: List<ChatNews>, withText: Boolean)
+    /** Shows or replaces [chat]'s notification; [alert]: with sound, for a new message. */
+    fun show(chat: ChatNotification, alert: Boolean)
 
-    fun cancel()
+    fun cancel(chatId: Long)
+
+    fun cancelAll()
+
+    /** Chats with a notification shown now, each with the newest message in it. */
+    fun shown(): Map<Long, Long>
 }
 
-/** The one notification about new messages: grouped when there's more than one, opening the chat list. */
+/**
+ * A notification per chat, grouped. Without message text it says only how many messages
+ * arrived, so no text can reach the lock screen whatever Android's settings; with it, the
+ * lock screen still gets a version without text or names.
+ */
 class MessagesNotification @Inject constructor(
     @ApplicationContext private val context: Context,
     private val strings: Strings,
 ) : NotificationDisplay {
 
-    /**
-     * Shows [news] as one notification. Without [withText] it says only who wrote, so no
-     * message text can reach the lock screen whatever Android's settings; with it, the
-     * lock screen gets a text-free version when Android hides sensitive content there.
-     */
-    override fun show(news: List<ChatNews>, withText: Boolean) {
+    private val manager = NotificationManagerCompat.from(context)
+
+    override fun show(chat: ChatNotification, alert: Boolean) {
         // Covers the runtime permission (Android 13+) and notifications turned off for the app.
-        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
-        val manager = context.getSystemService(NotificationManager::class.java)
-        // A new id: lock screen visibility can only be set when a channel is created.
-        manager.deleteNotificationChannel(OLD_CHANNEL_ID)
-        manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, strings.get(R.string.messages_channel), NotificationManager.IMPORTANCE_DEFAULT).apply {
-                lockscreenVisibility = Notification.VISIBILITY_PRIVATE
-            },
-        )
-        // A fresh task, whatever screen was open before: the chat when it's about one, else
-        // the chat list. Updated, as extras don't tell pending intents apart.
-        val open = PendingIntent.getActivity(
-            context, 0,
-            Intent(context, MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                .apply { news.singleOrNull()?.let { putExtra(MainActivity.EXTRA_OPEN_CHAT, it.chatId) } },
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
-        val count = news.sumOf { it.lines.size }
+        if (!manager.areNotificationsEnabled()) return
+        createChannel()
+        val count = chat.messages.size
         val countText = strings.plural(R.plurals.new_messages, count, count)
+        val newest = chat.messages.last()
         // What a locked phone shows instead: no text, no names.
         val locked = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_message)
@@ -63,58 +62,106 @@ class MessagesNotification @Inject constructor(
             .build()
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_message)
-            .setContentIntent(open)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setContentIntent(openChat(chat.chatId))
             .setAutoCancel(true)
+            .setGroup(GROUP)
+            .setWhen(newest.date * 1000L)
+            .setShowWhen(true)
             .setNumber(count)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(locked)
-        if (!withText) {
-            if (news.size == 1) {
-                builder.setContentTitle(news.single().title).setContentText(countText)
-            } else {
-                val style = NotificationCompat.InboxStyle()
-                news.forEach { chat -> style.addLine(strings.plural(R.plurals.notification_chat_count, chat.lines.size, chat.title, chat.lines.size)) }
-                builder.setContentTitle(countText)
-                    .setContentText(news.joinToString(", ") { it.title })
-                    .setStyle(style)
+            .setSilent(!alert)
+            .addExtras(android.os.Bundle().apply { putLong(EXTRA_NEWEST, newest.id) })
+        chat.photoPath?.let(::circle)?.let(builder::setLargeIcon)
+        if (chat.withText) {
+            val style = NotificationCompat.MessagingStyle(Person.Builder().setName(strings.get(R.string.notification_you)).build())
+                .setGroupConversation(chat.isGroup)
+            if (chat.isGroup) style.setConversationTitle(chat.title)
+            chat.messages.forEach { message ->
+                style.addMessage(message.text, message.date * 1000L, Person.Builder().setName(message.sender).setKey(message.sender).build())
             }
-        } else if (count == 1) {
-            val only = news.single()
-            builder.setContentTitle(only.title).setContentText(only.lines.single())
+            builder.setStyle(style).setContentTitle(chat.title).setContentText(newest.text)
         } else {
-            val chatsText = if (news.size == 1) news.single().title else strings.plural(R.plurals.chats, news.size, news.size)
-            val style = NotificationCompat.InboxStyle()
-            if (news.size == 1) {
-                // One chat: its messages, oldest first, like in the chat.
-                news.single().lines.take(MAX_LINES).reversed().forEach(style::addLine)
-            } else {
-                // Several chats: one line each, with the newest message.
-                news.forEach { chat ->
-                    val more = chat.lines.size - 1
-                    style.addLine(
-                        if (more > 0) strings.plural(R.plurals.notification_chat_newest_more, more, chat.title, chat.lines.first(), more)
-                        else strings.get(R.string.notification_chat_newest, chat.title, chat.lines.first()),
-                    )
-                }
-            }
-            builder.setContentTitle(countText)
-                .setContentText(news.joinToString(", ") { it.title })
-                .setStyle(style.setSummaryText(chatsText))
+            builder.setContentTitle(chat.title).setContentText(countText)
         }
-        NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, builder.build())
+        manager.notify(chat.chatId.toString(), CHAT_NOTIFICATION_ID, builder.build())
+        showSummary()
     }
 
-    override fun cancel() {
-        NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
+    override fun cancel(chatId: Long) {
+        manager.cancel(chatId.toString(), CHAT_NOTIFICATION_ID)
+        if (shown().keys.none { it != chatId }) manager.cancel(SUMMARY_ID)
+    }
+
+    override fun cancelAll() {
+        shown().keys.forEach { manager.cancel(it.toString(), CHAT_NOTIFICATION_ID) }
+        manager.cancel(SUMMARY_ID)
+        manager.cancel(OLD_NOTIFICATION_ID) // The one summary of earlier versions.
+    }
+
+    override fun shown(): Map<Long, Long> = context.getSystemService(NotificationManager::class.java).activeNotifications
+        .filter { it.id == CHAT_NOTIFICATION_ID && it.tag?.toLongOrNull() != null }
+        .associate { it.tag.toLong() to it.notification.extras.getLong(EXTRA_NEWEST) }
+
+    /** Bundles the chats' notifications; Android shows it only once there are two or more. */
+    private fun showSummary() {
+        if (!manager.areNotificationsEnabled()) return
+        val summary = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_message)
+            .setContentTitle(strings.get(R.string.app_name))
+            .setGroup(GROUP)
+            .setGroupSummary(true)
+            .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
+            .setSilent(true)
+            .setAutoCancel(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setContentIntent(openChat(null))
+            .build()
+        manager.notify(SUMMARY_ID, summary)
+    }
+
+    private fun createChannel() {
+        val system = context.getSystemService(NotificationManager::class.java)
+        // New ids: importance and lock screen visibility can only be set when a channel is created.
+        OLD_CHANNEL_IDS.forEach(system::deleteNotificationChannel)
+        system.createNotificationChannel(
+            NotificationChannel(CHANNEL_ID, strings.get(R.string.messages_channel), NotificationManager.IMPORTANCE_HIGH).apply {
+                lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+            },
+        )
+    }
+
+    /**
+     * A fresh task, whatever screen was open before: the chat over the chat list, or only
+     * the list. One per chat, as extras don't tell pending intents apart.
+     */
+    private fun openChat(chatId: Long?): PendingIntent = PendingIntent.getActivity(
+        context,
+        chatId?.hashCode() ?: 0,
+        Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            .apply { chatId?.let { putExtra(MainActivity.EXTRA_OPEN_CHAT, it) } },
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+
+    /** The chat photo as a circle, as chats show it; null if it can't be read. */
+    private fun circle(path: String): Bitmap? {
+        val options = BitmapFactory.Options().apply { inSampleSize = 2 }
+        val photo = BitmapFactory.decodeFile(path, options) ?: return null
+        val side = minOf(photo.width, photo.height)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = BitmapShader(photo, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP) }
+        return createBitmap(side, side).applyCanvas { drawCircle(side / 2f, side / 2f, side / 2f, paint) }
     }
 
     companion object {
-        private const val CHANNEL_ID = "messages"
-        private const val OLD_CHANNEL_ID = "new_messages"
-        private const val NOTIFICATION_ID = 2
-
-        /** Android shows about this many lines of an expanded notification. */
-        private const val MAX_LINES = 5
+        private const val CHANNEL_ID = "chats"
+        private val OLD_CHANNEL_IDS = listOf("new_messages", "messages")
+        private const val GROUP = "messages"
+        private const val CHAT_NOTIFICATION_ID = 3
+        private const val SUMMARY_ID = 4
+        private const val OLD_NOTIFICATION_ID = 2
+        private const val EXTRA_NEWEST = "dev.otmgram.extra.NEWEST_MESSAGE"
 
         /** Whether these notifications can show: not refused, turned off, or their channel blocked. */
         fun allowed(context: Context): Boolean {

@@ -9,22 +9,11 @@
 
     <!-- New messages -->
     <string name="messages_channel">New messages</string>
-    <string name="notification_sender_line">%1$s: %2$s</string>
-    <string name="notification_chat_newest">%1$s: %2$s</string>
     <plurals name="new_messages">
         <item quantity="one">%1$d new message</item>
         <item quantity="other">%1$d new messages</item>
     </plurals>
-    <plurals name="chats">
-        <item quantity="one">%1$d chat</item>
-        <item quantity="other">%1$d chats</item>
-    </plurals>
-    <plurals name="notification_chat_count">
-        <item quantity="one">%1$s · %2$d new</item>
-        <item quantity="other">%1$s · %2$d new</item>
-    </plurals>
-    <plurals name="notification_chat_newest_more">
-        <item quantity="one">%1$s: %2$s (+%3$d more)</item>
-        <item quantity="other">%1$s: %2$s (+%3$d more)</item>
-    </plurals>
+
+    <!-- Yourself, in a chat's notification -->
+    <string name="notification_you">You</string>
 </resources>

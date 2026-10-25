@@ -83,16 +83,16 @@ Links, @mentions and "forwarded from" headers do not navigate to chats: web link
   - must not set the account online (see "always offline")
 - Not done: proximity alerts and heading. If the service is killed, sharing is ended in the chat (no resume)
 
-### M7 — Notifications (periodic check)
-- `PeriodicWorkRequest` every 15 minutes (WorkManager minimum), requires network; scheduled while logged in with a folder picked, cancelled on logout
-- The worker uses the in-process TdClient (started with the process), makes it reconnect (a frozen process still says "ready" from before) and waits for it to catch up; the account stays offline. The app also tells TDLib about network changes
-- New = unread incoming messages in unmuted folder chats newer than what was in the folder when the app was last open. Kept per chat as message ids, not times: ids only grow within a chat, so late arrivals and the phone's clock don't matter. The first check after install only records what's there
-- One notification: a single message shows chat and message; several are grouped ("4 new messages") with the messages of one chat, or a line per chat for several chats; updated on each check, alerting only when something is newer than the last notification, removed when nothing is unread anymore
-- Tap opens the chat when it's about one, otherwise the chat list (a fresh task either way, back leads to the list); opening the app clears it
-- Debug builds: `adb shell am broadcast -n dev.otmgram/.debug.RunCheckReceiver [--ez renotify true]` runs the check now
-- Android Doze may delay checks beyond 15 min while the phone is idle — acceptable for this app
+### M7 — Notifications
+- TDLib's Notification API decides what to notify (`sync/NotificationCenter`): it applies mute settings and mentions in muted groups, waits a moment so a message read on another device never alerts, and removes notifications when messages are read anywhere or deleted
+- Shown: only the folder's chats; nothing while the app is open (opening it clears them); nothing that was in the folder when the app was last open (per chat message ids, recorded on start and stop)
+- TDLib keeps at most 25 groups, counting chats outside the folder, which this app never reads: a folder chat's notification pushed out that way stays until it's read
+- One notification per chat (`MessagesNotification`), bundled when there are several: the sender and text of each message, or with text off only the chat and "N new messages". Each new message alerts once (the newest alerted notification id is stored, as TDLib's ids persist); edits and removals are quiet. Tap opens the chat over the list. No actions (reply, mark as read): not wanted
+- Delivery: notifications come while the process runs. In the background Android soon blocks the app's network, so a periodic check (`CheckWorker`, every 15 min by default, requires network) reconnects TDLib and waits for its pending notifications; the account stays offline. The app also tells TDLib about network changes
+- Debug builds: `adb shell am broadcast -n dev.otmgram/.debug.RunCheckReceiver` runs the check now
+- Android Doze may delay checks beyond 15 min while the phone is idle
 - Interval setting: M10
-- Message text in notifications is off by default: they say only who wrote ("Anna · 2 new messages"), so nothing readable reaches the lock screen whatever Android's settings. With it on, the lock screen gets a text-free version when Android hides sensitive content
+- Message text in notifications is off by default, so nothing readable reaches the lock screen whatever Android's settings. With it on, the lock screen gets a version without text or names; a chat whose previews are off in Telegram never shows text
 
 ### M8 — Compression and files
 - Photos: scaled to 2560 px on the long side, JPEG, orientation applied (Telegram's servers recompress photos anyway; this saves the upload)
@@ -123,7 +123,7 @@ Links, @mentions and "forwarded from" headers do not navigate to chats: web link
 ## Structure
 
 - `core` (TDLib client, media, location, logging), `data` (repositories), `sync` (background checks), `ui` (screens and their view models). Everything takes `TelegramClient` (requests, updates, the states the app watches), not `TdClient`, which only app start uses
-- The notifier decides (`NewMessagesNotifier`); `MessagesNotification` shows it, behind `NotificationDisplay`
+- `NotificationCenter` decides from TDLib's notifications; `MessagesNotification` shows it, behind `NotificationDisplay`
 - Composables take app types only (`FileState`, `Sticker`, `Account`, thumbnails as JPEG bytes); view models are where TDLib types turn into those
 - TDLib's message objects are mutable and can't be copied; the open chat changes them in place and `ChatHistory.version` marks each change, before they become immutable `MessageItem`s
 - The chat screen's state is split: `ChatSearch`, `ChatSelection`, `StickerPanel`, `OutgoingQueue`, wired together by `ChatViewModel`
@@ -134,7 +134,7 @@ Links, @mentions and "forwarded from" headers do not navigate to chats: web link
 - TDLib's database and login are encrypted with a random 32-byte key (without one, TDLib uses a built-in key, i.e. none). The key is stored encrypted by an Android Keystore key, which never leaves the device (`core/td/DatabaseKey`)
 - Existing databases are encrypted once logged in. Opening (`core/td/DatabaseOpener`): if the database doesn't take its key (TDLib's error 401; stopped mid-switch), it opens without, and only then is the key file dropped and a new key applied; if it's encrypted and the key can never be read again, the local database is deleted and the app asks to log in again. Anything else (a busy Keystore, a full disk) is retried with backoff, never treated as a lost key
 - Downloaded and sent media are plain files (TDLib encrypts only its database). Copies of sent files (`cache/outgoing`) are removed after 3 days
-- After logout, from this phone or elsewhere (`data/SessionCleanup`): TDLib deletes its database and downloads; the app removes sent copies, shared log archives, map tiles and its notification marks. Its own log stays (no message text or names), as do device settings
+- After logout, from this phone or elsewhere (`data/SessionCleanup`): TDLib deletes its database and downloads; the app removes sent copies, shared log archives, map tiles, its notification marks and shown notifications. Its own log stays (no message text or names), as do device settings
 - Session backups (`scripts/session.sh`) include the key file, so encrypted ones only restore into the same installation
 - Release builds are signed with a dedicated key (`~/.local/share/otmgram/release.jks`, password in `local.properties`, both outside git): back both up. Android installs updates only with the same key, so losing it means reinstalling and logging in again
 

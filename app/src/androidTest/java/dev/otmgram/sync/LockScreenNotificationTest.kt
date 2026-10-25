@@ -18,7 +18,14 @@ class LockScreenNotificationTest {
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
-    private val news = listOf(ChatNews(1, "Anna", listOf("see you at 7, by the bridge", "bring the tent"), newestId = 2))
+    private fun chat(withText: Boolean) = ChatNotification(
+        chatId = 1,
+        title = "Anna",
+        isGroup = false,
+        messages = listOf(NotifiedMessage(1, "Anna", "see you at 7, by the bridge", 0), NotifiedMessage(2, "Anna", "bring the tent", 0)),
+        photoPath = null,
+        withText = withText,
+    )
 
     private fun show(withText: Boolean): Notification {
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -26,9 +33,9 @@ class LockScreenNotificationTest {
         // test could read the one the previous test left.
         manager.cancelAll()
         waitFor { manager.activeNotifications.isEmpty() }
-        MessagesNotification(context, AndroidStrings(context)).show(news, withText)
-        waitFor { manager.activeNotifications.isNotEmpty() }
-        return manager.activeNotifications.single().notification
+        MessagesNotification(context, AndroidStrings(context)).show(chat(withText), alert = false)
+        waitFor { manager.activeNotifications.any { it.tag == "1" } }
+        return manager.activeNotifications.single { it.tag == "1" }.notification
     }
 
     private fun waitFor(condition: () -> Boolean) {
@@ -58,6 +65,7 @@ class LockScreenNotificationTest {
         assertFalse(lockedText.contains("bridge"))
         assertFalse(lockedText.contains("Anna"))
         // Unlocked, the messages are there.
-        assertTrue(shown.extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)!!.any { it.contains("bridge") })
+        val messages = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(shown)!!.messages
+        assertTrue(messages.any { it.text.toString().contains("bridge") })
     }
 }

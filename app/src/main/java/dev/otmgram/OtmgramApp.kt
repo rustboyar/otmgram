@@ -14,6 +14,7 @@ import dagger.hilt.android.HiltAndroidApp
 import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.sync.CheckScheduler
+import dev.otmgram.sync.NotificationCenter
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -24,6 +25,9 @@ class OtmgramApp : Application(), SingletonImageLoader.Factory, Configuration.Pr
 
     @Inject
     lateinit var checkScheduler: CheckScheduler
+
+    @Inject
+    lateinit var notifications: NotificationCenter
 
     @Inject
     lateinit var liveLocation: LiveLocationSharing
@@ -45,6 +49,7 @@ class OtmgramApp : Application(), SingletonImageLoader.Factory, Configuration.Pr
             "Started ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}${if (BuildConfig.DEBUG) ", debug" else ""}) " +
                 "on ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})",
         )
+        notifications.start() // Before TDLib: it sends the active notifications once, at start.
         td.start()
         checkScheduler.start()
         liveLocation.endLeftovers()

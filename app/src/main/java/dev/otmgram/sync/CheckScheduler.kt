@@ -38,7 +38,7 @@ class CheckScheduler @Inject constructor(
     @ApplicationContext private val context: Context,
     private val td: TelegramClient,
     private val folders: FolderRepository,
-    private val notifier: NewMessagesNotifier,
+    private val notifications: NotificationCenter,
     private val settings: AppSettings,
     private val storage: StorageRepository,
     @ApplicationScope private val scope: CoroutineScope,
@@ -67,25 +67,29 @@ class CheckScheduler @Inject constructor(
         }
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
-                notifier.cancel()
-                markSeen()
+                notifications.setForeground(true)
+                scope.launch { markSeen() }
             }
 
-            override fun onStop(owner: LifecycleOwner) = markSeen()
+            // Notifying again only once what was on screen counts as seen.
+            override fun onStop(owner: LifecycleOwner) {
+                scope.launch {
+                    markSeen()
+                    notifications.setForeground(false)
+                }
+            }
         })
     }
 
     /** Records what's in the folder now as seen; only once TDLib is ready (not yet on a cold start). */
-    private fun markSeen() {
+    private suspend fun markSeen() {
         if (td.authorizationState.value !is TdApi.AuthorizationStateReady) return
-        scope.launch {
-            val folderId = folders.selectedFolderId.first() ?: return@launch
-            try {
-                withTimeoutOrNull(MARK_SEEN_TIMEOUT_MS) { notifier.markSeen(folderId) }
-                    ?: AppLog.w("CheckScheduler", "Recording what was seen timed out")
-            } catch (e: TdException) {
-                AppLog.w("CheckScheduler", "Couldn't record what was seen", e)
-            }
+        val folderId = folders.selectedFolderId.first() ?: return
+        try {
+            withTimeoutOrNull(MARK_SEEN_TIMEOUT_MS) { notifications.markSeen(folderId) }
+                ?: AppLog.w("CheckScheduler", "Recording what was seen timed out")
+        } catch (e: TdException) {
+            AppLog.w("CheckScheduler", "Couldn't record what was seen", e)
         }
     }
 
@@ -100,7 +104,7 @@ class CheckScheduler @Inject constructor(
     private fun unschedule() {
         AppLog.i("CheckScheduler", "Not checking")
         WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
-        notifier.cancel()
+        notifications.clear()
     }
 
     private companion object {

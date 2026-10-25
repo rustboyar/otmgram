@@ -44,3 +44,22 @@ fun TdApi.MessageContent.summary(strings: Strings): String {
         else -> kind(R.string.summary_message)
     }
 }
+
+/** What a message from a push notification is, when TDLib knows only that much yet. */
+fun TdApi.PushMessageContent.summary(strings: Strings): String {
+    fun kind(id: Int) = strings.get(id)
+    fun withCaption(kind: String, caption: String) = if (caption.isEmpty()) kind else strings.get(R.string.summary_with_caption, kind, caption)
+    return when (val content = this) {
+        is TdApi.PushMessageContentText -> content.text
+        is TdApi.PushMessageContentPhoto -> withCaption(kind(R.string.summary_photo), content.caption)
+        is TdApi.PushMessageContentVideo -> withCaption(kind(R.string.summary_video), content.caption)
+        is TdApi.PushMessageContentVoiceNote -> kind(R.string.summary_voice)
+        is TdApi.PushMessageContentVideoNote -> kind(R.string.summary_video_note)
+        is TdApi.PushMessageContentSticker -> listOf(content.emoji, kind(R.string.summary_sticker)).filter { it.isNotEmpty() }.joinToString(" ")
+        is TdApi.PushMessageContentAnimation -> withCaption(kind(R.string.summary_gif), content.caption)
+        is TdApi.PushMessageContentDocument -> content.document?.fileName?.takeIf { it.isNotEmpty() } ?: kind(R.string.summary_file)
+        is TdApi.PushMessageContentAudio -> kind(R.string.summary_audio)
+        is TdApi.PushMessageContentLocation -> kind(if (content.isLive) R.string.summary_live_location else R.string.summary_location)
+        else -> kind(R.string.summary_message)
+    }
+}

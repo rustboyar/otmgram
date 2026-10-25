@@ -14,19 +14,24 @@ import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.StorageRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.drinkless.tdlib.TdApi
 
-/** The periodic check for new messages; TDLib keeps the account offline meanwhile. */
+/**
+ * The periodic check for new messages, a backup for when the process isn't running: it
+ * lets TDLib catch up, and [NotificationCenter] shows what TDLib then notifies about.
+ * TDLib keeps the account offline meanwhile.
+ */
 @HiltWorker
 class CheckWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
     private val td: TelegramClient,
     private val folders: FolderRepository,
-    private val notifier: NewMessagesNotifier,
+    private val notifications: NotificationCenter,
     private val storage: StorageRepository,
 ) : CoroutineWorker(context, params) {
 
@@ -48,7 +53,7 @@ class CheckWorker @AssistedInject constructor(
             AppLog.i(TAG, "Skipped: not logged in (${authorized?.javaClass?.simpleName ?: "TDLib didn't start in time"})")
             return Result.success()
         }
-        val folderId = folders.selectedFolderId.first() ?: return Result.success().also { AppLog.i(TAG, "Skipped: no folder") }
+        folders.selectedFolderId.first() ?: return Result.success().also { AppLog.i(TAG, "Skipped: no folder") }
         // Let TDLib catch up with what happened while it was offline. Reconnecting first, as
         // "ready" may be left over from before the process was frozen; the reconnect shows
         // as another state, unless it's over before this looks.
@@ -56,15 +61,17 @@ class CheckWorker @AssistedInject constructor(
         withTimeoutOrNull(RECONNECT_TIMEOUT_MS) { td.connectionState.first { it !is TdApi.ConnectionStateReady } }
         withTimeoutOrNull(SYNC_TIMEOUT_MS) { td.connectionState.first { it is TdApi.ConnectionStateReady } }
             ?: return Result.success().also { AppLog.w(TAG, "Skipped: no connection within ${SYNC_TIMEOUT_MS / 1000} s") }
-        return try {
-            notifier.check(folderId)
+        // TDLib holds new notifications back for a moment, in case they're read elsewhere.
+        delay(PENDING_START_MS)
+        withTimeoutOrNull(PENDING_TIMEOUT_MS) { notifications.havePending.first { !it } }
+            ?: AppLog.w(TAG, "Notifications still pending after ${PENDING_TIMEOUT_MS / 1000} s")
+        try {
             storage.applyLimit()
-            AppLog.i(TAG, "Check done")
-            Result.success()
         } catch (e: TdException) {
-            AppLog.w(TAG, "Check failed", e)
-            Result.success()
+            AppLog.w(TAG, "Storage limit failed", e)
         }
+        AppLog.i(TAG, "Check done")
+        return Result.success()
     }
 
     private companion object {
@@ -72,5 +79,7 @@ class CheckWorker @AssistedInject constructor(
         const val START_TIMEOUT_MS = 20_000L
         const val RECONNECT_TIMEOUT_MS = 5_000L
         const val SYNC_TIMEOUT_MS = 60_000L
+        const val PENDING_START_MS = 2_000L
+        const val PENDING_TIMEOUT_MS = 45_000L
     }
 }
