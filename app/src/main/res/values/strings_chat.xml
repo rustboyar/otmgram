@@ -164,4 +164,9 @@
     <string name="pinned_list">All pinned messages</string>
     <string name="action_pin">Pin</string>
     <string name="action_unpin">Unpin</string>
+
+    <!-- YouTube, Instagram and TikTok links, played in the app -->
+    <string name="link_play_here">Play here</string>
+    <string name="link_open_elsewhere">Open in app</string>
+    <string name="link_cant_play">This one can\'t be played here.</string>
 </resources>

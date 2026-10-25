@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.ui.input.pointer.pointerInput
 import dev.otmgram.ui.theme.OtmDialog
+import dev.otmgram.ui.embed.MediaLink
 import dev.otmgram.ui.media.openLink
 import dev.otmgram.ui.highlight
 import androidx.compose.ui.text.style.TextDecoration
@@ -87,6 +88,7 @@ fun MessageBubble(
     onPlayVoice: (fileId: Int, path: String) -> Unit,
     onVideoNoteSound: () -> Unit,
     onOpenReply: (messageId: Long) -> Unit = {},
+    onOpenLink: (MediaLink) -> Unit = {},
     highlight: Highlight? = null,
     selecting: Boolean = false,
     selected: Boolean = false,
@@ -119,6 +121,7 @@ fun MessageBubble(
                     onPlayVoice = onPlayVoice,
                     onVideoNoteSound = onVideoNoteSound,
                     onOpenReply = onOpenReply,
+                    onOpenLink = if (selecting) ({ onToggleSelected() }) else onOpenLink,
                     onCancelUpload = if (message.status == MessageStatus.Sending && !selecting) onDiscard else null,
                 )
             }
@@ -150,6 +153,7 @@ private fun Bubble(
     onPlayVoice: (fileId: Int, path: String) -> Unit,
     onVideoNoteSound: () -> Unit,
     onOpenReply: (Long) -> Unit,
+    onOpenLink: (MediaLink) -> Unit,
     onCancelUpload: (() -> Unit)?,
     selecting: Boolean,
 ) {
@@ -252,6 +256,9 @@ private fun Bubble(
                     },
                 )
             }
+        }
+        message.link?.let { card ->
+            LinkCardView(card, onOpen = { onOpenLink(card.link) }, onLongClick = onLongClick, modifier = textPadding.padding(top = 6.dp, bottom = 2.dp))
         }
         if (message.reactions.isNotEmpty()) {
             FlowRow(

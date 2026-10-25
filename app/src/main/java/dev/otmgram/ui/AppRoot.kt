@@ -1,5 +1,6 @@
 package dev.otmgram.ui
 
+import android.net.Uri
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -28,6 +29,7 @@ import dev.otmgram.ui.auth.AuthScreen
 import dev.otmgram.ui.auth.LoadingScreen
 import dev.otmgram.ui.chat.ChatScreen
 import dev.otmgram.ui.chats.ChatListScreen
+import dev.otmgram.ui.embed.EmbedPlayerScreen
 import dev.otmgram.ui.folder.ChangeFolderScreen
 import dev.otmgram.ui.folder.FolderPickerScreen
 import dev.otmgram.ui.map.MapScreen
@@ -102,7 +104,11 @@ private fun MainNavHost(openChatId: Long?) {
                 onOpenMedia = { chatId, messageId -> navController.navigate("media/$chatId/$messageId") },
                 onRecordVideoNote = { chatId -> navController.navigate("videoNote/$chatId") },
                 onOpenMap = { chatId, messageId -> navController.navigate("map/$chatId/$messageId") },
+                onOpenEmbed = { url -> navController.navigate("embed?url=${Uri.encode(url)}") },
             )
+        }
+        composable("embed?url={url}", arguments = listOf(navArgument("url") { type = NavType.StringType })) { entry ->
+            EmbedPlayerScreen(entry.arguments?.getString("url").orEmpty(), onBack = navController::popBackStack)
         }
         composable(
             "map/{chatId}/{messageId}",

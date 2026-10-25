@@ -64,6 +64,8 @@ Links, @mentions and "forwarded from" headers do not navigate to chats: web link
 - Inline videos use hardware decoders first and fall back to software ones when one fails (as the emulator's does)
 - Stickers: WEBP, TGS (Lottie, merge paths enabled); WEBM shows its still thumbnail (alpha video unsupported by Android decoders)
 - Chat photos as avatars in the chat list
+- Links to YouTube (videos, Shorts, youtu.be), Instagram (posts, reels) and TikTok (videos, short links) get a card under the text: with the title and picture of Telegram's preview when the message has one, a plain card otherwise (senders' apps often send these without a preview, and Telegram's servers often can't fetch them either). A tap plays it full screen in the site's own embed player (a WebView): youtube-nocookie, instagram.com/p/…/embed, TikTok's player/v1 (short links followed first). No login. Nothing reaches the site before the tap; its cookies and storage are dropped on leaving; navigating away from the player opens the site's app or the browser, as does "Open in app". YouTube plays only inside a page of the app's (the embedder it requires). Rotating keeps it playing (the activity handles rotation itself)
+- Not verified: TikTok playback (rate-limited from the test machine)
 - Downloads: photos, video circles, stickers, avatars and video thumbnails automatically once their message is on screen; videos, voice messages and GIFs on tap (voice then plays, a GIF then loops in place; tap again to stop the download); files on tap. Cache limit in settings (`optimizeStorage`)
 
 ### M5 — Media sending

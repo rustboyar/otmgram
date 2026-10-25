@@ -101,6 +101,7 @@ fun ChatScreen(
     onOpenMedia: (chatId: Long, messageId: Long) -> Unit,
     onRecordVideoNote: (chatId: Long) -> Unit,
     onOpenMap: (chatId: Long, messageId: Long) -> Unit,
+    onOpenEmbed: (url: String) -> Unit,
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
     val header by viewModel.header.collectAsStateWithLifecycle()
@@ -297,6 +298,7 @@ fun ChatScreen(
                                 onPlayVoice = { fileId, path -> viewModel.playVoice(message, fileId, path) },
                                 onVideoNoteSound = { viewModel.markContentOpened(message) },
                                 onOpenReply = viewModel::jumpTo,
+                                onOpenLink = { onOpenEmbed(it.url) },
                                 highlight = if (searching && message.id in resultIds) {
                                     Highlight(search.query.orEmpty(), current = message.id == currentMatch)
                                 } else {

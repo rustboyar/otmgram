@@ -100,6 +100,8 @@ data class MessageItem(
     val reactions: List<ReactionChip>,
     /** Links and formatting in [text]. */
     val spans: List<TextSpan> = emptyList(),
+    /** A YouTube, Instagram or TikTok link in [text], played in the app. */
+    val link: LinkCard? = null,
 )
 
 /** What the input bar does with the next send. */
