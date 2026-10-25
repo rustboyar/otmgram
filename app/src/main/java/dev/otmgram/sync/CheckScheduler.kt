@@ -14,6 +14,7 @@ import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TdException
 import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.data.AppSettings
+import dev.otmgram.data.NotificationMode
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.StorageRepository
 import dev.otmgram.di.ApplicationScope
@@ -30,8 +31,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Runs [CheckWorker] periodically while logged in with a folder picked, and records when
- * the app is open, so messages seen there aren't notified about.
+ * Sets up how messages arrive while logged in with a folder picked, as the settings say:
+ * push ([PushRegistration]) with an hourly [CheckWorker] as backup, or only the check at
+ * its interval, or nothing. Also records when the app is open, so messages seen there
+ * aren't notified about.
  */
 @Singleton
 class CheckScheduler @Inject constructor(
@@ -39,21 +42,37 @@ class CheckScheduler @Inject constructor(
     private val td: TelegramClient,
     private val folders: FolderRepository,
     private val notifications: NotificationCenter,
+    private val push: PushRegistration,
     private val settings: AppSettings,
     private val storage: StorageRepository,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
     fun start() {
         scope.launch {
-            combine(td.authorizationState, folders.selectedFolderId, settings.checkInterval) { auth, folder, interval ->
+            combine(
+                td.authorizationState, folders.selectedFolderId, settings.notificationMode, settings.checkInterval,
+            ) { auth, folder, mode, interval ->
                 when (auth) {
-                    is TdApi.AuthorizationStateReady -> interval.minutes.takeIf { folder != null } ?: OFF
+                    is TdApi.AuthorizationStateReady -> when {
+                        folder == null -> OFF
+                        mode == NotificationMode.Push -> Delivery(push = true, checkMinutes = PUSH_BACKUP_MINUTES)
+                        mode == NotificationMode.Interval -> Delivery(push = false, checkMinutes = interval.minutes)
+                        else -> OFF
+                    }
                     is TdApi.AuthorizationStateWaitPhoneNumber, is TdApi.AuthorizationStateLoggingOut -> OFF
                     // Starting up (possibly for a check right now): don't decide yet.
                     else -> null
                 }
-            }.filterNotNull().distinctUntilChanged().collect { minutes ->
-                if (minutes == OFF) unschedule() else schedule(minutes)
+            }.filterNotNull().distinctUntilChanged().collect { delivery ->
+                delivery.checkMinutes?.let(::schedule) ?: unschedule()
+                if (delivery.push) {
+                    // Each start: the push app answers with the endpoint, and Telegram is
+                    // told again once a day.
+                    if (!push.register()) AppLog.i("CheckScheduler", "Push: no push app picked")
+                    push.tellTelegram()
+                } else {
+                    push.unregister()
+                }
             }
         }
         // Keep downloads within the limit: once per start, and after each check.
@@ -107,11 +126,17 @@ class CheckScheduler @Inject constructor(
         notifications.clear()
     }
 
+    /** How messages arrive: by push, by checking every [checkMinutes] (null: never), or both. */
+    private data class Delivery(val push: Boolean, val checkMinutes: Long?)
+
     private companion object {
         const val WORK_NAME = "check_new_messages"
         const val MARK_SEEN_TIMEOUT_MS = 10_000L
 
-        /** Not checking: logged out, no folder, or checks turned off. */
-        const val OFF = 0L
+        /** With push, a check now and then still catches what a push app missed. */
+        const val PUSH_BACKUP_MINUTES = 60L
+
+        /** Logged out, no folder, or notifications turned off. */
+        val OFF = Delivery(push = false, checkMinutes = null)
     }
 }

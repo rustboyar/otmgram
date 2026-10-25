@@ -13,13 +13,22 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** How often to check for new messages; [minutes] is null for never. */
-enum class CheckInterval(val minutes: Long?, @StringRes val label: Int) {
+/** How new messages reach the phone, for notifications. */
+enum class NotificationMode(@StringRes val label: Int) {
+    /** Telegram pushes them through a push app (UnifiedPush); a check every hour backs it up. */
+    Push(R.string.mode_push),
+
+    /** The app checks every [CheckInterval]. */
+    Interval(R.string.mode_interval),
+    Off(R.string.mode_off),
+}
+
+/** How often to check for new messages, without push. */
+enum class CheckInterval(val minutes: Long, @StringRes val label: Int) {
     Minutes15(15, R.string.interval_15_min),
     Minutes30(30, R.string.interval_30_min),
     Hour1(60, R.string.interval_1_hour),
     Hours3(180, R.string.interval_3_hours),
-    Never(null, R.string.interval_never),
 }
 
 /** How much downloaded media to keep; [bytes] is null for no limit. */
@@ -30,6 +39,7 @@ enum class CacheLimit(val bytes: Long?, @StringRes val label: Int) {
     None(null, R.string.cache_no_limit),
 }
 
+private val NOTIFICATION_MODE = stringPreferencesKey("notification_mode")
 private val CHECK_INTERVAL = stringPreferencesKey("check_interval")
 private val COMPRESS = booleanPreferencesKey("compress_by_default")
 private val CACHE_LIMIT = stringPreferencesKey("cache_limit")
@@ -41,6 +51,12 @@ private val NOTIFICATIONS_ASKED = booleanPreferencesKey("notification_permission
 class AppSettings @Inject constructor(
     @SettingsStore private val settings: DataStore<Preferences>,
 ) {
+    /** Earlier versions had only intervals, "Never" among them. */
+    val notificationMode: Flow<NotificationMode> = settings.data.map { prefs ->
+        NotificationMode.entries.find { it.name == prefs[NOTIFICATION_MODE] }
+            ?: if (prefs[CHECK_INTERVAL] == "Never") NotificationMode.Off else NotificationMode.Interval
+    }
+
     val checkInterval: Flow<CheckInterval> = settings.data.map { prefs ->
         CheckInterval.entries.find { it.name == prefs[CHECK_INTERVAL] } ?: CheckInterval.Minutes15
     }
@@ -64,6 +80,10 @@ class AppSettings @Inject constructor(
 
     suspend fun setShowMessageText(show: Boolean) {
         settings.edit { it[MESSAGE_TEXT] = show }
+    }
+
+    suspend fun setNotificationMode(mode: NotificationMode) {
+        settings.edit { it[NOTIFICATION_MODE] = mode.name }
     }
 
     suspend fun setCheckInterval(interval: CheckInterval) {

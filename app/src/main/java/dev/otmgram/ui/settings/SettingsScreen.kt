@@ -1,6 +1,9 @@
 package dev.otmgram.ui.settings
 
+import android.app.Activity
 import android.content.Context
+import android.content.pm.PackageManager
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,6 +46,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -59,10 +63,14 @@ import dev.otmgram.data.CacheLimit
 import dev.otmgram.data.CheckInterval
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.MAX_HEADER_NAME
+import dev.otmgram.data.NotificationMode
 import dev.otmgram.data.StorageKind
 import dev.otmgram.data.StorageRepository
 import dev.otmgram.data.StorageUsage
 import dev.otmgram.data.limitTo
+import dev.otmgram.sync.PushRegistration
+import dev.otmgram.sync.PushState
+import dev.otmgram.sync.PushStatus
 import dev.otmgram.ui.chat.SelectionMark
 import dev.otmgram.ui.media.formatSize
 import dev.otmgram.ui.theme.Card
@@ -77,12 +85,14 @@ import dev.otmgram.ui.theme.ScreenBar
 import dev.otmgram.ui.theme.SoftButton
 import dev.otmgram.ui.theme.TextAction
 import dev.otmgram.ui.theme.paper
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
@@ -95,6 +105,14 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
     val me by viewModel.me.collectAsStateWithLifecycle()
     val folderName by viewModel.folderName.collectAsStateWithLifecycle()
     val interval by viewModel.checkInterval.collectAsStateWithLifecycle()
+    val mode by viewModel.notificationMode.collectAsStateWithLifecycle()
+    val push by viewModel.pushLine.collectAsStateWithLifecycle()
+    val activity = LocalActivity.current
+    // Back from installing a push app, or from picking one in it.
+    LifecycleResumeEffect(Unit) {
+        viewModel.refreshPush()
+        onPauseOrDispose {}
+    }
     val compress by viewModel.compressByDefault.collectAsStateWithLifecycle()
     val showText by viewModel.showMessageText.collectAsStateWithLifecycle()
     val cacheLimit by viewModel.cacheLimit.collectAsStateWithLifecycle()
@@ -154,14 +172,15 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                 }
             }
 
-            Card {
-                Title(stringResource(R.string.interval_title), stringResource(R.string.interval_description))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CheckInterval.entries.forEach { option ->
-                        Chip(stringResource(option.label), option == interval, { viewModel.setCheckInterval(option) }, Modifier.testTag("interval-${option.name}"))
-                    }
-                }
-            }
+            NotificationsCard(
+                mode = mode,
+                interval = interval,
+                push = push,
+                onMode = viewModel::setNotificationMode,
+                onInterval = viewModel::setCheckInterval,
+                onPickPushApp = { activity?.let(viewModel::pickPushApp) },
+                onRetryPush = viewModel::retryPush,
+            )
 
             Card {
                 Row(
@@ -346,6 +365,8 @@ class SettingsViewModel @Inject constructor(
     private val folders: FolderRepository,
     private val settings: AppSettings,
     private val storage: StorageRepository,
+    private val push: PushRegistration,
+    pushState: PushState,
 ) : ViewModel() {
 
     private val _me = MutableStateFlow<Account?>(null)
@@ -357,6 +378,14 @@ class SettingsViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val checkInterval = settings.checkInterval.stateIn(viewModelScope, SharingStarted.Eagerly, CheckInterval.Minutes15)
+    val notificationMode = settings.notificationMode.stateIn(viewModelScope, SharingStarted.Eagerly, NotificationMode.Interval)
+
+    /** Bumped to read the installed push apps again. */
+    private val pushApps = MutableStateFlow(0)
+
+    val pushLine: StateFlow<PushLine?> = combine(pushState.status, pushApps) { status, _ -> pushLine(status) }
+        .flowOn(Dispatchers.IO)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val compressByDefault = settings.compressByDefault.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val showMessageText = settings.showMessageText.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val cacheLimit = settings.cacheLimit.stateIn(viewModelScope, SharingStarted.Eagerly, CacheLimit.Gb2)
@@ -398,6 +427,39 @@ class SettingsViewModel @Inject constructor(
     fun resetHeader() {
         header = folderName.value.orEmpty()
         viewModelScope.launch { folders.setHeaderName(null) }
+    }
+
+    fun setNotificationMode(mode: NotificationMode) {
+        viewModelScope.launch { settings.setNotificationMode(mode) }
+    }
+
+    /** Reads the push apps again, and asks the push app again: it may just have been installed or set up. */
+    fun refreshPush() {
+        pushApps.value++
+        if (notificationMode.value == NotificationMode.Push) push.register()
+    }
+
+    fun pickPushApp(activity: Activity) = push.pick(activity)
+
+    fun retryPush() {
+        push.register()
+    }
+
+    private fun pushLine(status: PushStatus): PushLine {
+        val apps = push.distributors()
+        if (apps.isEmpty()) return PushLine.GetApp
+        val app = push.savedDistributor()?.let(::appName) ?: return if (apps.size == 1) PushLine.Connecting(appName(apps.single())) else PushLine.Pick
+        return when {
+            status.failed != null -> PushLine.Failed(app)
+            !status.hasEndpoint || status.registeredAt == null -> PushLine.Connecting(app)
+            else -> PushLine.Working(app, status.lastPushAt)
+        }
+    }
+
+    private fun appName(packageName: String): String = try {
+        context.packageManager.getApplicationInfo(packageName, 0).loadLabel(context.packageManager).toString()
+    } catch (e: PackageManager.NameNotFoundException) {
+        packageName
     }
 
     fun setCheckInterval(interval: CheckInterval) {

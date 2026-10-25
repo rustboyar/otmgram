@@ -30,6 +30,13 @@ class FakeTelegram : TelegramClient {
         reconnects++
     }
 
+    /** How often [disconnectInBackground] was called. */
+    var disconnects = 0
+
+    override fun disconnectInBackground() {
+        disconnects++
+    }
+
     /** Every request sent, in order. */
     val requests = mutableListOf<TdApi.Function<*>>()
 

@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -127,8 +128,33 @@ class TdClient @Inject constructor(
      * checks still reports [connectionState] as ready from before, over dead connections.
      */
     override fun reconnect() {
+        disconnected = false
         sendIgnoringResult(TdApi.SetNetworkType(context.tdNetworkType()))
     }
+
+    /** Closed by [disconnectInBackground]; network changes don't reopen them then. */
+    @Volatile
+    private var disconnected = false
+
+    private val main = Handler(Looper.getMainLooper())
+
+    /**
+     * Closes TDLib's connections if the app is in the background, unless a live location is
+     * being shared. Android soon freezes a process in the background, with its connections
+     * still open; Telegram then sends new messages there, to a process that can't read them,
+     * instead of pushing them. [reconnect], or the app coming back, opens them again.
+     */
+    override fun disconnectInBackground() {
+        main.post {
+            if (ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return@post
+            if (!_activeLiveLocations.value.isNullOrEmpty()) return@post
+            disconnected = true
+            sendIgnoringResult(TdApi.SetNetworkType(TdApi.NetworkTypeNone()))
+            AppLog.i(TAG, "Disconnected in the background")
+        }
+    }
+
+    private val disconnectLater = Runnable { disconnectInBackground() }
 
     private var watchingNetwork = false
 
@@ -136,11 +162,11 @@ class TdClient @Inject constructor(
      * Tells TDLib when the network changes, so it reconnects right away rather than on a
      * timeout; and after the app was away for a while, as its connections may have died
      * meanwhile (Doze, a frozen process) and TDLib would wait long before trying again.
+     * Disconnects a little after the app leaves the screen ([disconnectInBackground]).
      */
     private fun watchNetwork() {
         if (watchingNetwork) return
         watchingNetwork = true
-        val main = Handler(Looper.getMainLooper())
         context.getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
             private var network: Network? = null
             private var type: TdApi.NetworkType = TdApi.NetworkTypeNone()
@@ -155,7 +181,7 @@ class TdClient @Inject constructor(
                 if (network == this.network && type.constructor == this.type.constructor) return
                 this.network = network
                 this.type = type
-                sendIgnoringResult(TdApi.SetNetworkType(type))
+                if (!disconnected) sendIgnoringResult(TdApi.SetNetworkType(type))
             }
 
             override fun onLost(network: Network) {
@@ -168,7 +194,7 @@ class TdClient @Inject constructor(
             // Battery or data saver cut the app off while in the background: once it's let
             // through again, there's no point waiting for TDLib's next try.
             override fun onBlockedStatusChanged(network: Network, blocked: Boolean) {
-                if (!blocked && network == this.network) sendIgnoringResult(TdApi.SetNetworkType(type))
+                if (!blocked && network == this.network && !disconnected) sendIgnoringResult(TdApi.SetNetworkType(type))
             }
         }, main)
         main.post {
@@ -177,10 +203,12 @@ class TdClient @Inject constructor(
 
                 override fun onStop(owner: LifecycleOwner) {
                     stoppedAt = SystemClock.elapsedRealtime()
+                    main.postDelayed(disconnectLater, BACKGROUND_DISCONNECT_MS)
                 }
 
                 override fun onStart(owner: LifecycleOwner) {
-                    if (stoppedAt != 0L && SystemClock.elapsedRealtime() - stoppedAt > AWAY_RECONNECT_MS) reconnect()
+                    main.removeCallbacks(disconnectLater)
+                    if (disconnected || stoppedAt != 0L && SystemClock.elapsedRealtime() - stoppedAt > AWAY_RECONNECT_MS) reconnect()
                 }
             })
         }
@@ -281,5 +309,11 @@ class TdClient @Inject constructor(
 
         /** Away longer than this, the connections are reopened when the app comes back. */
         const val AWAY_RECONNECT_MS = 60_000L
+
+        /**
+         * Out of sight this long, TDLib disconnects: time to finish sending something, and
+         * before Android freezes the process (about 10 s).
+         */
+        const val BACKGROUND_DISCONNECT_MS = 5_000L
     }
 }

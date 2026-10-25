@@ -1,10 +1,17 @@
 package dev.otmgram.sync
 
 import android.content.Context
+import android.os.Build
 import androidx.hilt.work.HiltWorker
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.work.Constraints
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
+import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -32,6 +39,7 @@ class CheckWorker @AssistedInject constructor(
     private val td: TelegramClient,
     private val folders: FolderRepository,
     private val notifications: NotificationCenter,
+    private val push: PushRegistration,
     private val storage: StorageRepository,
 ) : CoroutineWorker(context, params) {
 
@@ -58,28 +66,50 @@ class CheckWorker @AssistedInject constructor(
         // "ready" may be left over from before the process was frozen; the reconnect shows
         // as another state, unless it's over before this looks.
         td.reconnect()
-        withTimeoutOrNull(RECONNECT_TIMEOUT_MS) { td.connectionState.first { it !is TdApi.ConnectionStateReady } }
-        withTimeoutOrNull(SYNC_TIMEOUT_MS) { td.connectionState.first { it is TdApi.ConnectionStateReady } }
-            ?: return Result.success().also { AppLog.w(TAG, "Skipped: no connection within ${SYNC_TIMEOUT_MS / 1000} s") }
-        // TDLib holds new notifications back for a moment, in case they're read elsewhere.
-        delay(PENDING_START_MS)
-        withTimeoutOrNull(PENDING_TIMEOUT_MS) { notifications.havePending.first { !it } }
-            ?: AppLog.w(TAG, "Notifications still pending after ${PENDING_TIMEOUT_MS / 1000} s")
         try {
-            storage.applyLimit()
-        } catch (e: TdException) {
-            AppLog.w(TAG, "Storage limit failed", e)
+            withTimeoutOrNull(RECONNECT_TIMEOUT_MS) { td.connectionState.first { it !is TdApi.ConnectionStateReady } }
+            withTimeoutOrNull(SYNC_TIMEOUT_MS) { td.connectionState.first { it is TdApi.ConnectionStateReady } }
+                ?: return Result.success().also { AppLog.w(TAG, "Skipped: no connection within ${SYNC_TIMEOUT_MS / 1000} s") }
+            // TDLib holds new notifications back for a moment, in case they're read elsewhere.
+            delay(PENDING_START_MS)
+            withTimeoutOrNull(PENDING_TIMEOUT_MS) { notifications.havePending.first { !it } }
+                ?: AppLog.w(TAG, "Notifications still pending after ${PENDING_TIMEOUT_MS / 1000} s")
+            push.tellTelegram() // Once a day.
+            try {
+                storage.applyLimit()
+            } catch (e: TdException) {
+                AppLog.w(TAG, "Storage limit failed", e)
+            }
+        } finally {
+            // So that the next message comes by push.
+            td.disconnectInBackground()
         }
         AppLog.i(TAG, "Check done")
         return Result.success()
     }
 
-    private companion object {
-        const val TAG = "CheckWorker"
-        const val START_TIMEOUT_MS = 20_000L
-        const val RECONNECT_TIMEOUT_MS = 5_000L
-        const val SYNC_TIMEOUT_MS = 60_000L
-        const val PENDING_START_MS = 2_000L
-        const val PENDING_TIMEOUT_MS = 45_000L
+    companion object {
+        private const val TAG = "CheckWorker"
+        private const val NOW_WORK_NAME = "check_now"
+
+        /**
+         * Checks right away, e.g. after a push: expedited, so it runs even when the app may
+         * not use the network in the background. One at a time; a running check gets what
+         * a second push was about too.
+         */
+        fun runNow(context: Context) {
+            val request = OneTimeWorkRequestBuilder<CheckWorker>()
+                .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                // Before Android 12 expedited work needs a notification of its own.
+                .apply { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST) }
+                .build()
+            WorkManager.getInstance(context).enqueueUniqueWork(NOW_WORK_NAME, ExistingWorkPolicy.KEEP, request)
+        }
+
+        private const val START_TIMEOUT_MS = 20_000L
+        private const val RECONNECT_TIMEOUT_MS = 5_000L
+        private const val SYNC_TIMEOUT_MS = 60_000L
+        private const val PENDING_START_MS = 2_000L
+        private const val PENDING_TIMEOUT_MS = 45_000L
     }
 }

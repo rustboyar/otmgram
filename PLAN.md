@@ -13,7 +13,7 @@ A minimal Android Telegram client that only shows chats from one chat folder, to
 - Sending compresses photos and videos by default (toggle per send; files keep the original)
 - Location: view received (static and live) locations, send current location, share live location
 - Media auto-download: photos, stickers, circles, avatars and thumbnails when shown; videos, voice messages, GIFs and files on tap (bounded by a cache size limit)
-- Notifications for folder chats only, via a periodic background check (no push)
+- Notifications for folder chats only: instantly through UnifiedPush (a push app such as ntfy), with a periodic background check as backup
 - Always appear offline: the `online` option is never set to true
 - Personal sideload APK, own `api_id` / `api_hash`
 
@@ -88,10 +88,14 @@ Links, @mentions and "forwarded from" headers do not navigate to chats: web link
 - Shown: only the folder's chats; nothing while the app is open (opening it clears them); nothing that was in the folder when the app was last open (per chat message ids, recorded on start and stop)
 - TDLib keeps at most 25 groups, counting chats outside the folder, which this app never reads: a folder chat's notification pushed out that way stays until it's read
 - One notification per chat (`MessagesNotification`), bundled when there are several: the sender and text of each message, or with text off only the chat and "N new messages". Each new message alerts once (the newest alerted notification id is stored, as TDLib's ids persist); edits and removals are quiet. Tap opens the chat over the list. No actions (reply, mark as read): not wanted
-- Delivery: notifications come while the process runs. In the background Android soon blocks the app's network, so a periodic check (`CheckWorker`, every 15 min by default, requires network) reconnects TDLib and waits for its pending notifications; the account stays offline. The app also tells TDLib about network changes
+- Delivery: notifications come while the process runs. In the background Android soon blocks the app's network, so a check (`CheckWorker`, requires network) reconnects TDLib and waits for its pending notifications; the account stays offline. The app also tells TDLib about network changes
+- Three modes (Settings): Instant, Periodic (the default), Off; older installs whose interval was "never" start Off
+- Instant (`sync/PushRegistration`): UnifiedPush, through a push app on the phone (ntfy, from F-Droid or Play). The app asks it for an endpoint and registers it with Telegram as "Simple Push": Telegram pings it on each new message with nothing but a number, the push app wakes the app (`PushEventService`), and an expedited check fetches the message. A backup check runs every hour, and Telegram is told the endpoint again once a day
+- Telegram pushes to only one registration per session (the oldest, in testing), so the app keeps exactly one. Web Push isn't used: Telegram encrypts it in an old scheme whose keys travel in HTTP headers, which push apps drop
+- Telegram doesn't push while the session looks connected, so TDLib disconnects 5 s after the app leaves the screen and after each background check (`TelegramClient.disconnectInBackground`), unless a live location is being shared; otherwise Android freezes the process with its connections open
+- Settings show the push app's state: get ntfy (none installed), pick one (several), connecting, failed (with Try again), or working with the time of the last push. ntfy has to be opened once after installing (Android sends nothing to an app never opened) and allowed to run in the background (it asks)
+- Periodic: every 15 min / 30 min / 1 h / 3 h. Android Doze may delay checks while the phone is idle
 - Debug builds: `adb shell am broadcast -n dev.otmgram/.debug.RunCheckReceiver` runs the check now
-- Android Doze may delay checks beyond 15 min while the phone is idle
-- Interval setting: M10
 - Message text in notifications is off by default, so nothing readable reaches the lock screen whatever Android's settings. With it on, the lock screen gets a version without text or names; a chat whose previews are off in Telegram never shows text
 
 ### M8 — Compression and files
@@ -109,7 +113,7 @@ Links, @mentions and "forwarded from" headers do not navigate to chats: web link
 - Came with the design: Settings screen (account, log out; ⋮ opens it), offline/connecting line, mute icon, folder chat counts, code boxes with resend timer, show-password, chat subtitle (members, last seen), "N new since you left", postmark read marks, failed messages with Retry/Delete, floating message menu with Copy text and Select, multi-select with Forward/Delete, find-in-chat stepping through highlighted matches, attach sheet (voice moved there; the round button records circles), location sheet, full-screen send preview, viewer with sender, time, caption and Save, circle camera with progress ring and camera switch, map card with "Open in another app", sunrise launcher icon
 
 ### M10 — Polish
-- Settings (done): name on top of the chat list (display only, up to 20 characters, shrinks to fit one line, empty allowed, back to the folder's name; forgotten on logout), how often to check (15 min / 30 min / 1 h / 3 h / never, as the periodic work's interval), Compress on by default or not, storage usage by kind of file, cache limit (500 MB / 1 GB / 2 GB / none; `optimizeStorage` by size at start and after each check), clear downloaded media
+- Settings (done): name on top of the chat list (display only, up to 20 characters, shrinks to fit one line, empty allowed, back to the folder's name; forgotten on logout), how notifications arrive (M7), Compress on by default or not, storage usage by kind of file, cache limit (500 MB / 1 GB / 2 GB / none; `optimizeStorage` by size at start and after each check), clear downloaded media
 - From the design (done): estimated size after compression in the send preview, swiping through an album in the viewer ("1 of 3"), distance on the map to someone else's location, a map of where you are in the location sheet, playback ring on video circles, upload progress with cancel on photos, videos and files being sent
 - From the design, not built: forwarding from the viewer, a "my location" button on the map
 - Error states beyond offline
@@ -122,7 +126,7 @@ Links, @mentions and "forwarded from" headers do not navigate to chats: web link
 
 ## Structure
 
-- `core` (TDLib client, media, location, logging), `data` (repositories), `sync` (background checks), `ui` (screens and their view models). Everything takes `TelegramClient` (requests, updates, the states the app watches), not `TdClient`, which only app start uses
+- `core` (TDLib client, media, location, logging), `data` (repositories), `sync` (notifications, push and background checks), `ui` (screens and their view models). Everything takes `TelegramClient` (requests, updates, the states the app watches), not `TdClient`, which only app start uses
 - `NotificationCenter` decides from TDLib's notifications; `MessagesNotification` shows it, behind `NotificationDisplay`
 - Composables take app types only (`FileState`, `Sticker`, `Account`, thumbnails as JPEG bytes); view models are where TDLib types turn into those
 - TDLib's message objects are mutable and can't be copied; the open chat changes them in place and `ChatHistory.version` marks each change, before they become immutable `MessageItem`s

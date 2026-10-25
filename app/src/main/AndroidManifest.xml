@@ -57,6 +57,15 @@
                 tools:node="remove" />
         </provider>
 
+        <!-- Endpoints and pushes from the push app (UnifiedPush). -->
+        <service
+            android:name=".sync.PushEventService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="org.unifiedpush.android.connector.PUSH_EVENT" />
+            </intent-filter>
+        </service>
+
         <service
             android:name=".core.location.LiveLocationService"
             android:exported="false"

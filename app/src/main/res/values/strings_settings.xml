@@ -6,7 +6,6 @@
     <string name="interval_30_min">30 min</string>
     <string name="interval_1_hour">1 hour</string>
     <string name="interval_3_hours">3 hours</string>
-    <string name="interval_never">Never</string>
     <string name="cache_500_mb">500 MB</string>
     <string name="cache_1_gb">1 GB</string>
     <string name="cache_2_gb">2 GB</string>
@@ -29,8 +28,6 @@
     <string name="header_description">Shown over the chat list. Leave it empty for no name. The folder in Telegram keeps its name.</string>
     <string name="header_none">No name</string>
     <string name="header_reset">Use the folder\'s name, %1$s</string>
-    <string name="interval_title">Check for new messages</string>
-    <string name="interval_description">Notifications arrive at most this often.</string>
     <string name="message_text_title">Show message text</string>
     <string name="message_text_on">Notifications show what was written. Android shows it on the lock screen too, unless you hide sensitive content there.</string>
     <string name="message_text_off">Notifications only say who wrote, so no text reaches the lock screen.</string>
@@ -58,4 +55,22 @@
     <string name="logs_share_text">The app\'s log has no message text, names or phone numbers. TDLib\'s log helps with connection and sync problems, but it can contain all of these.</string>
     <string name="logs_share_confirm">Share</string>
     <string name="logs_with_tdlib">Include TDLib\'s log</string>
+
+    <!-- How messages arrive -->
+    <string name="notifications_title">Notifications</string>
+    <string name="mode_push">Instant</string>
+    <string name="mode_interval">Periodic</string>
+    <string name="mode_off">Off</string>
+    <string name="mode_push_description">New messages arrive within seconds, through a push app such as ntfy. The app also checks every hour, in case a push gets lost.</string>
+    <string name="mode_interval_description">The app checks for new messages at most this often.</string>
+    <string name="mode_off_description">No notifications. New messages show when you open the app.</string>
+    <string name="push_get_app">Needs a push app, such as ntfy. Install it, then come back here.</string>
+    <string name="push_get_app_action">Get ntfy</string>
+    <string name="push_pick">Several push apps are installed.</string>
+    <string name="push_pick_action">Choose one</string>
+    <string name="push_connecting">Connecting to %1$s…</string>
+    <string name="push_working">Through %1$s · no push yet</string>
+    <string name="push_last">Through %1$s · last push %2$s</string>
+    <string name="push_failed">%1$s couldn\'t register.</string>
+    <string name="push_retry">Try again</string>
 </resources>

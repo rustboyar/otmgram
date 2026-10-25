@@ -9,7 +9,7 @@ import dev.otmgram.core.launchLogged
 import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.data.AppSettings
 import dev.otmgram.data.ChatRepository
-import dev.otmgram.data.CheckInterval
+import dev.otmgram.data.NotificationMode
 import dev.otmgram.data.FolderChat
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.ui.summary
@@ -98,7 +98,7 @@ class ChatListViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Whether the app checks for new messages, so blocked notifications are worth a word. */
-    val notifies: StateFlow<Boolean> = settings.checkInterval.map { it != CheckInterval.Never }
+    val notifies: StateFlow<Boolean> = settings.notificationMode.map { it != NotificationMode.Off }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     fun notificationsAsked() {

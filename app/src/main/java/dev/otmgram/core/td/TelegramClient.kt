@@ -27,6 +27,9 @@ interface TelegramClient {
     /** Makes TDLib reopen its connections now, e.g. after the process was frozen. */
     fun reconnect()
 
+    /** Closes the connections if the app is in the background, so that Telegram pushes. */
+    fun disconnectInBackground()
+
     /** Sends [function] and returns its result, throwing [TdException] on error. */
     suspend fun <R : TdApi.Object> send(function: TdApi.Function<R>): R
 
