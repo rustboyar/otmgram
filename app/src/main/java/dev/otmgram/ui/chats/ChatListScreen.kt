@@ -25,6 +25,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -110,7 +113,12 @@ fun ChatListScreen(
                 },
             )
         }
-        connection?.let { Banner(OtmIcons.Offline, it, Modifier.testTag("connection")) }
+        // Slides in and out rather than pushing the list at once; keeps its text while leaving.
+        var shownConnection by remember { mutableStateOf("") }
+        connection?.let { shownConnection = it }
+        AnimatedVisibility(connection != null, enter = expandVertically(), exit = shrinkVertically()) {
+            Banner(OtmIcons.Offline, shownConnection, Modifier.testTag("connection"))
+        }
         NotificationsCheck(ask = askNotifications, notifies = notifies, onAsked = viewModel::notificationsAsked)
 
         val list = chats

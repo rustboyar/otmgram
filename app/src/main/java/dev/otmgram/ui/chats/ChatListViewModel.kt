@@ -14,6 +14,7 @@ import dev.otmgram.data.FolderChat
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.ui.summary
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
@@ -70,13 +72,19 @@ class ChatListViewModel @Inject constructor(
         all.map { it.toItem(strings) }.filter { it.title.contains(query.trim(), ignoreCase = true) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** What the connection is doing while it isn't ready, or null when it is. */
+    /**
+     * What the connection is doing while it isn't ready, or null when it is. Only after a
+     * moment: most reconnects are over before it would be read, and only move the list.
+     */
     val connection: StateFlow<String?> = td.connectionState.map { state ->
         when (state) {
             is TdApi.ConnectionStateWaitingForNetwork -> strings.get(R.string.connection_waiting)
             is TdApi.ConnectionStateConnecting, is TdApi.ConnectionStateConnectingToProxy -> strings.get(R.string.connection_connecting)
             else -> null
         }
+    }.mapLatest { text ->
+        if (text != null) delay(CONNECTION_SHOWN_AFTER_MS)
+        text
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Whether to ask for the notification permission; null until known. */
@@ -97,6 +105,7 @@ class ChatListViewModel @Inject constructor(
 }
 
 private const val TAG = "ChatList"
+private const val CONNECTION_SHOWN_AFTER_MS = 2_000L
 
 private fun FolderChat.toItem(strings: Strings) = ChatItem(
     id = chat.id,

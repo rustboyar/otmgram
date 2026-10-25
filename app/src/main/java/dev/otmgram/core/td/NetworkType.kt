@@ -8,12 +8,14 @@ import org.drinkless.tdlib.TdApi
 /** The current network, as TDLib names it. */
 internal fun Context.tdNetworkType(): TdApi.NetworkType {
     val manager = getSystemService(ConnectivityManager::class.java)
-    val capabilities = manager.getNetworkCapabilities(manager.activeNetwork) ?: return TdApi.NetworkTypeNone()
-    return when {
-        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> TdApi.NetworkTypeWiFi()
-        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ->
-            if (capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING)) TdApi.NetworkTypeMobile() else TdApi.NetworkTypeMobileRoaming()
-        else -> TdApi.NetworkTypeOther()
-    }
+    return manager.getNetworkCapabilities(manager.activeNetwork).tdNetworkType()
+}
+
+/** A network with these capabilities, as TDLib names it; none for null. */
+internal fun NetworkCapabilities?.tdNetworkType(): TdApi.NetworkType = when {
+    this == null -> TdApi.NetworkTypeNone()
+    hasTransport(NetworkCapabilities.TRANSPORT_WIFI) || hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> TdApi.NetworkTypeWiFi()
+    hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ->
+        if (hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING)) TdApi.NetworkTypeMobile() else TdApi.NetworkTypeMobileRoaming()
+    else -> TdApi.NetworkTypeOther()
 }

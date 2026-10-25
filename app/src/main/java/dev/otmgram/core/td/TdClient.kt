@@ -3,9 +3,14 @@ package dev.otmgram.core.td
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.otmgram.BuildConfig
 import dev.otmgram.core.log.AppLog
@@ -127,15 +132,58 @@ class TdClient @Inject constructor(
 
     private var watchingNetwork = false
 
-    /** Tells TDLib when the network changes, so it reconnects right away rather than on a timeout. */
+    /**
+     * Tells TDLib when the network changes, so it reconnects right away rather than on a
+     * timeout; and after the app was away for a while, as its connections may have died
+     * meanwhile (Doze, a frozen process) and TDLib would wait long before trying again.
+     */
     private fun watchNetwork() {
         if (watchingNetwork) return
         watchingNetwork = true
+        val main = Handler(Looper.getMainLooper())
         context.getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: Network) = reconnect()
+            private var network: Network? = null
+            private var type: TdApi.NetworkType = TdApi.NetworkTypeNone()
 
-            override fun onLost(network: Network) = reconnect()
-        })
+            // The type comes with the callback: asking ConnectivityManager here can still
+            // answer with the previous network or none, which left TDLib waiting for a
+            // network that was already there.
+            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+                val type = capabilities.tdNetworkType()
+                // Also called as the signal changes: reconnecting each time would drop
+                // connections that work.
+                if (network == this.network && type.constructor == this.type.constructor) return
+                this.network = network
+                this.type = type
+                sendIgnoringResult(TdApi.SetNetworkType(type))
+            }
+
+            override fun onLost(network: Network) {
+                if (network != this.network) return
+                this.network = null
+                type = TdApi.NetworkTypeNone()
+                sendIgnoringResult(TdApi.SetNetworkType(type))
+            }
+
+            // Battery or data saver cut the app off while in the background: once it's let
+            // through again, there's no point waiting for TDLib's next try.
+            override fun onBlockedStatusChanged(network: Network, blocked: Boolean) {
+                if (!blocked && network == this.network) sendIgnoringResult(TdApi.SetNetworkType(type))
+            }
+        }, main)
+        main.post {
+            ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
+                private var stoppedAt = 0L
+
+                override fun onStop(owner: LifecycleOwner) {
+                    stoppedAt = SystemClock.elapsedRealtime()
+                }
+
+                override fun onStart(owner: LifecycleOwner) {
+                    if (stoppedAt != 0L && SystemClock.elapsedRealtime() - stoppedAt > AWAY_RECONNECT_MS) reconnect()
+                }
+            })
+        }
     }
 
     private fun onUpdate(update: TdApi.Object) {
@@ -230,5 +278,8 @@ class TdClient @Inject constructor(
     private companion object {
         const val TAG = "TdClient"
         const val TDLIB_LOG_BYTES = 2L * 1024 * 1024
+
+        /** Away longer than this, the connections are reopened when the app comes back. */
+        const val AWAY_RECONNECT_MS = 60_000L
     }
 }
