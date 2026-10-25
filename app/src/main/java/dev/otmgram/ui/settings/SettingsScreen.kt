@@ -101,7 +101,7 @@ import javax.inject.Inject
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(onBack: () -> Unit, onChangeFolder: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
     val me by viewModel.me.collectAsStateWithLifecycle()
     val folderName by viewModel.folderName.collectAsStateWithLifecycle()
     val interval by viewModel.checkInterval.collectAsStateWithLifecycle()
@@ -132,13 +132,20 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                         ChatAvatar(account.id, account.name, account.photoFileId, account.minithumbnail)
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(account.name, style = OtmType.Name, color = Otm.Ink)
-                            Text(
-                                listOfNotNull(account.phone, folderName?.let { stringResource(R.string.account_folder, it) }).joinToString(" · "),
-                                style = OtmType.Secondary,
-                                color = Otm.InkSoft,
-                            )
+                            account.phone?.let { Text(it, style = OtmType.Secondary, color = Otm.InkSoft) }
                             Text(stringResource(R.string.account_offline), style = OtmType.Secondary, color = Otm.InkSoft)
                         }
+                    }
+                }
+            }
+
+            folderName?.let { name ->
+                Card {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                            Title(stringResource(R.string.folder_title), stringResource(R.string.folder_card_description, name))
+                        }
+                        TextAction(stringResource(R.string.folder_change), onChangeFolder, Modifier.testTag("changeFolder"))
                     }
                 }
             }

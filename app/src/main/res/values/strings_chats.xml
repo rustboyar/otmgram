@@ -16,7 +16,7 @@
     <string name="folder_choose">Choose one folder</string>
     <string name="folder_missing">The folder you picked no longer exists.</string>
     <string name="folder_none">You have no chat folders yet. Create one in the official Telegram app and it will show up here.</string>
-    <string name="folder_description">Otmgram will show only the chats in it. To pick another folder later, log out and sign in again.</string>
+    <string name="folder_description">Otmgram will show only the chats in it. You can pick another one later in the settings.</string>
     <string name="folder_left_out">Channels and forum topics in the folder are left out.</string>
     <string name="folder_use_this">Use this folder</string>
     <string name="folder_use">Use %1$s</string>
@@ -26,4 +26,8 @@
     <string name="notifications_off">Notifications are off, so new messages won\'t show.</string>
     <string name="notifications_turn_on">Turn on</string>
     <string name="mentions_you">Mentions you</string>
+
+    <!-- Changing the folder, from the settings -->
+    <string name="folder_title">Folder</string>
+    <string name="folder_change_description">Otmgram shows only the chats in it. The folders themselves stay as they are in Telegram.</string>
 </resources>

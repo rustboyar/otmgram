@@ -5,7 +5,7 @@ A minimal Android Telegram client that only shows chats from one chat folder, to
 ## Scope
 
 - Login / logout
-- Chat list = chats of one folder, picked once after login; changing it requires logout
+- Chat list = chats of one folder, picked after login; another one can be picked in Settings
 - Search only within the folder's chats (no global search, no contacts, no "new chat")
 - Chat types: private 1:1 chats and groups (no channels, no forum topics — forum groups are shown as a flat history)
 - Messages: send/receive text, reply, forward (targets limited to folder chats), edit, delete, reactions
@@ -41,7 +41,7 @@ Links, @mentions and "forwarded from" headers do not navigate to chats: web link
 - Logout: `logOut`, wipe TDLib database, stored folder, media cache
 
 ### M2 — Folder + chat list
-- One-time folder picker after login, stored in DataStore
+- Folder picker after login, stored in DataStore; Settings → Folder → Change opens it again
 - `getChats(chatListFolder(id))`, reloaded shortly after any update that affects the list
 - Search: filter the folder's chats by title, locally
 

@@ -28,6 +28,7 @@ import dev.otmgram.ui.auth.AuthScreen
 import dev.otmgram.ui.auth.LoadingScreen
 import dev.otmgram.ui.chat.ChatScreen
 import dev.otmgram.ui.chats.ChatListScreen
+import dev.otmgram.ui.folder.ChangeFolderScreen
 import dev.otmgram.ui.folder.FolderPickerScreen
 import dev.otmgram.ui.map.MapScreen
 import dev.otmgram.ui.media.MediaViewerScreen
@@ -90,7 +91,10 @@ private fun MainNavHost(openChatId: Long?) {
             )
         }
         composable("settings") {
-            SettingsScreen(onBack = navController::popBackStack)
+            SettingsScreen(onBack = navController::popBackStack, onChangeFolder = { navController.navigate("folder") })
+        }
+        composable("folder") {
+            ChangeFolderScreen(onBack = navController::popBackStack)
         }
         composable("chat/{chatId}", arguments = listOf(navArgument("chatId") { type = NavType.LongType })) {
             ChatScreen(

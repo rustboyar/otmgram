@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.otmgram.R
@@ -49,28 +50,58 @@ import dev.otmgram.ui.theme.Hero
 import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmType
 import dev.otmgram.ui.theme.PrimaryButton
+import dev.otmgram.ui.theme.ScreenBar
 import dev.otmgram.ui.theme.paper
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
 
-/** One-time choice of the folder Otmgram shows. Changing it later requires logging out. */
+/** The choice of the folder Otmgram shows, after login (or when it was deleted). */
 @Composable
 fun FolderPickerScreen(
     folders: List<Folder>,
     previousMissing: Boolean,
     viewModel: FolderPickerViewModel = hiltViewModel(),
 ) {
-    var picked by rememberSaveable { mutableStateOf<Int?>(null) }
+    FolderPicker(folders, current = null, previousMissing, onBack = null, onPicked = viewModel::select, viewModel)
+}
+
+/** Another folder, from the settings. */
+@Composable
+fun ChangeFolderScreen(onBack: () -> Unit, viewModel: FolderPickerViewModel = hiltViewModel()) {
+    val folders by viewModel.folders.collectAsStateWithLifecycle(null)
+    val current by viewModel.selectedFolderId.collectAsStateWithLifecycle(null)
+    Column(Modifier.fillMaxSize().paper()) {
+        ScreenBar(stringResource(R.string.folder_title), onBack = onBack)
+        // Loaded before the settings could open this: the chat list needs them.
+        folders?.let { list ->
+            FolderPicker(list, current, previousMissing = false, onBack = onBack, onPicked = { id ->
+                viewModel.select(id)
+                onBack()
+            }, viewModel)
+        }
+    }
+}
+
+@Composable
+private fun FolderPicker(
+    folders: List<Folder>,
+    current: Int?,
+    previousMissing: Boolean,
+    onBack: (() -> Unit)?,
+    onPicked: (Int) -> Unit,
+    viewModel: FolderPickerViewModel,
+) {
+    var picked by rememberSaveable(current) { mutableStateOf(current) }
     LaunchedEffect(folders) { viewModel.loadCounts(folders) }
 
     Column(Modifier.fillMaxSize().paper().verticalScroll(rememberScrollState())) {
-        Hero(150.dp)
+        if (onBack == null) Hero(150.dp) else Spacer(Modifier.height(16.dp))
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text(
+            if (onBack == null) Text(
                 if (previousMissing) stringResource(R.string.folder_choose_another) else stringResource(R.string.folder_choose),
                 style = OtmType.Headline,
                 color = Otm.Ink,
@@ -80,6 +111,7 @@ fun FolderPickerScreen(
                 when {
                     previousMissing -> stringResource(R.string.folder_missing)
                     folders.isEmpty() -> stringResource(R.string.folder_none)
+                    onBack != null -> stringResource(R.string.folder_change_description)
                     else -> stringResource(R.string.folder_description)
                 },
                 style = OtmType.Body,
@@ -102,8 +134,8 @@ fun FolderPickerScreen(
             val folder = folders.find { it.id == picked }
             PrimaryButton(
                 if (folder == null) stringResource(R.string.folder_use_this) else stringResource(R.string.folder_use, folder.name),
-                onClick = { folder?.let { viewModel.select(it.id) } },
-                enabled = folder != null,
+                onClick = { folder?.let { onPicked(it.id) } },
+                enabled = folder != null && (onBack == null || folder.id != current),
                 modifier = Modifier.testTag("confirmFolder"),
             )
         }
@@ -142,9 +174,12 @@ private fun FolderCard(folder: Folder, count: Int?, selected: Boolean, onClick: 
 
 @HiltViewModel
 class FolderPickerViewModel @Inject constructor(
-    private val folders: FolderRepository,
+    private val repository: FolderRepository,
     td: TelegramClient,
 ) : ViewModel() {
+
+    val folders = repository.folders
+    val selectedFolderId = repository.selectedFolderId
 
     /** Chat count per folder id, filled in as they load. */
     val counts = mutableStateMapOf<Int, Int>()
@@ -166,11 +201,11 @@ class FolderPickerViewModel @Inject constructor(
 
     fun loadCounts(list: List<Folder>) {
         list.filter { requested.add(it.id) }.forEach { folder ->
-            viewModelScope.launch { folders.chatCount(folder.id)?.let { counts[folder.id] = it } }
+            viewModelScope.launch { repository.chatCount(folder.id)?.let { counts[folder.id] = it } }
         }
     }
 
     fun select(id: Int) {
-        viewModelScope.launch { folders.selectFolder(id) }
+        viewModelScope.launch { repository.selectFolder(id) }
     }
 }
