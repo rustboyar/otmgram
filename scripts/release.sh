@@ -24,7 +24,8 @@ version="${1:-}"
 [[ "$version" =~ ^([0-9]+)\.([0-9]|[1-9][0-9])\.([0-9]|[1-9][0-9])$ ]] || fail "usage: scripts/release.sh MAJOR.MINOR.PATCH (minor and patch below 100)"
 code() { IFS=. read -r major minor patch <<<"$1"; echo $((major * 10000 + minor * 100 + patch)); }
 current=$(sed -n 's/^otmgram.version=//p' gradle.properties)
-[ "$(code "$version")" -gt "$(code "$current")" ] || fail "$version isn't newer than $current"
+# The same as now is fine once: the first release, 0.1.0. Tagged already, the tag check stops it.
+[ "$(code "$version")" -ge "$(code "$current")" ] || fail "$version is older than $current"
 tag="v$version"
 
 build_tools=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
