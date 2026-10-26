@@ -53,6 +53,7 @@ Links, @mentions and "forwarded from" headers do not navigate to chats: web link
 - Mark as read on screen (`viewMessages`)
 - Groups: sender names + avatars
 - In-chat message search (`searchChatMessages`)
+- Jumping to a message (a search result, a pinned or replied-to one) that isn't loaded loads the messages around it in its place, in one request, as Telegram does; scrolling loads more either way, and ↓ goes back to the newest. Meanwhile new messages aren't added (they'd leave a gap); sending something brings the newest back. Loading everything in between took long enough for a message far back to look like nothing happened. The message jumped to is marked for 2.5 s once on screen
 - Pinned messages: the bar under the chat's title shows the newest; a tap goes to it and moves the bar on to the next older one ("Pinned message 2 of 3"), and with several, a list button shows them all. Pin and unpin from the message menu, where `canBePinned` allows: for everyone, without notifying
 
 ### M4 — Media viewing

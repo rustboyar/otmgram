@@ -49,6 +49,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
@@ -179,6 +181,10 @@ class ChatViewModel @Inject constructor(
         history.toItems(isGroup = header?.isGroup == true, strings)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    /** Whether the messages shown reach the newest; not after jumping to an older one. */
+    val atNewest: StateFlow<Boolean> = session.history.map { it.reachedEnd }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
     /** Live location being shared from this device, in any chat. */
     val liveShare: StateFlow<LiveShare?> = liveLocation.share
 
@@ -301,6 +307,11 @@ class ChatViewModel @Inject constructor(
     }
 
     fun loadOlder() = action { session.loadOlder() }
+
+    fun loadNewer() = action { session.loadNewer() }
+
+    /** Back to the newest messages after jumping to an older one. */
+    fun returnToNewest() = action { session.returnToNewest() }
 
     fun type(value: String) {
         text = value
@@ -521,7 +532,7 @@ class ChatViewModel @Inject constructor(
     /** Scrolls to [messageId], loading older history as needed. */
     private fun show(messageId: Long) {
         action {
-            if (session.loadUntil(messageId)) scrollTarget = messageId else notice = strings.get(R.string.notice_message_not_found)
+            if (session.jumpTo(messageId)) scrollTarget = messageId else notice = strings.get(R.string.notice_message_not_found)
         }
     }
 

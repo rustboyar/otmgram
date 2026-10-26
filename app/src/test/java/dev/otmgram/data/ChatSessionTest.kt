@@ -31,9 +31,11 @@ class ChatSessionTest {
         td.on<TdApi.OpenChat> { TdApi.Ok() }
         td.on<TdApi.GetChat> { chat(CHAT_ID, "band", lastMessage = null).apply { lastReadOutboxMessageId = 20 } }
         td.on<TdApi.GetUser> { user(it.userId, "User${it.userId}") }
+        // As TDLib: from a message on (inclusive), a negative offset reaching into newer ones.
         td.on<TdApi.GetChatHistory> { request ->
-            val older = history.filter { request.fromMessageId == 0L || it.id < request.fromMessageId }
-            messages(*older.take(request.limit).toTypedArray())
+            val at = if (request.fromMessageId == 0L) 0 else history.indexOfFirst { it.id <= request.fromMessageId }.let { if (it < 0) history.size else it }
+            val start = (at + request.offset).coerceAtLeast(0)
+            messages(*history.drop(start).take(request.limit).toTypedArray())
         }
     }
 
@@ -66,6 +68,57 @@ class ChatSessionTest {
         assertTrue(pin.disableNotification)
         assertFalse(pin.onlyForSelf)
         assertEquals(20L, td.sent<TdApi.UnpinChatMessage>().single().messageId)
+    }
+
+    /** A long chat: ids 10..2000, newest first. */
+    private fun longHistory() {
+        history = (2000L downTo 10L step 10).map { message(it) }
+    }
+
+    @Test
+    fun `jumping far back loads the messages around, not everything in between`() = runTest {
+        longHistory()
+        val session = open()
+        assertTrue(session.jumpTo(100))
+        assertTrue(100L in session.ids)
+        assertFalse(session.history.value.reachedEnd)
+        assertTrue(session.ids.size <= 50)
+        assertEquals(2, td.sent<TdApi.GetChatHistory>().size)
+    }
+
+    @Test
+    fun `after a jump, newer messages load up to the newest, without gaps`() = runTest {
+        longHistory()
+        td.on<TdApi.GetChat> { chat(CHAT_ID, "band", lastMessage = message(2000)) }
+        val session = open()
+        session.jumpTo(100)
+        repeat(50) { session.loadNewer() }
+        assertTrue(session.history.value.reachedEnd)
+        assertEquals((2000L downTo session.ids.last() step 10).toList(), session.ids)
+    }
+
+    @Test
+    fun `away from the newest, new messages wait, and sending brings the newest back`() = runTest {
+        longHistory()
+        val session = open()
+        session.jumpTo(100)
+        td.emit(TdApi.UpdateNewMessage(message(2010)))
+        runCurrent()
+        assertFalse(2010L in session.ids)
+        history = listOf(message(2020, outgoing = true, from = 1), message(2010)) + history
+        td.emit(TdApi.UpdateNewMessage(message(2020, outgoing = true, from = 1)))
+        runCurrent()
+        assertTrue(session.history.value.reachedEnd)
+        assertEquals(listOf(2020L, 2010L), session.ids.take(2))
+    }
+
+    @Test
+    fun `a message already loaded is jumped to without loading`() = runTest {
+        val session = open()
+        val requests = td.sent<TdApi.GetChatHistory>().size
+        assertTrue(session.jumpTo(20))
+        assertEquals(requests, td.sent<TdApi.GetChatHistory>().size)
+        assertTrue(session.history.value.reachedEnd)
     }
 
     @Test

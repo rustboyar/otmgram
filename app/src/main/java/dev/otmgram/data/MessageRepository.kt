@@ -33,7 +33,10 @@ class MessageRepository @Inject constructor(
     fun openChat(chatId: Long, scope: CoroutineScope): ChatSession = ChatSession(td, chatId, scope)
 }
 
-/** Loaded history of a chat, newest message first. */
+/**
+ * Loaded history of a chat, newest message first: one unbroken stretch of it, usually up to
+ * the newest message, or around a message jumped to ([ChatSession.jumpTo]).
+ */
 data class ChatHistory(
     val messages: List<TdApi.Message> = emptyList(),
     /** Display names of message senders and forward origins, by user or chat id. */
@@ -44,6 +47,8 @@ data class ChatHistory(
     val lastReadOutboxMessageId: Long = 0,
     /** True once the beginning of the chat is loaded. */
     val reachedStart: Boolean = false,
+    /** True when the stretch loaded reaches the chat's newest message. */
+    val reachedEnd: Boolean = true,
     /**
      * Incremented on every change. Messages are TDLib objects updated in place, so without
      * it a changed history could equal the previous one and StateFlow would drop it.
@@ -67,6 +72,7 @@ class ChatSession internal constructor(
     private val repliedMessages = mutableMapOf<Long, TdApi.Message>()
     private var lastReadOutboxMessageId = 0L
     private var reachedStart = false
+    private var reachedEnd = true
     private val loadLock = Mutex()
     private var version = 0L
 
@@ -86,6 +92,72 @@ class ChatSession internal constructor(
         scope.coroutineContext[Job]?.invokeOnCompletion {
             td.sendIgnoringResult(TdApi.CloseChat(chatId))
         }
+    }
+
+    /**
+     * Loads the next page of newer messages, after a [jumpTo] moved away from the newest;
+     * unless already loading or there.
+     */
+    suspend fun loadNewer() {
+        if (reachedEnd || !loadLock.tryLock()) return
+        try {
+            loadNewerPage()
+        } finally {
+            loadLock.unlock()
+        }
+    }
+
+    private suspend fun loadNewerPage() {
+        try {
+            // Empty only if everything around was deleted since: start over from the newest.
+            val newest = messages.firstEntry()?.key ?: run {
+                reachedEnd = true
+                return loadPage()
+            }
+            // A negative offset counts towards newer messages; the newest loaded comes along.
+            val batch = td.send(TdApi.GetChatHistory(chatId, newest, -PAGE_SIZE, PAGE_SIZE + 1, false)).messages
+                .filter { it.id > newest }
+            if (batch.isEmpty()) {
+                // Nothing newer, or TDLib didn't have it at hand: the chat's last message tells.
+                val last = td.send(TdApi.GetChat(chatId)).lastMessage?.id ?: 0
+                if (last <= newest) reachedEnd = true
+            }
+            batch.forEach { messages[it.id] = it }
+            resolveReferences()
+        } finally {
+            publish()
+        }
+    }
+
+    /**
+     * Makes [messageId] part of the history shown. If it isn't loaded, the messages around it
+     * take the place of what was, as in Telegram, rather than loading everything in between,
+     * which for a message far back took long enough to look like nothing happened; scrolling
+     * then loads more either way ([loadOlder], [loadNewer]). False if the message is gone.
+     */
+    suspend fun jumpTo(messageId: Long): Boolean = loadLock.withLock {
+        if (messageId in messages) return true
+        val around = td.send(TdApi.GetChatHistory(chatId, messageId, -AROUND, PAGE_SIZE, false)).messages
+        if (around.none { it.id == messageId }) return false
+        messages.clear()
+        around.forEach { messages[it.id] = it }
+        reachedStart = false
+        reachedEnd = false
+        try {
+            resolveReferences()
+        } finally {
+            publish()
+        }
+        true
+    }
+
+    /** Back to the newest messages after a [jumpTo]: the history shown starts over from there. */
+    suspend fun returnToNewest() = loadLock.withLock {
+        if (reachedEnd) return
+        messages.clear()
+        reachedStart = false
+        reachedEnd = true
+        loadPage()
     }
 
     /** Loads the next page of older messages, unless already loading or at the start. */
@@ -244,17 +316,23 @@ class ChatSession internal constructor(
         when (update) {
             is TdApi.UpdateNewMessage -> {
                 if (update.message.chatId != chatId) return
+                if (!reachedEnd) {
+                    // Not next to the history shown, which would get a gap. Something sent
+                    // from here (or another device) brings the newest back, to show it.
+                    if (update.message.isOutgoing) scope.launchLogged(TAG) { returnToNewest() }
+                    return
+                }
                 messages[update.message.id] = update.message
                 resolveSoon()
             }
             is TdApi.UpdateMessageSendSucceeded -> {
                 if (update.message.chatId != chatId) return
-                messages.remove(update.oldMessageId)
+                if (messages.remove(update.oldMessageId) == null && !reachedEnd) return
                 messages[update.message.id] = update.message
             }
             is TdApi.UpdateMessageSendFailed -> {
                 if (update.message.chatId != chatId) return
-                messages.remove(update.oldMessageId)
+                if (messages.remove(update.oldMessageId) == null && !reachedEnd) return
                 messages[update.message.id] = update.message
             }
             is TdApi.UpdateMessageContent -> {
@@ -357,6 +435,7 @@ class ChatSession internal constructor(
             repliedMessages = repliedMessages.toMap(),
             lastReadOutboxMessageId = lastReadOutboxMessageId,
             reachedStart = reachedStart,
+            reachedEnd = reachedEnd,
             version = ++version,
         )
     }
@@ -367,6 +446,9 @@ class ChatSession internal constructor(
     private companion object {
         const val TAG = "ChatSession"
         const val PAGE_SIZE = 50
+
+        /** Newer messages loaded along with one jumped to; the rest of a page is older ones. */
+        const val AROUND = 20
         const val SEARCH_LIMIT = 100
         const val REACTION_ROW_SIZE = 8
         const val ALBUM_SIZE = 10

@@ -132,6 +132,12 @@ fun ChatScreen(
             (layout.visibleItemsInfo.lastOrNull()?.index ?: 0) >= layout.totalItemsCount - LOAD_MORE_THRESHOLD
         }.distinctUntilChanged().collect { nearEnd -> if (nearEnd) viewModel.loadOlder() }
     }
+    // After jumping to an older message: load newer ones when scrolled close to the newest loaded.
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.firstVisibleItemIndex <= LOAD_MORE_THRESHOLD }
+            .distinctUntilChanged()
+            .collect { nearNewest -> if (nearNewest) viewModel.loadNewer() }
+    }
     // Save the draft when the app goes to the background: the process may not come back.
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.saveDraft() }
     // Mark messages on screen as read.
@@ -144,10 +150,13 @@ fun ChatScreen(
     // at once, e.g. an album), and always after sending. Saved, so coming back from the
     // viewer or a rotation keeps the place instead of jumping to the bottom.
     val newest = messages.firstOrNull()
+    val atNewest by viewModel.atNewest.collectAsStateWithLifecycle()
     var previousNewestId by rememberSaveable { mutableStateOf<Long?>(null) }
     LaunchedEffect(newest?.id) {
         val previousIndex = rows.indexOfFirst { it is ListRow.Message && it.message.id == previousNewestId }
         previousNewestId = newest?.id
+        // Newer messages loaded after a jump aren't new ones.
+        if (!atNewest) return@LaunchedEffect
         // Opening at the first unread message instead.
         if (!viewModel.positioned) return@LaunchedEffect
         if (previousIndex < 0 || listState.firstVisibleItemIndex <= previousIndex || newest?.isOutgoing == true) {
@@ -317,11 +326,12 @@ fun ChatScreen(
             }
             // Back to the newest message, once scrolled away from it.
             val scrolledAway by remember { derivedStateOf { listState.firstVisibleItemIndex > JUMP_BUTTON_AFTER } }
-            if (scrolledAway) {
+            if (scrolledAway || !atNewest) {
                 IconBtn(
                     OtmIcons.ChevronDown,
                     stringResource(R.string.jump_to_newest),
-                    { scope.launch { listState.animateScrollToItem(0) } },
+                    // After a jump the newest aren't loaded: they replace what's shown.
+                    { if (atNewest) scope.launch { listState.animateScrollToItem(0) } else viewModel.returnToNewest() },
                     Modifier.align(Alignment.BottomEnd).padding(12.dp),
                     tint = Otm.SlateDeep,
                     background = Otm.Card,
