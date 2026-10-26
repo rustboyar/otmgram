@@ -35,6 +35,16 @@ val missingForRelease = buildList {
     }
 }
 
+// The version is set in gradle.properties (by scripts/release.sh). The version code follows
+// from it, MAJOR * 10000 + MINOR * 100 + PATCH, so it always grows with the version, as
+// Android needs to install an update: 0.2.0 is 200, 1.4.12 is 10412.
+val appVersion = providers.gradleProperty("otmgram.version").get()
+val appVersionCode = run {
+    val parts = Regex("""(\d+)\.(\d+)\.(\d+)""").matchEntire(appVersion)?.destructured?.toList()?.map(String::toInt)
+    require(parts != null && parts[1] < 100 && parts[2] < 100) { "otmgram.version must be MAJOR.MINOR.PATCH, minor and patch below 100: $appVersion" }
+    parts[0] * 10_000 + parts[1] * 100 + parts[2]
+}
+
 android {
     namespace = "dev.otmgram"
     compileSdk = 37
@@ -44,8 +54,8 @@ android {
         applicationId = "dev.otmgram"
         minSdk = 29
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersion
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk { abiFilters += "arm64-v8a" }
