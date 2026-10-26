@@ -1,12 +1,12 @@
 package dev.otmgram.ui.media
 
-import androidx.core.net.toUri
-import android.webkit.MimeTypeMap
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.webkit.MimeTypeMap
 import android.widget.Toast
 import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import dev.otmgram.R
 import dev.otmgram.core.log.AppLog
 import java.io.File
@@ -42,4 +42,3 @@ fun openFile(context: Context, path: String, mimeType: String) {
         Toast.makeText(context, R.string.open_failed, Toast.LENGTH_SHORT).show()
     }
 }
-

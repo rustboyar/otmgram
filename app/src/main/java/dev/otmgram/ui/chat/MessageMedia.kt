@@ -66,7 +66,6 @@ sealed interface MessageMedia {
     data class LiveInfo(val updatedAt: Int, val expiresAt: Int)
 }
 
-
 /** Media of a message; live locations need the message's dates. */
 fun TdApi.Message.toMedia(): MessageMedia? = when (val content = content) {
     is TdApi.MessageLiveLocation -> MessageMedia.Location(
@@ -125,7 +124,6 @@ fun TdApi.MessageContent.toMedia(): MessageMedia? = when (this) {
 
 fun Sticker.toMedia() = MessageMedia.Sticker(fileId, kind, width, height, thumbnailFileId)
 
-/** Caption of media messages, empty if none. */
 /** The message's text or caption with its formatting, if it has one. */
 fun TdApi.MessageContent.formattedText(): TdApi.FormattedText? = when (this) {
     is TdApi.MessageText -> text
@@ -138,6 +136,7 @@ fun TdApi.MessageContent.formattedText(): TdApi.FormattedText? = when (this) {
     else -> null
 }
 
+/** Caption of media messages, empty if none. */
 fun TdApi.MessageContent.caption(): String = when (this) {
     is TdApi.MessagePhoto -> caption.text
     is TdApi.MessageVideo -> caption.text

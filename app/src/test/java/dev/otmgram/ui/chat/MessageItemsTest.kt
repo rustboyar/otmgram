@@ -85,13 +85,19 @@ class MessageItemsTest {
 
     @Test
     fun `text messages can be edited, stickers can't`() {
-        val items = history(message(2), message(1, content = TdApi.MessageSticker().apply {
-            sticker = TdApi.Sticker().apply {
-                sticker = dev.otmgram.testing.file(7)
-                format = TdApi.StickerFormatWebp()
-                emoji = "🙂"
-            }
-        })).toItems(isGroup = false, TestStrings)
+        val items = history(
+            message(2),
+            message(
+                1,
+                content = TdApi.MessageSticker().apply {
+                    sticker = TdApi.Sticker().apply {
+                        sticker = dev.otmgram.testing.file(7)
+                        format = TdApi.StickerFormatWebp()
+                        emoji = "🙂"
+                    }
+                },
+            ),
+        ).toItems(isGroup = false, TestStrings)
         assertTrue(items[0].hasEditableText)
         assertFalse(items[1].hasEditableText)
     }

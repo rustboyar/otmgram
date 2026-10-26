@@ -1,7 +1,5 @@
 package dev.otmgram.ui.chat
 
-import dev.otmgram.ui.format.formatSize
-import dev.otmgram.core.launchLogged
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -30,7 +28,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.otmgram.R
+import dev.otmgram.core.launchLogged
 import dev.otmgram.data.FileState
+import dev.otmgram.ui.format.formatSize
 import dev.otmgram.ui.media.LocalFileRepository
 import dev.otmgram.ui.media.openFile
 import dev.otmgram.ui.media.rememberFileState

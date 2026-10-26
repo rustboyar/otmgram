@@ -69,7 +69,6 @@ class NotificationCenter @Inject constructor(
     /** Chats whose notifications changed since they were last shown. */
     private val changed = mutableSetOf<Long>()
 
-
     @Volatile
     private var foreground = false
 

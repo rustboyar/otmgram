@@ -1,11 +1,8 @@
 package dev.otmgram.ui.chat
 
-import androidx.compose.foundation.layout.fillMaxSize
-import dev.otmgram.core.log.AppLog
-import java.io.ByteArrayOutputStream
-import java.io.IOException
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -17,12 +14,15 @@ import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.rememberLottieComposition
+import dev.otmgram.core.log.AppLog
 import dev.otmgram.data.StickerKind
 import dev.otmgram.ui.media.TdImage
 import dev.otmgram.ui.media.rememberDownloadedPath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import java.util.zip.GZIPInputStream
 
 @Composable

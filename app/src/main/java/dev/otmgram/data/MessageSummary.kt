@@ -10,7 +10,8 @@ val TdApi.Message.isService: Boolean
         is TdApi.MessageBasicGroupChatCreate, is TdApi.MessageSupergroupChatCreate,
         is TdApi.MessageChatAddMembers, is TdApi.MessageChatJoinByLink, is TdApi.MessageChatDeleteMember,
         is TdApi.MessageChatChangeTitle, is TdApi.MessageChatChangePhoto,
-        is TdApi.MessagePinMessage, is TdApi.MessageContactRegistered -> true
+        is TdApi.MessagePinMessage, is TdApi.MessageContactRegistered,
+        -> true
         else -> false
     }
 

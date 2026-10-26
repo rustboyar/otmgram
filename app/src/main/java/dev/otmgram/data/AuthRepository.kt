@@ -14,6 +14,7 @@ import javax.inject.Singleton
 sealed interface AuthState {
     data object Loading : AuthState
     data object WaitPhoneNumber : AuthState
+
     /**
      * [canResend]: another way to send the code exists; it may be asked for [resendAfter]
      * seconds after this state arrived.
@@ -90,7 +91,8 @@ internal fun TdApi.AuthorizationState?.toAuthState(): AuthState = when (this) {
     is TdApi.AuthorizationStateWaitRegistration -> AuthState.Unsupported(R.string.unsupported_registration)
     is TdApi.AuthorizationStateReady -> AuthState.Ready
     is TdApi.AuthorizationStateWaitEmailAddress,
-    is TdApi.AuthorizationStateWaitEmailCode -> AuthState.Unsupported(R.string.unsupported_email)
+    is TdApi.AuthorizationStateWaitEmailCode,
+    -> AuthState.Unsupported(R.string.unsupported_email)
     is TdApi.AuthorizationStateWaitPremiumPurchase -> AuthState.Unsupported(R.string.unsupported_premium)
     is TdApi.AuthorizationStateWaitOtherDeviceConfirmation -> AuthState.Unsupported(R.string.unsupported_other_device)
     // Starting up, or closing after logout until the next instance is ready.

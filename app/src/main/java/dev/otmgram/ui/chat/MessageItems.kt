@@ -76,4 +76,3 @@ internal fun TdApi.Message.senderKey(): Long = when (val sender = senderId) {
     is TdApi.MessageSenderChat -> sender.chatId
     else -> 0
 }
-

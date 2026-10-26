@@ -1,7 +1,7 @@
 package dev.otmgram.data
 
-import dev.otmgram.core.td.TdException
 import dev.otmgram.core.log.AppLog
+import dev.otmgram.core.td.TdException
 import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.di.ApplicationScope
 import kotlinx.coroutines.CoroutineScope

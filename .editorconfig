@@ -1,0 +1,29 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{kt,kts}]
+ktlint_code_style = intellij_idea
+# Long lines are kept where breaking them reads worse (a Text with its style and modifier).
+max_line_length = off
+ij_kotlin_allow_trailing_comma = true
+ij_kotlin_allow_trailing_comma_on_call_site = true
+# Composables are named like types.
+ktlint_function_naming_ignore_when_annotated_with = Composable
+# The code's style is compact on purpose: no blank lines between when branches, calls and
+# signatures on one line where they fit the thought, short blocks on one line, if/else
+# expressions without braces. Files are named for what they hold (Icons.kt holds OtmIcons).
+ktlint_standard_blank-line-between-when-conditions = disabled
+ktlint_standard_argument-list-wrapping = disabled
+ktlint_standard_function-signature = disabled
+ktlint_standard_statement-wrapping = disabled
+ktlint_standard_multiline-if-else = disabled
+ktlint_standard_class-signature = disabled
+ktlint_standard_annotation = disabled
+ktlint_standard_filename = disabled

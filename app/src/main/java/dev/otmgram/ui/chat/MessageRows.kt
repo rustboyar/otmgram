@@ -33,5 +33,3 @@ internal fun buildRows(messages: List<MessageItem>, unread: UnreadMark?): List<L
         if (older == null || localDay(older.date) != localDay(message.date)) add(ListRow.Day(message.date, "day-${message.id}"))
     }
 }
-
-

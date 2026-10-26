@@ -183,36 +183,39 @@ class TdClient @Inject constructor(
     private fun watchNetwork() {
         if (watchingNetwork) return
         watchingNetwork = true
-        context.getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
-            private var network: Network? = null
-            private var type: TdApi.NetworkType = TdApi.NetworkTypeNone()
+        context.getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(
+            object : ConnectivityManager.NetworkCallback() {
+                private var network: Network? = null
+                private var type: TdApi.NetworkType = TdApi.NetworkTypeNone()
 
-            // The type comes with the callback: asking ConnectivityManager here can still
-            // answer with the previous network or none, which left TDLib waiting for a
-            // network that was already there.
-            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
-                val type = capabilities.tdNetworkType()
-                // Also called as the signal changes: reconnecting each time would drop
-                // connections that work.
-                if (network == this.network && type.constructor == this.type.constructor) return
-                this.network = network
-                this.type = type
-                if (!disconnected) sendIgnoringResult(TdApi.SetNetworkType(type))
-            }
+                // The type comes with the callback: asking ConnectivityManager here can still
+                // answer with the previous network or none, which left TDLib waiting for a
+                // network that was already there.
+                override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+                    val type = capabilities.tdNetworkType()
+                    // Also called as the signal changes: reconnecting each time would drop
+                    // connections that work.
+                    if (network == this.network && type.constructor == this.type.constructor) return
+                    this.network = network
+                    this.type = type
+                    if (!disconnected) sendIgnoringResult(TdApi.SetNetworkType(type))
+                }
 
-            override fun onLost(network: Network) {
-                if (network != this.network) return
-                this.network = null
-                type = TdApi.NetworkTypeNone()
-                sendIgnoringResult(TdApi.SetNetworkType(type))
-            }
+                override fun onLost(network: Network) {
+                    if (network != this.network) return
+                    this.network = null
+                    type = TdApi.NetworkTypeNone()
+                    sendIgnoringResult(TdApi.SetNetworkType(type))
+                }
 
-            // Battery or data saver cut the app off while in the background: once it's let
-            // through again, there's no point waiting for TDLib's next try.
-            override fun onBlockedStatusChanged(network: Network, blocked: Boolean) {
-                if (!blocked && network == this.network && !disconnected) sendIgnoringResult(TdApi.SetNetworkType(type))
-            }
-        }, main)
+                // Battery or data saver cut the app off while in the background: once it's let
+                // through again, there's no point waiting for TDLib's next try.
+                override fun onBlockedStatusChanged(network: Network, blocked: Boolean) {
+                    if (!blocked && network == this.network && !disconnected) sendIgnoringResult(TdApi.SetNetworkType(type))
+                }
+            },
+            main,
+        )
         main.post {
             ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
                 private var stoppedAt = 0L
@@ -224,7 +227,7 @@ class TdClient @Inject constructor(
 
                 override fun onStart(owner: LifecycleOwner) {
                     main.removeCallbacks(disconnectLater)
-                    if (disconnected || stoppedAt != 0L && SystemClock.elapsedRealtime() - stoppedAt > AWAY_RECONNECT_MS) reconnect()
+                    if (disconnected || (stoppedAt != 0L && SystemClock.elapsedRealtime() - stoppedAt > AWAY_RECONNECT_MS)) reconnect()
                 }
             })
         }

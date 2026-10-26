@@ -166,7 +166,8 @@ private fun page(embedUrl: String): String {
     return """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
         |<style>html,body{margin:0;height:100%;background:#000}iframe{border:0;width:100%;height:100%;display:block}</style></head>
         |<body><iframe src="$src" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen
-        |referrerpolicy="strict-origin-when-cross-origin"></iframe></body></html>""".trimMargin()
+        |referrerpolicy="strict-origin-when-cross-origin"></iframe></body></html>
+    """.trimMargin()
 }
 
 /** The page the players see as embedding them: the app, by its package name. */

@@ -4,15 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import dev.otmgram.ui.theme.DialogTags
-import dev.otmgram.ui.theme.FullScreenDialog
-import dev.otmgram.ui.theme.LoadingScreen
-import dev.otmgram.ui.theme.SoftButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -34,6 +26,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,11 +44,15 @@ import androidx.compose.ui.unit.dp
 import dev.otmgram.R
 import dev.otmgram.data.Sticker
 import dev.otmgram.data.StickerTab
+import dev.otmgram.ui.theme.DialogTags
+import dev.otmgram.ui.theme.FullScreenDialog
 import dev.otmgram.ui.theme.Hairline
+import dev.otmgram.ui.theme.LoadingScreen
 import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmType
 import dev.otmgram.ui.theme.SectionLabel
+import dev.otmgram.ui.theme.SoftButton
 
 /** Panel in the keyboard's place: recent stickers and installed sets, a tab each. */
 @Composable

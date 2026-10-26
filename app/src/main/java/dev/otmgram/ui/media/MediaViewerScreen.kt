@@ -319,4 +319,3 @@ class MediaViewerViewModel @Inject constructor(
 
 private const val ALBUM_MAX = 10
 private const val TAG = "MediaViewer"
-

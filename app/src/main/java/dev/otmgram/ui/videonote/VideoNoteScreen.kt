@@ -259,8 +259,9 @@ private fun Recorder(
                             .withAudioEnabled()
                             .start(ContextCompat.getMainExecutor(context)) { event ->
                                 when (event) {
-                                    is VideoRecordEvent.Status -> elapsedMs =
-                                        TimeUnit.NANOSECONDS.toMillis(event.recordingStats.recordedDurationNanos)
+                                    is VideoRecordEvent.Status ->
+                                        elapsedMs =
+                                            TimeUnit.NANOSECONDS.toMillis(event.recordingStats.recordedDurationNanos)
                                     is VideoRecordEvent.Finalize -> {
                                         recording = null
                                         onFinished(thisTake, event)

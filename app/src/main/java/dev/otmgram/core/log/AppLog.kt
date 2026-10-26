@@ -79,6 +79,7 @@ object AppLog {
         .replace(FILE_PATH, "<path>")
 
     private val CONTENT_URI = Regex("""(?:content|file)://\S+""")
+
     // Names can have spaces: up to the end of the line, or the " (reason)" Android adds.
     private val FILE_PATH = Regex("""(?m)(?<![\w.])/(?:data|storage|sdcard|mnt)/.*?(?= \(|$)""")
 

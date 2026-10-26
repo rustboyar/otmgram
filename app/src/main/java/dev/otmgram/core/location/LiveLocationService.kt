@@ -148,6 +148,7 @@ class LiveLocationService : Service() {
         var pendingId: Long? = null
         var confirmed = false
         val finalId = CompletableDeferred<Long>()
+
         // Called on the main thread, from the collector and after sending.
         fun settle() {
             val result = pendingId?.let(results::get) ?: return

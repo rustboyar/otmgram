@@ -113,6 +113,7 @@ class ChatRepository @Inject constructor(
     /** One folder's chats as last loaded; used by a single collector at a time. */
     private inner class FolderList(private val folderId: Int) {
         private var myId = 0L
+
         /** Default notification settings of private chats (false) and groups (true). */
         private var defaults = mapOf(false to TdApi.ScopeNotificationSettings(), true to TdApi.ScopeNotificationSettings())
         private var order = emptyList<Long>()

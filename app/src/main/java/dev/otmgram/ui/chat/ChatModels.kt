@@ -19,7 +19,6 @@ enum class MessageStatus { Sending, Sent, Read, Failed }
 
 data class ReplyPreview(val senderName: String?, val text: String, val messageId: Long? = null)
 
-
 /** A reaction under a message. [emoji] is null for kinds Otmgram can't add (custom emoji, paid). */
 data class ReactionChip(val label: String, val emoji: String?, val count: Int, val isChosen: Boolean)
 

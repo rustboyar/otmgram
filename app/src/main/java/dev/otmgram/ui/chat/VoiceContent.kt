@@ -1,6 +1,5 @@
 package dev.otmgram.ui.chat
 
-import dev.otmgram.ui.format.formatDuration
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -34,6 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.otmgram.R
 import dev.otmgram.core.media.AudioState
+import dev.otmgram.ui.format.formatDuration
 import dev.otmgram.ui.media.rememberOnDemandFile
 import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmIcons

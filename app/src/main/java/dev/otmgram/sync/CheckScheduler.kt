@@ -14,8 +14,8 @@ import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TdException
 import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.data.AppSettings
-import dev.otmgram.data.NotificationMode
 import dev.otmgram.data.FolderRepository
+import dev.otmgram.data.NotificationMode
 import dev.otmgram.data.StorageRepository
 import dev.otmgram.di.ApplicationScope
 import kotlinx.coroutines.CancellationException

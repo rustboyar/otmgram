@@ -1,6 +1,5 @@
 package dev.otmgram
 
-import dev.otmgram.core.location.LiveLocationSharing
 import android.app.Application
 import android.os.Build
 import androidx.hilt.work.HiltWorkerFactory
@@ -10,6 +9,7 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.video.VideoFrameDecoder
 import dagger.hilt.android.HiltAndroidApp
+import dev.otmgram.core.location.LiveLocationSharing
 import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.sync.CheckScheduler

@@ -99,7 +99,6 @@ private fun Status(text: String, action: String? = null, onAction: () -> Unit = 
     }
 }
 
-
 /** ntfy in the phone's app store, or on F-Droid's site without one. */
 private fun Context.openNtfyListing() {
     try {

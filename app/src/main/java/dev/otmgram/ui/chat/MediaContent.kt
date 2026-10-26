@@ -2,10 +2,6 @@
 
 package dev.otmgram.ui.chat
 
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import dev.otmgram.ui.format.formatDuration
-import dev.otmgram.ui.format.formatSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -39,9 +35,13 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.otmgram.R
 import dev.otmgram.core.media.AudioState
+import dev.otmgram.ui.format.formatDuration
+import dev.otmgram.ui.format.formatSize
 import dev.otmgram.ui.media.LoopingVideo
 import dev.otmgram.ui.media.OnDemandFile
 import dev.otmgram.ui.media.TdImage

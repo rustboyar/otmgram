@@ -1,17 +1,8 @@
 package dev.otmgram.ui.chat
 
-import android.content.ClipData
-import androidx.compose.ui.platform.ClipEntry
-import androidx.compose.ui.platform.LocalClipboard
-import androidx.lifecycle.compose.LifecycleEventEffect
-import androidx.lifecycle.Lifecycle
-import androidx.compose.ui.platform.LocalDensity
-import dev.otmgram.ui.format.dayLabel
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.derivedStateOf
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.ClipData
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -23,11 +14,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -37,27 +31,29 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Snackbar
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.isImeVisible
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -68,8 +64,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.otmgram.R
+import dev.otmgram.ui.format.dayLabel
 import dev.otmgram.ui.openAppSettings
 import dev.otmgram.ui.theme.ChatAvatar
 import dev.otmgram.ui.theme.IconBtn
@@ -79,6 +78,7 @@ import dev.otmgram.ui.theme.OtmType
 import dev.otmgram.ui.theme.ScreenBar
 import dev.otmgram.ui.theme.paper
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -207,6 +207,7 @@ fun ChatScreen(
     var pendingLivePeriod by rememberSaveable { mutableStateOf<Int?>(null) }
     val requestLiveLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         val period = pendingLivePeriod
+
         // Only compares the name: fine on Android versions without that permission.
         @SuppressLint("InlinedApi")
         val notifications = Manifest.permission.POST_NOTIFICATIONS
@@ -260,75 +261,75 @@ fun ChatScreen(
             val resultIds = remember(results) { results?.map { it.messageId }?.toSet().orEmpty() }
             val currentMatch = results?.getOrNull(search.index)?.messageId
             Box(Modifier.weight(1f).fillMaxWidth()) {
-            LazyColumn(
-                state = listState,
-                reverseLayout = true,
-                modifier = Modifier.fillMaxSize().testTag("messages"),
-                verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Bottom),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 10.dp),
-            ) {
-                items(rows, key = { it.key }, contentType = ListRow::contentType) { row ->
-                    when (row) {
-                        is ListRow.Day -> Divider(dayLabel(row.date))
-                        is ListRow.Unread -> Divider(
-                            pluralStringResource(R.plurals.new_since_you_left, row.count, row.count),
-                            color = Otm.Slate,
-                            line = Otm.RidgeLight,
-                        )
-                        is ListRow.Message -> if (row.message.isService) {
-                            ServiceNote(row.message.text)
-                        } else {
-                            val message = row.message
-                            // Read only by voice messages, so playback (updated every 100 ms) recomposes
-                            // only the playing one, not the whole chat.
-                            val voice = message.media as? MessageMedia.VoiceNote
-                            val audio = voice?.let { viewModel.audio.collectAsStateWithLifecycle().value?.takeIf { it.fileId == voice.fileId } }
-                            MessageBubble(
-                                message,
-                                audio = audio,
-                                onLongClick = { viewModel.openMenu(message) },
-                                onReactionClick = { viewModel.toggleReaction(message, it) },
-                                onOpenMedia = {
-                                    if (message.media is MessageMedia.Location) {
-                                        onOpenMap(viewModel.chatId, message.id)
-                                    } else {
-                                        onOpenMedia(viewModel.chatId, message.id)
-                                    }
-                                },
-                                onPlayVoice = { fileId, path -> viewModel.playVoice(message, fileId, path) },
-                                onVideoNoteSound = { viewModel.markContentOpened(message) },
-                                onOpenReply = viewModel::jumpTo,
-                                onOpenLink = { onOpenEmbed(it.url) },
-                                highlight = if (searching && message.id in resultIds) {
-                                    Highlight(search.query.orEmpty(), current = message.id == currentMatch)
-                                } else {
-                                    null
-                                },
-                                selecting = selecting,
-                                selected = message.id in selection,
-                                flashed = message.id == viewModel.flashed,
-                                onToggleSelected = { viewModel.selection.toggle(message) },
-                                onRetry = { viewModel.retry(message) },
-                                onDiscard = { viewModel.discard(message) },
+                LazyColumn(
+                    state = listState,
+                    reverseLayout = true,
+                    modifier = Modifier.fillMaxSize().testTag("messages"),
+                    verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Bottom),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 10.dp),
+                ) {
+                    items(rows, key = { it.key }, contentType = ListRow::contentType) { row ->
+                        when (row) {
+                            is ListRow.Day -> Divider(dayLabel(row.date))
+                            is ListRow.Unread -> Divider(
+                                pluralStringResource(R.plurals.new_since_you_left, row.count, row.count),
+                                color = Otm.Slate,
+                                line = Otm.RidgeLight,
                             )
+                            is ListRow.Message -> if (row.message.isService) {
+                                ServiceNote(row.message.text)
+                            } else {
+                                val message = row.message
+                                // Read only by voice messages, so playback (updated every 100 ms) recomposes
+                                // only the playing one, not the whole chat.
+                                val voice = message.media as? MessageMedia.VoiceNote
+                                val audio = voice?.let { viewModel.audio.collectAsStateWithLifecycle().value?.takeIf { it.fileId == voice.fileId } }
+                                MessageBubble(
+                                    message,
+                                    audio = audio,
+                                    onLongClick = { viewModel.openMenu(message) },
+                                    onReactionClick = { viewModel.toggleReaction(message, it) },
+                                    onOpenMedia = {
+                                        if (message.media is MessageMedia.Location) {
+                                            onOpenMap(viewModel.chatId, message.id)
+                                        } else {
+                                            onOpenMedia(viewModel.chatId, message.id)
+                                        }
+                                    },
+                                    onPlayVoice = { fileId, path -> viewModel.playVoice(message, fileId, path) },
+                                    onVideoNoteSound = { viewModel.markContentOpened(message) },
+                                    onOpenReply = viewModel::jumpTo,
+                                    onOpenLink = { onOpenEmbed(it.url) },
+                                    highlight = if (searching && message.id in resultIds) {
+                                        Highlight(search.query.orEmpty(), current = message.id == currentMatch)
+                                    } else {
+                                        null
+                                    },
+                                    selecting = selecting,
+                                    selected = message.id in selection,
+                                    flashed = message.id == viewModel.flashed,
+                                    onToggleSelected = { viewModel.selection.toggle(message) },
+                                    onRetry = { viewModel.retry(message) },
+                                    onDiscard = { viewModel.discard(message) },
+                                )
+                            }
                         }
                     }
                 }
-            }
-            // Back to the newest message, once scrolled away from it.
-            val scrolledAway by remember { derivedStateOf { listState.firstVisibleItemIndex > JUMP_BUTTON_AFTER } }
-            if (scrolledAway || !atNewest) {
-                IconBtn(
-                    OtmIcons.ChevronDown,
-                    stringResource(R.string.jump_to_newest),
-                    // After a jump the newest aren't loaded: they replace what's shown.
-                    { if (atNewest) scope.launch { listState.animateScrollToItem(0) } else viewModel.returnToNewest() },
-                    Modifier.align(Alignment.BottomEnd).padding(12.dp),
-                    tint = Otm.SlateDeep,
-                    background = Otm.Card,
-                    tag = "jumpToNewest",
-                )
-            }
+                // Back to the newest message, once scrolled away from it.
+                val scrolledAway by remember { derivedStateOf { listState.firstVisibleItemIndex > JUMP_BUTTON_AFTER } }
+                if (scrolledAway || !atNewest) {
+                    IconBtn(
+                        OtmIcons.ChevronDown,
+                        stringResource(R.string.jump_to_newest),
+                        // After a jump the newest aren't loaded: they replace what's shown.
+                        { if (atNewest) scope.launch { listState.animateScrollToItem(0) } else viewModel.returnToNewest() },
+                        Modifier.align(Alignment.BottomEnd).padding(12.dp),
+                        tint = Otm.SlateDeep,
+                        background = Otm.Card,
+                        tag = "jumpToNewest",
+                    )
+                }
             }
             // Under the list rather than in it, which would move the rows' indexes.
             val liveLocating = liveShare?.let { it.chatId == viewModel.chatId && !it.located } == true
