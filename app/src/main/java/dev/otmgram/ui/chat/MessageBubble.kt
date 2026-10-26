@@ -190,7 +190,7 @@ private fun Bubble(
             .then(if (bare) Modifier else Modifier.shadow(1.dp, shape, ambientColor = Otm.Ink.copy(alpha = 0.3f), spotColor = Otm.Ink.copy(alpha = 0.3f)))
             .clip(shape)
             .background(background)
-            .then(if (failed) Modifier.border(1.dp, Color(0xFFE5B9AF), shape) else Modifier)
+            .then(if (failed) Modifier.border(1.dp, Otm.ErrorLine, shape) else Modifier)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = stringResource(R.string.message_actions))
             .testTag("message-${message.id}")
             .padding(
@@ -296,7 +296,7 @@ private fun TimeLine(message: MessageItem, onChip: Boolean, modifier: Modifier) 
         Text(
             listOfNotNull(stringResource(R.string.edited).takeIf { message.isEdited }, formatTime(message.date)).joinToString(" "),
             style = OtmType.Time,
-            color = if (message.status == MessageStatus.Failed) Otm.Error else Color(0xFF56626B),
+            color = if (message.status == MessageStatus.Failed) Otm.Error else Otm.Meta,
         )
         message.status?.let { StatusMark(it) }
     }
@@ -367,7 +367,7 @@ private fun Reaction(chip: ReactionChip, outgoing: Boolean, onClick: () -> Unit)
             .background(
                 when {
                     chip.isChosen -> Otm.Haze
-                    outgoing -> Color(0xFFF3E4D6)
+                    outgoing -> Otm.ApricotQuote
                     else -> Otm.Paper
                 },
             )

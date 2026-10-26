@@ -29,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -75,7 +74,7 @@ fun ForwardSheet(targets: List<ForwardTarget>, onForward: (ForwardTarget) -> Uni
             textStyle = OtmType.Body,
             shape = RoundedCornerShape(22.dp),
             height = 44.dp,
-            background = Color(0xFFEFEBE4),
+            background = Otm.Field,
             outlined = false,
             leading = { Icon(OtmIcons.Search, null, tint = Otm.InkSoft, modifier = Modifier.size(20.dp)) },
             modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp),
@@ -239,7 +238,7 @@ private fun HereMap(here: android.location.Location) {
             .fillMaxWidth()
             .height(HERE_MAP_HEIGHT.dp)
             .clip(RoundedCornerShape(18.dp))
-            .background(Color(0xFFEFEDE6))
+            .background(Otm.Placeholder)
             .testTag("hereMap"),
         contentAlignment = Alignment.Center,
     ) {
@@ -253,7 +252,7 @@ private const val HERE_MAP_HEIGHT = 150
 
 @Composable
 private fun RoundIcon(icon: ImageVector) {
-    Box(Modifier.size(48.dp).clip(CircleShape).background(Color(0xFFDCE4E9)), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(48.dp).clip(CircleShape).background(Otm.Tile), contentAlignment = Alignment.Center) {
         Icon(icon, null, tint = Otm.SlateDeep, modifier = Modifier.size(22.dp))
     }
 }

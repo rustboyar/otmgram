@@ -32,7 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -122,7 +121,7 @@ fun MessageMenuOverlay(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(formatTime(message.date), style = OtmType.Time, color = Color(0xFF56626B))
+                        Text(formatTime(message.date), style = OtmType.Time, color = Otm.Meta)
                         message.status?.let { StatusMark(it) }
                     }
                 }
@@ -164,7 +163,7 @@ private fun MenuAction(icon: ImageVector, label: String, tag: String, onClick: (
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Icon(icon, null, tint = if (danger) Otm.Error else Color(0xFF56626B), modifier = Modifier.size(22.dp))
+        Icon(icon, null, tint = if (danger) Otm.Error else Otm.Meta, modifier = Modifier.size(22.dp))
         Text(label, style = OtmType.Body.copy(fontSize = 16.sp), color = if (danger) Otm.Error else Otm.Ink)
     }
 }

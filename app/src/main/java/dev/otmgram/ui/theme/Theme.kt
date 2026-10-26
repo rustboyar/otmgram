@@ -26,6 +26,11 @@ object Otm {
     val Apricot = Color(0xFFF7E2CF)
     val ApricotDeep = Color(0xFFD9B79B)
 
+    /** Within your messages: a quoted reply, a voice message's button, and its icon and waveform. */
+    val ApricotQuote = Color(0xFFF3E4D6)
+    val ApricotLight = Color(0xFFFBF1E7)
+    val Umber = Color(0xFF8A5A3C)
+
     /** Unread pills, soft buttons. */
     val Haze = Color(0xFFE2E9EE)
     val Ridge = Color(0xFF91A8B6)
@@ -37,6 +42,9 @@ object Otm {
     val InkBody = Color(0xFF2E3A43)
     val InkSoft = Color(0xFF5E6A73)
     val InkFaint = Color(0xFF8A9199)
+
+    /** Times, small labels and quiet icons (attach, copy, menu actions). */
+    val Meta = Color(0xFF56626B)
     val Line = Color(0x1F1E2A33)
     val Outline = Color(0xFFD6D9DC)
 
@@ -44,6 +52,9 @@ object Otm {
     val Rose = Color(0xFFD27B6C)
     val Error = Color(0xFFA3473A)
     val ErrorSoft = Color(0xFFF8E6E2)
+
+    /** A failed message's border. */
+    val ErrorLine = Color(0xFFE5B9AF)
 
     /** Search matches; the current one is stronger. */
     val Mark = Color(0xFFD6E2EA)
@@ -60,6 +71,15 @@ object Otm {
 
     /** Banner under the sky, e.g. offline or live location. */
     val Banner = Color(0xFFECE6DD)
+
+    /** Where a map shows once loaded. */
+    val Placeholder = Color(0xFFEFEDE6)
+
+    /** Behind a round icon, e.g. in the attach sheet. */
+    val Tile = Color(0xFFDCE4E9)
+
+    /** A text field without an outline, e.g. finding a chat to forward to. */
+    val Field = Color(0xFFEFEBE4)
 }
 
 val Inter = FontFamily(

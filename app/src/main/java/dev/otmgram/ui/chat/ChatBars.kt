@@ -61,7 +61,7 @@ internal fun SelectionBar(count: Int, onCancel: () -> Unit, onCopy: () -> Unit) 
     ScreenBarRow {
         IconBtn(OtmIcons.Close, stringResource(R.string.selection_cancel), onCancel, tag = "cancelSelection")
         Text(pluralStringResource(R.plurals.selected_count, count, count), style = OtmType.BarTitle, color = Otm.Ink, modifier = Modifier.weight(1f).padding(start = 4.dp).testTag("selectedCount"))
-        IconBtn(OtmIcons.Copy, stringResource(R.string.action_copy), onCopy, tint = Color(0xFF56626B), tag = "copySelected")
+        IconBtn(OtmIcons.Copy, stringResource(R.string.action_copy), onCopy, tint = Otm.Meta, tag = "copySelected")
     }
 }
 
@@ -192,7 +192,7 @@ internal fun InputBar(
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            IconBtn(OtmIcons.Attach, stringResource(R.string.attach), onAttach, tint = Color(0xFF56626B), tag = "attach")
+            IconBtn(OtmIcons.Attach, stringResource(R.string.attach), onAttach, tint = Otm.Meta, tag = "attach")
             OtmField(
                 value = text,
                 onValueChange = onTextChange,
@@ -208,7 +208,7 @@ internal fun InputBar(
                         if (stickersOpen) OtmIcons.Keyboard else OtmIcons.Smile,
                         if (stickersOpen) stringResource(R.string.keyboard) else stringResource(R.string.stickers),
                         onStickers,
-                        tint = if (stickersOpen) Otm.SlateDeep else Color(0xFF56626B),
+                        tint = if (stickersOpen) Otm.SlateDeep else Otm.Meta,
                         size = 40.dp,
                         tag = "stickers",
                     )
@@ -217,7 +217,7 @@ internal fun InputBar(
             )
             Box(Modifier.size(4.dp))
             if (text.isBlank() && composer !is Composer.Edit) {
-                IconBtn(OtmIcons.CircleCamera, stringResource(R.string.record_video_note), onRecordVideoNote, tint = Otm.SlateDeep, background = Color(0xFFDCE4E9), tag = "recordVideoNote")
+                IconBtn(OtmIcons.CircleCamera, stringResource(R.string.record_video_note), onRecordVideoNote, tint = Otm.SlateDeep, background = Otm.Tile, tag = "recordVideoNote")
             } else {
                 // Editing a caption may leave it empty.
                 val canSend = text.isNotBlank() || (composer is Composer.Edit && composer.message.media != null)

@@ -64,7 +64,7 @@ internal fun VoiceNote(
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(if (outgoing) Color(0xFFFBF1E7) else Otm.Haze)
+                .background(if (outgoing) Otm.ApricotLight else Otm.Haze)
                 .combinedClickable(onLongClick = onLongClick) {
                     when {
                         path != null -> onPlay(media.fileId, path)
@@ -77,7 +77,7 @@ internal fun VoiceNote(
                 .testTag("playVoice"),
             contentAlignment = Alignment.Center,
         ) {
-            val tint = if (outgoing) Color(0xFF8A5A3C) else Otm.SlateDeep
+            val tint = if (outgoing) Otm.Umber else Otm.SlateDeep
             when {
                 voice.downloading -> {
                     CircularProgressIndicator(
@@ -97,14 +97,14 @@ internal fun VoiceNote(
             Waveform(
                 media.waveform,
                 progress,
-                played = if (outgoing) Color(0xFF8A5A3C) else Otm.Slate,
+                played = if (outgoing) Otm.Umber else Otm.Slate,
                 rest = if (outgoing) Otm.ApricotDeep else Otm.RidgeLight,
                 modifier = Modifier.width(140.dp).height(24.dp),
             )
             Text(
                 formatDuration(if (current != null) (current.positionMs / 1000).toInt() else media.duration),
                 style = OtmType.Time,
-                color = Color(0xFF56626B),
+                color = Otm.Meta,
             )
         }
     }

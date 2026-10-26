@@ -61,7 +61,7 @@ internal fun LocationPreview(media: MessageMedia.Location, outgoing: Boolean, on
                 .width(MAP_WIDTH_DP.dp)
                 .height(MAP_HEIGHT_DP.dp)
                 .clip(RoundedCornerShape(13.dp))
-                .background(Color(0xFFEFEDE6)),
+                .background(Otm.Placeholder),
             contentAlignment = Alignment.Center,
         ) {
             map?.let { Image(it, contentDescription = null, modifier = Modifier.matchParentSize()) }
@@ -80,7 +80,7 @@ internal fun LocationPreview(media: MessageMedia.Location, outgoing: Boolean, on
                     modifier = Modifier.testTag("liveStatus"),
                 )
             } else {
-                Text(stringResource(R.string.summary_location), style = OtmType.Time, color = Color(0xFF56626B))
+                Text(stringResource(R.string.summary_location), style = OtmType.Time, color = Otm.Meta)
             }
         }
     }
@@ -109,7 +109,7 @@ fun LocatingBubble(modifier: Modifier = Modifier) {
                 .testTag("locating"),
         ) {
             Box(
-                Modifier.width(MAP_WIDTH_DP.dp).height(MAP_HEIGHT_DP.dp).clip(RoundedCornerShape(13.dp)).background(Color(0xFFEFEDE6)),
+                Modifier.width(MAP_WIDTH_DP.dp).height(MAP_HEIGHT_DP.dp).clip(RoundedCornerShape(13.dp)).background(Otm.Placeholder),
                 contentAlignment = Alignment.Center,
             ) {
                 MapPin(Modifier.graphicsLayer { alpha = pulse })
@@ -117,7 +117,7 @@ fun LocatingBubble(modifier: Modifier = Modifier) {
             Text(
                 stringResource(R.string.location_finding),
                 style = OtmType.Time,
-                color = Color(0xFF56626B),
+                color = Otm.Meta,
                 modifier = Modifier.padding(start = 7.dp, end = 7.dp, top = 4.dp, bottom = 2.dp),
             )
         }
