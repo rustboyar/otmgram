@@ -1,6 +1,5 @@
 package dev.otmgram
 
-import dev.otmgram.data.SessionCleanup
 import dev.otmgram.core.location.LiveLocationSharing
 import android.app.Application
 import android.os.Build

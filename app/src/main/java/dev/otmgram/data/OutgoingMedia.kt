@@ -16,6 +16,7 @@ import androidx.media3.transformer.ExportException
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.media.MediaTranscoder
+import dev.otmgram.core.media.OutgoingFiles
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.drinkless.tdlib.TdApi

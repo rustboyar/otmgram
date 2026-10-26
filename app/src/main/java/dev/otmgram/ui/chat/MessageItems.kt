@@ -3,8 +3,8 @@ package dev.otmgram.ui.chat
 import dev.otmgram.R
 import dev.otmgram.core.Strings
 import dev.otmgram.data.ChatHistory
-import dev.otmgram.ui.isService
-import dev.otmgram.ui.summary
+import dev.otmgram.data.isService
+import dev.otmgram.data.summary
 import org.drinkless.tdlib.TdApi
 import java.time.Instant
 import java.time.LocalDate

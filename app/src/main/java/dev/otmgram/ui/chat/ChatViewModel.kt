@@ -36,10 +36,10 @@ import dev.otmgram.data.Sticker
 import dev.otmgram.data.StickerRepository
 import dev.otmgram.data.isGroup
 import dev.otmgram.data.isSavedMessages
+import dev.otmgram.data.isService
+import dev.otmgram.data.summary
 import dev.otmgram.di.ApplicationScope
 import dev.otmgram.di.onMain
-import dev.otmgram.ui.isService
-import dev.otmgram.ui.summary
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay

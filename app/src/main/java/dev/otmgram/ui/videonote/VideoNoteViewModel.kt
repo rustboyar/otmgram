@@ -11,10 +11,10 @@ import dev.otmgram.R
 import dev.otmgram.core.Strings
 import dev.otmgram.core.launchLogged
 import dev.otmgram.core.media.MediaTranscoder
+import dev.otmgram.core.media.OutgoingFiles
 import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.core.userMessage
 import dev.otmgram.data.MessageRepository
-import dev.otmgram.data.OutgoingFiles
 import dev.otmgram.data.OutgoingMedia
 import dev.otmgram.data.isSavedMessages
 import dev.otmgram.di.ApplicationScope

@@ -9,8 +9,8 @@ import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.MAX_FOLDER_CHATS
 import dev.otmgram.data.isGroup
 import dev.otmgram.data.isShown
+import dev.otmgram.data.summary
 import dev.otmgram.di.ApplicationScope
-import dev.otmgram.ui.summary
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart

@@ -1,9 +1,10 @@
-package dev.otmgram.data
+package dev.otmgram
 
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.otmgram.core.location.MapSnapshots
 import dev.otmgram.core.log.AppLog
+import dev.otmgram.core.media.OutgoingFiles
 import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.di.ApplicationScope
 import dev.otmgram.sync.NotificationDisplay

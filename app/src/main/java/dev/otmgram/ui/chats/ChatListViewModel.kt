@@ -16,7 +16,7 @@ import dev.otmgram.data.ChatRepository
 import dev.otmgram.data.NotificationMode
 import dev.otmgram.data.FolderChat
 import dev.otmgram.data.FolderRepository
-import dev.otmgram.ui.summary
+import dev.otmgram.data.summary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay

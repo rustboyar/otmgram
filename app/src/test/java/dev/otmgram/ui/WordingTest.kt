@@ -2,6 +2,7 @@ package dev.otmgram.ui
 
 import androidx.compose.ui.graphics.Color
 import dev.otmgram.data.SizeEstimate
+import dev.otmgram.data.summary
 import dev.otmgram.testing.NOON_2026_10_23
 import dev.otmgram.testing.TestStrings
 import dev.otmgram.testing.message

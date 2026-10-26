@@ -1,4 +1,4 @@
-package dev.otmgram.ui
+package dev.otmgram.data
 
 import dev.otmgram.R
 import dev.otmgram.core.Strings

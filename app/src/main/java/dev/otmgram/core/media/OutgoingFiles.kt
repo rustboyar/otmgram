@@ -1,4 +1,4 @@
-package dev.otmgram.data
+package dev.otmgram.core.media
 
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
