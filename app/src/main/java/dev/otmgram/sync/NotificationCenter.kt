@@ -177,6 +177,8 @@ class NotificationCenter @Inject constructor(
             if (chatId !in changedChats && chatId in rendered) return@forEach
             val chat = td.send(TdApi.GetChat(chatId))
             if (!chat.isShown) return@forEach
+            // Opened meanwhile (the requests above take a moment): it cleared them, and stays so.
+            if (foreground) return
             val alert = notifications.any { it.id > alerting && !it.isSilent }
             display.show(chatNotification(chat, notifications, withText), alert)
             rendered += chatId
