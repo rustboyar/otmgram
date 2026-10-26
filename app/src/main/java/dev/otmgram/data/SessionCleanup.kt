@@ -20,8 +20,8 @@ import javax.inject.Singleton
 /**
  * Removes what the app keeps besides TDLib's own data: old copies of sent files, and on
  * logout (here or from another device) everything that belonged to the account. TDLib
- * deletes its database and downloads itself. The app's log stays: it has no message text
- * or names, and tells what happened.
+ * deletes its database and downloads itself, but not its log, which can hold message text
+ * and names: that goes too. The app's own log stays: it has none, and tells what happened.
  */
 @Singleton
 class SessionCleanup @Inject constructor(
@@ -44,6 +44,12 @@ class SessionCleanup @Inject constructor(
         withContext(Dispatchers.IO) {
             outgoing.removeAll()
             File(context.cacheDir, "logs").deleteRecursively() // Shared log archives.
+            AppLog.folder?.let { folder ->
+                // Emptied rather than deleted: the next TDLib instance already writes to it.
+                File(folder, AppLog.TDLIB_FILE).takeIf { it.exists() }?.writeBytes(ByteArray(0))
+                // TDLib's previous part, once the log reached its size limit.
+                File(folder, AppLog.TDLIB_FILE + ".old").delete()
+            }
         }
         notifications.clear()
         shownNotifications.cancelAll()
