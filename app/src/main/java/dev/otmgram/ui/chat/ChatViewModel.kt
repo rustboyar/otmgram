@@ -23,6 +23,7 @@ import dev.otmgram.core.media.RecorderState
 import dev.otmgram.core.media.VoiceRecorder
 import dev.otmgram.core.td.TdException
 import dev.otmgram.core.td.TelegramClient
+import dev.otmgram.core.td.updates
 import dev.otmgram.core.userMessage
 import dev.otmgram.data.AppSettings
 import dev.otmgram.data.ChatRepository
@@ -326,7 +327,7 @@ class ChatViewModel @Inject constructor(
     init {
         loadPinned()
         viewModelScope.launch {
-            td.updates.collect { if (it is TdApi.UpdateMessageIsPinned && it.chatId == chatId) loadPinned() }
+            td.updates { it is TdApi.UpdateMessageIsPinned && it.chatId == chatId }.collect { loadPinned() }
         }
     }
 

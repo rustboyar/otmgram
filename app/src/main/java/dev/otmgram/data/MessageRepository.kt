@@ -6,6 +6,7 @@ import dev.otmgram.core.launchLogged
 import dev.otmgram.core.media.VoiceRecording
 import dev.otmgram.core.td.TdException
 import dev.otmgram.core.td.TelegramClient
+import dev.otmgram.core.td.updates
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
@@ -82,7 +83,7 @@ class ChatSession internal constructor(
     init {
         // Subscribe before loading, so no update is missed in between.
         scope.launch(start = CoroutineStart.UNDISPATCHED) {
-            td.updates.collect(::onUpdate)
+            td.updates(::concernsThisChat).collect(::onUpdate)
         }
         scope.launchLogged(TAG) {
             td.send(TdApi.OpenChat(chatId))
@@ -311,11 +312,22 @@ class ChatSession internal constructor(
         td.send(TdApi.ViewMessages(chatId, messageIds.toLongArray(), TdApi.MessageSourceChatHistory(), false))
     }
 
-    /** Applies [update] right away; names it refers to are looked up separately. */
+    private fun concernsThisChat(update: TdApi.Update): Boolean = when (update) {
+        is TdApi.UpdateNewMessage -> update.message.chatId == chatId
+        is TdApi.UpdateMessageSendSucceeded -> update.message.chatId == chatId
+        is TdApi.UpdateMessageSendFailed -> update.message.chatId == chatId
+        is TdApi.UpdateMessageContent -> update.chatId == chatId
+        is TdApi.UpdateMessageEdited -> update.chatId == chatId
+        is TdApi.UpdateMessageInteractionInfo -> update.chatId == chatId
+        is TdApi.UpdateDeleteMessages -> update.chatId == chatId
+        is TdApi.UpdateChatReadOutbox -> update.chatId == chatId
+        else -> false
+    }
+
+    /** Applies [update], one about this chat, right away; names it refers to are looked up separately. */
     private fun onUpdate(update: TdApi.Update) {
         when (update) {
             is TdApi.UpdateNewMessage -> {
-                if (update.message.chatId != chatId) return
                 if (!reachedEnd) {
                     // Not next to the history shown, which would get a gap. Something sent
                     // from here (or another device) brings the newest back, to show it.
@@ -326,34 +338,28 @@ class ChatSession internal constructor(
                 resolveSoon()
             }
             is TdApi.UpdateMessageSendSucceeded -> {
-                if (update.message.chatId != chatId) return
                 if (messages.remove(update.oldMessageId) == null && !reachedEnd) return
                 messages[update.message.id] = update.message
             }
             is TdApi.UpdateMessageSendFailed -> {
-                if (update.message.chatId != chatId) return
                 if (messages.remove(update.oldMessageId) == null && !reachedEnd) return
                 messages[update.message.id] = update.message
             }
             is TdApi.UpdateMessageContent -> {
-                if (update.chatId != chatId) return
                 messages[update.messageId]?.content = update.newContent
             }
             is TdApi.UpdateMessageEdited -> {
-                if (update.chatId != chatId) return
                 messages[update.messageId]?.editDate = update.editDate
             }
             is TdApi.UpdateMessageInteractionInfo -> {
-                if (update.chatId != chatId) return
                 messages[update.messageId]?.interactionInfo = update.interactionInfo
             }
             is TdApi.UpdateDeleteMessages -> {
                 // Messages only evicted from TDLib's cache still exist.
-                if (update.chatId != chatId || !update.isPermanent) return
+                if (!update.isPermanent) return
                 update.messageIds.forEach { messages.remove(it) }
             }
             is TdApi.UpdateChatReadOutbox -> {
-                if (update.chatId != chatId) return
                 lastReadOutboxMessageId = update.lastReadOutboxMessageId
             }
             else -> return

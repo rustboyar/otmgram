@@ -14,6 +14,7 @@ import dev.otmgram.core.location.LocationSource
 import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TdException
 import dev.otmgram.core.td.TelegramClient
+import dev.otmgram.core.td.updates
 import dev.otmgram.ui.chat.MessageMedia
 import dev.otmgram.ui.chat.toMedia
 import kotlinx.coroutines.CoroutineStart
@@ -84,14 +85,15 @@ class MapViewModel @Inject constructor(
     init {
         // Subscribe before loading, so no update is missed in between.
         viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
-            td.updates.collect { update ->
-                val changed = when (update) {
+            td.updates { update ->
+                when (update) {
                     is TdApi.UpdateMessageContent -> update.chatId == chatId && update.messageId == messageId
                     is TdApi.UpdateMessageEdited -> update.chatId == chatId && update.messageId == messageId
                     else -> false
                 }
+            }.collect {
                 // Reloading waits for TDLib: not inside the update collector.
-                if (changed) viewModelScope.launch { reloadLogged() }
+                viewModelScope.launch { reloadLogged() }
             }
         }
         viewModelScope.launch { reloadLogged() }
