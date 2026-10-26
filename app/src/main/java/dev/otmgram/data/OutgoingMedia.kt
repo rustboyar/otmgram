@@ -224,9 +224,27 @@ class OutgoingMedia @Inject constructor(
     private fun video(file: File, caption: String): TdApi.InputMessageContent {
         val info = videoInfo(file)
         val video = TdApi.InputVideo(
-            local(file), null, null, 0, intArrayOf(), info.duration, info.width, info.height, true,
+            local(file), videoThumbnail(file), null, 0, intArrayOf(), info.duration, info.width, info.height, true,
         )
         return TdApi.InputMessageVideo(video, formatted(caption), false, null, false)
+    }
+
+    /**
+     * The first frame, at most [THUMBNAIL_SIDE] px, as Telegram's apps send with a video:
+     * without it, a video sent as it is may show blank until downloaded. Null if none can be read.
+     */
+    private fun videoThumbnail(file: File): TdApi.InputThumbnail? = try {
+        MediaMetadataRetriever().use { retriever ->
+            retriever.setDataSource(file.path)
+            retriever.getScaledFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, THUMBNAIL_SIDE, THUMBNAIL_SIDE)?.let { frame ->
+                val output = files.newFile("jpg")
+                output.outputStream().use { frame.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, it) }
+                TdApi.InputThumbnail(local(output), frame.width, frame.height).also { frame.recycle() }
+            }
+        }
+    } catch (e: Exception) {
+        AppLog.w(TAG, "Reading a video's first frame failed", e)
+        null
     }
 
     /** Width and height as displayed, with the orientation applied. */
@@ -261,6 +279,9 @@ class OutgoingMedia @Inject constructor(
     private companion object {
         const val TAG = "OutgoingMedia"
         const val JPEG_QUALITY = 87
+
+        /** Telegram's limit for thumbnails. */
+        const val THUMBNAIL_SIDE = 320
 
         /** Typical for photos at [JPEG_QUALITY]; screenshots and flat images come out smaller. */
         const val JPEG_BYTES_PER_PIXEL = 0.3
