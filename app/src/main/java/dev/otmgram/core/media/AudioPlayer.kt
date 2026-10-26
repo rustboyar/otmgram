@@ -4,16 +4,21 @@ import android.content.Context
 import android.net.Uri
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dev.otmgram.core.log.AppLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -34,6 +39,11 @@ class AudioPlayer @Inject constructor(
     /** The current voice message, or null if none was played or it finished. */
     val state: StateFlow<AudioState?> = _state.asStateFlow()
 
+    private val _failures = MutableSharedFlow<Int>(extraBufferCapacity = 1)
+
+    /** Voice messages, by file id, that couldn't be played (e.g. a broken file). */
+    val failures: SharedFlow<Int> = _failures.asSharedFlow()
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var progressJob: Job? = null
 
@@ -41,15 +51,29 @@ class AudioPlayer @Inject constructor(
         ExoPlayer.Builder(context).build().apply {
             mediaAudio(focus = true, content = C.AUDIO_CONTENT_TYPE_SPEECH)
             addListener(object : Player.Listener {
-                override fun onIsPlayingChanged(isPlaying: Boolean) = publish()
+                // The position moves only while playing: the updates stop on a pause.
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    publish()
+                    progressJob?.cancel()
+                    if (isPlaying) {
+                        progressJob = scope.launch {
+                            while (isActive) {
+                                delay(PROGRESS_INTERVAL_MS)
+                                publish()
+                            }
+                        }
+                    }
+                }
 
                 override fun onPlaybackStateChanged(state: Int) {
-                    if (state == Player.STATE_ENDED) {
-                        _state.value = null
-                        progressJob?.cancel()
-                    } else {
-                        publish()
-                    }
+                    if (state == Player.STATE_ENDED) stop() else publish()
+                }
+
+                // Back to its play button, and said why, rather than doing nothing on taps.
+                override fun onPlayerError(error: PlaybackException) {
+                    AppLog.w(TAG, "Playing a voice message failed: ${error.errorCodeName}")
+                    _state.value?.let { _failures.tryEmit(it.fileId) }
+                    stop()
                 }
             })
         }
@@ -66,13 +90,11 @@ class AudioPlayer @Inject constructor(
         player.setMediaItem(MediaItem.fromUri(Uri.fromFile(File(path))))
         player.prepare()
         player.play()
+    }
+
+    private fun stop() {
         progressJob?.cancel()
-        progressJob = scope.launch {
-            while (isActive) {
-                publish()
-                delay(PROGRESS_INTERVAL_MS)
-            }
-        }
+        _state.value = null
     }
 
     private fun publish() {
@@ -85,6 +107,7 @@ class AudioPlayer @Inject constructor(
     }
 
     private companion object {
+        const val TAG = "AudioPlayer"
         const val PROGRESS_INTERVAL_MS = 100L
     }
 }

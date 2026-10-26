@@ -300,6 +300,15 @@ class ChatViewModel @Inject constructor(
     }
 
     init {
+        viewModelScope.launch {
+            audioPlayer.failures.collect { fileId ->
+                val inThisChat = this@ChatViewModel.messages.value.any { (it.media as? MessageMedia.VoiceNote)?.fileId == fileId }
+                if (inThisChat) notice = strings.get(R.string.notice_voice_cant_play)
+            }
+        }
+    }
+
+    init {
         loadPinned()
         viewModelScope.launch {
             td.updates.collect { if (it is TdApi.UpdateMessageIsPinned && it.chatId == chatId) loadPinned() }
