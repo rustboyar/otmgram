@@ -62,7 +62,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val savedState: SavedStateHandle,
-    messages: MessageRepository,
+    messageRepository: MessageRepository,
     private val chats: ChatRepository,
     private val folders: FolderRepository,
     private val stickerRepository: StickerRepository,
@@ -83,7 +83,7 @@ class ChatViewModel @Inject constructor(
     private val lasting = appScope.onMain()
 
     val chatId: Long = checkNotNull(savedState["chatId"])
-    private val session = messages.openChat(chatId, viewModelScope)
+    private val session = messageRepository.openChat(chatId, viewModelScope)
 
     private val _header = MutableStateFlow<ChatHeader?>(null)
     val header: StateFlow<ChatHeader?> = _header.asStateFlow()
@@ -109,9 +109,6 @@ class ChatViewModel @Inject constructor(
     /** Voice message being played, anywhere in the app. */
     val audio: StateFlow<AudioState?> = audioPlayer.state
 
-    var composer by mutableStateOf<Composer>(Composer.New)
-        private set
-
     var menu by mutableStateOf<MessageMenu?>(null)
         private set
 
@@ -127,15 +124,24 @@ class ChatViewModel @Inject constructor(
     var unreadMark by mutableStateOf<UnreadMark?>(null)
         private set
 
-    /** What's typed in the input bar; here, so searching, selecting or recording keeps it. */
-    var text by mutableStateOf(savedState.get<String>(DRAFT_KEY).orEmpty())
-        private set
-
-    /** The draft set aside while editing a message, back once done. */
-    private var draftBeforeEdit = ""
-
-    /** The draft as Telegram has it (text, reply), so only changes are saved. */
-    private var savedDraft: Pair<String, Long?> = "" to null
+    /** The input bar: what's typed, and whether it's a new message, a reply or an edit. */
+    val composer = DraftComposer(
+        viewModelScope,
+        initialText = savedState.get<String>(DRAFT_KEY).orEmpty(),
+        keep = { savedState[DRAFT_KEY] = it },
+        saveToTelegram = { draft -> td.sendIgnoringResult(TdApi.SetChatDraftMessage(chatId, null, draft)) },
+        send = { mode, text ->
+            when (mode) {
+                Composer.New -> session.sendText(text)
+                is Composer.Reply -> session.sendText(text, replyToMessageId = mode.message.id)
+                is Composer.Edit -> if (mode.message.media != null) session.editCaption(mode.message.id, text) else session.editText(mode.message.id, text)
+            }
+        },
+        onError = {
+            AppLog.w(TAG, "Sending failed", it)
+            showError(it)
+        },
+    )
 
     /** The first unread message, to open the chat at; null once there or if none. */
     var openAt by mutableStateOf<Long?>(null)
@@ -196,7 +202,7 @@ class ChatViewModel @Inject constructor(
                     minithumbnail = chat.photo?.minithumbnail?.data,
                     isSavedMessages = saved,
                 )
-                restoreDraft(chat.draftMessage)
+                composer.restore(chat.draftMessage) { id -> messages.value.find { it.id == id } }
                 if (chat.unreadCount > 0) {
                     unreadMark = UnreadMark(chat.lastReadInboxMessageId, chat.unreadCount)
                     // Open at the first unread message: opening at the newest would mark them all
@@ -224,7 +230,7 @@ class ChatViewModel @Inject constructor(
         }
         viewModelScope.launch {
             audioPlayer.failures.collect { fileId ->
-                val inThisChat = this@ChatViewModel.messages.value.any { (it.media as? MessageMedia.VoiceNote)?.fileId == fileId }
+                val inThisChat = messages.value.any { (it.media as? MessageMedia.VoiceNote)?.fileId == fileId }
                 if (inThisChat) notice = strings.get(R.string.notice_voice_cant_play)
             }
         }
@@ -236,73 +242,6 @@ class ChatViewModel @Inject constructor(
 
     /** Back to the newest messages after jumping to an older one. */
     fun returnToNewest() = action { session.returnToNewest() }
-
-    fun type(value: String) {
-        text = value
-        if (composer !is Composer.Edit) savedState[DRAFT_KEY] = value
-    }
-
-    /** A draft from Telegram (typed here before, or on another device), unless something's typed. */
-    private fun restoreDraft(draft: TdApi.DraftMessage?) {
-        val draftText = (draft?.content as? TdApi.DraftMessageContentText)?.text?.text.orEmpty()
-        val replyId = (draft?.replyTo as? TdApi.InputMessageReplyToMessage)?.messageId
-        savedDraft = draftText to replyId
-        if (text.isNotEmpty() || draftText.isEmpty()) return
-        type(draftText)
-        // The reply only if that message is loaded already.
-        messages.value.find { it.id == replyId }?.let { composer = Composer.Reply(it) }
-    }
-
-    /** Saves what's typed as the chat's draft on Telegram, if it changed; on leaving the chat. */
-    fun saveDraft() {
-        val draftText = (if (composer is Composer.Edit) draftBeforeEdit else text).trim()
-        val replyId = (composer as? Composer.Reply)?.message?.id?.takeIf { draftText.isNotEmpty() }
-        if (draftText to replyId == savedDraft) return
-        savedDraft = draftText to replyId
-        val draft = draftText.takeIf { it.isNotEmpty() }?.let {
-            TdApi.DraftMessage(
-                replyId?.let { id -> TdApi.InputMessageReplyToMessage(id, null, 0, "") },
-                0,
-                TdApi.DraftMessageContentText(TdApi.FormattedText(it, emptyArray()), null),
-                0,
-                null,
-            )
-        }
-        // Not suspending: also called as the view model goes away.
-        td.sendIgnoringResult(TdApi.SetChatDraftMessage(chatId, null, draft))
-    }
-
-    fun send() {
-        val text = text
-        val mode = composer
-        // A caption may be removed by saving it empty; text messages can't be empty.
-        val removingCaption = mode is Composer.Edit && mode.message.media != null
-        if (text.isBlank() && !removingCaption) return
-        composer = Composer.New
-        type(if (mode is Composer.Edit) draftBeforeEdit else "")
-        val left = this.text
-        // Sending clears the draft on Telegram.
-        if (mode !is Composer.Edit) savedDraft = "" to null
-        // Refused (an edit too late, say): the text back to try again, unless something else
-        // was typed meanwhile. A message that fails later on its way shows as failed instead.
-        action(onFailure = {
-            if (composer == Composer.New && this.text == left) {
-                if (mode is Composer.Edit) draftBeforeEdit = left
-                composer = mode
-                type(text)
-            }
-        }) {
-            when (mode) {
-                Composer.New -> session.sendText(text.trim())
-                is Composer.Reply -> session.sendText(text.trim(), replyToMessageId = mode.message.id)
-                is Composer.Edit -> if (mode.message.media != null) {
-                    session.editCaption(mode.message.id, text.trim())
-                } else {
-                    session.editText(mode.message.id, text.trim())
-                }
-            }
-        }
-    }
 
     /** The chat is shown at [openAt], with [visibleIds] on screen. */
     fun opened(visibleIds: List<Long>) {
@@ -418,7 +357,7 @@ class ChatViewModel @Inject constructor(
     fun cancelVoice() = voiceRecorder.cancel()
 
     override fun onCleared() {
-        saveDraft()
+        composer.save()
         if (voiceRecorder.state.value != null) voiceRecorder.cancel()
     }
 
@@ -517,20 +456,12 @@ class ChatViewModel @Inject constructor(
 
     fun reply(message: MessageItem) {
         menu = null
-        composer = Composer.Reply(message)
+        composer.reply(message)
     }
 
     fun edit(message: MessageItem) {
         menu = null
-        if (composer !is Composer.Edit) draftBeforeEdit = text
-        composer = Composer.Edit(message)
-        text = message.text
-    }
-
-    fun cancelComposer() {
-        val wasEditing = composer is Composer.Edit
-        composer = Composer.New
-        if (wasEditing) type(draftBeforeEdit)
+        composer.edit(message)
     }
 
     fun askDelete(menu: MessageMenu) {

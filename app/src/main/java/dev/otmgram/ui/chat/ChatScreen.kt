@@ -136,7 +136,7 @@ fun ChatScreen(
             .collect { nearNewest -> if (nearNewest) viewModel.loadNewer() }
     }
     // Save the draft when the app goes to the background: the process may not come back.
-    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.saveDraft() }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.composer.save() }
     // Mark messages on screen as read.
     LaunchedEffect(listState) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? Long } }
@@ -350,13 +350,13 @@ fun ChatScreen(
                 searching -> FindStepper(results, search.index, search.query.orEmpty(), onStep = search::step)
                 current != null -> RecordingBar(current, onCancel = viewModel::cancelVoice, onSend = viewModel::sendVoice)
                 else -> InputBar(
-                    readText = { viewModel.text },
-                    onTextChange = viewModel::type,
-                    composer = viewModel.composer,
+                    readText = { viewModel.composer.text },
+                    onTextChange = viewModel.composer::type,
+                    composer = viewModel.composer.mode,
                     chatTitle = title,
                     stickersOpen = viewModel.stickers.isOpen,
-                    onCancel = viewModel::cancelComposer,
-                    onSend = viewModel::send,
+                    onCancel = viewModel.composer::cancel,
+                    onSend = viewModel.composer::send,
                     onStickers = {
                         if (viewModel.stickers.isOpen) {
                             viewModel.stickers.close()
