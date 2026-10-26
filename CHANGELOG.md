@@ -5,6 +5,8 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 
 ## Unreleased
 
+## 0.1.0 - 2026-10-26
+
 The first release. Otmgram shows the chats of one Telegram folder, and nothing else.
 
 ### Chats
