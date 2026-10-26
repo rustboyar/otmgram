@@ -45,7 +45,7 @@ scripts/ui-tests.sh          # UI tests on a device; keeps the app's data (unlik
 - Formatting: Spotless with ktlint; the style is in `.editorconfig`
 - Android lint with Slack's compose-lints, failing on any issue; Kotlin warnings fail the build too
 - Unit tests (`./gradlew :app:testDebugUnitTest`): message mapping, list rows, media mapping, links, wording and formats, log redaction, the mapping of login states and storage kinds, opening the database with its key, the chat's holders (composer, location, pinned, search, selection, stickers, outgoing), and against a fake TDLib (`testing/FakeTelegram`, behind the `TelegramClient` interface): the open chat (jumps included), the folder list, names, file states and what gets notified. Settings and notification marks use DataStore files of the test's own (they're injected)
-- UI tests on a device: bubble states and their accessibility actions, the delete dialog. Not `connectedAndroidTest`, which uninstalls the app and so logs it out
+- UI tests on a device: bubble states and their accessibility actions, the delete dialog, what a locked phone shows of a notification, and that compressed videos are stored upright. Not `connectedAndroidTest`, which uninstalls the app and so logs it out
 - No CI: building TDLib takes too long for it
 
 ## Debug builds and the emulator

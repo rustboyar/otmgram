@@ -82,6 +82,9 @@ class MediaTranscoder @Inject constructor(
                 .setEncoderFactory(encoders)
                 .setVideoMimeType(MimeTypes.VIDEO_H264)
                 .setAudioMimeType(MimeTypes.AUDIO_AAC)
+                // Upright frames: by default a portrait video is encoded as landscape frames with a
+                // rotation flag, which Telegram for iOS ignores, showing it sideways.
+                .setPortraitEncodingEnabled(true)
                 .addListener(object : Transformer.Listener {
                     override fun onCompleted(composition: Composition, exportResult: ExportResult) {
                         continuation.resume(output)
