@@ -68,7 +68,7 @@ they are. For building and testing, see [DEVELOPMENT.md](DEVELOPMENT.md).
 ## Sending media
 
 - Photos and videos through the system photo picker, copied for TDLib, previewed with a caption and the estimated size; several go as an album (caption on the first)
-- Compression, on by default and switchable per send: photos scaled to 2560 px on the long side as JPEG (Telegram recompresses them anyway; this saves the upload); videos re-encoded to 720p H.264 (short side), about 2.5 Mbps, AAC, unless already that small (Telegram doesn't recompress videos)
+- Quality, chosen per send (default in Settings, HD unless changed): SD scales photos to 1280 px on the long side as JPEG and re-encodes videos to 480p H.264 (short side), about 1.2 Mbps; HD to 2560 px and 720p, about 2.5 Mbps; Original sends them as they are. AAC audio; frames stored upright, without a rotation flag. Media already that small stays as it is (Telegram recompresses photos to at most 2560 px, but never videos)
 - Files: any type, several at once, with a caption; sent as they are
 - Uploads show progress and can be cancelled. Copies of sent files are removed after 3 days
 - Voice: recorded as OGG/Opus (MediaRecorder) with its level sampled for the waveform; under 0.7 s is dropped

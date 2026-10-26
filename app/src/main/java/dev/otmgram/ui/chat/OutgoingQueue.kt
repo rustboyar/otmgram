@@ -3,6 +3,7 @@ package dev.otmgram.ui.chat
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import dev.otmgram.data.SendQuality
 import dev.otmgram.data.SizeEstimate
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -20,7 +21,7 @@ class OutgoingQueue<T>(
     private val scope: CoroutineScope,
     private val sendScope: CoroutineScope,
     private val estimate: suspend (List<T>) -> SizeEstimate,
-    private val prepareMedia: suspend (item: T, caption: String, compress: Boolean) -> TdApi.InputMessageContent?,
+    private val prepareMedia: suspend (item: T, caption: String, quality: SendQuality) -> TdApi.InputMessageContent?,
     private val prepareFile: suspend (item: T, caption: String) -> TdApi.InputMessageContent,
     private val send: suspend (List<TdApi.InputMessageContent>) -> Unit,
     private val onError: (Exception) -> Unit,
@@ -29,7 +30,7 @@ class OutgoingQueue<T>(
     var media by mutableStateOf<List<T>>(emptyList())
         private set
 
-    /** Size of [media] now and after compression, once estimated. */
+    /** Size of [media] as it is and in each quality, once estimated. */
     var sizes by mutableStateOf<SizeEstimate?>(null)
         private set
 
@@ -51,14 +52,14 @@ class OutgoingQueue<T>(
         files = items
     }
 
-    fun sendMedia(caption: String, compress: Boolean) {
+    fun sendMedia(caption: String, quality: SendQuality) {
         val items = media
         media = emptyList()
         preparing = true
         sendScope.launch {
             try {
                 guarded {
-                    send(items.mapIndexedNotNull { i, item -> prepareMedia(item, if (i == 0) caption else "", compress) })
+                    send(items.mapIndexedNotNull { i, item -> prepareMedia(item, if (i == 0) caption else "", quality) })
                 }
             } finally {
                 preparing = false

@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!-- Send preview: what compressing does -->
-    <string name="size_compress_unknown">Smaller and faster to send</string>
+    <!-- Send preview: what each quality does -->
+    <string name="size_sd_unknown">Smallest and quickest to send</string>
+    <string name="size_hd_unknown">Sharp, and smaller than the original</string>
     <string name="size_full_unknown">Sent at full quality</string>
     <string name="size_full">%1$s, sent at full quality</string>
     <string name="size_compressed">About %1$s instead of %2$s</string>
@@ -54,7 +55,10 @@
     <string name="location_map">Map of where you are</string>
     <string name="media_selected">Selected item</string>
     <string name="media_item">Item %1$d</string>
-    <string name="compress">Compress</string>
+    <string name="quality">Quality</string>
+    <string name="quality_sd">SD</string>
+    <string name="quality_hd">HD</string>
+    <string name="quality_original">Original</string>
     <string name="files_hint">Files are sent as they are, without compression.</string>
     <string name="send_to">to %1$s</string>
     <string name="caption">Add a caption</string>

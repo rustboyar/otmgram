@@ -39,9 +39,17 @@ enum class CacheLimit(val bytes: Long?, @StringRes val label: Int) {
     None(null, R.string.cache_no_limit),
 }
 
+/** How picked photos and videos are sent: made smaller ([SD], [HD]) or as they are. */
+enum class SendQuality(@StringRes val label: Int) {
+    SD(R.string.quality_sd),
+    HD(R.string.quality_hd),
+    Original(R.string.quality_original),
+}
+
 private val NOTIFICATION_MODE = stringPreferencesKey("notification_mode")
 private val CHECK_INTERVAL = stringPreferencesKey("check_interval")
 private val COMPRESS = booleanPreferencesKey("compress_by_default")
+private val SEND_QUALITY = stringPreferencesKey("send_quality")
 private val CACHE_LIMIT = stringPreferencesKey("cache_limit")
 private val MESSAGE_TEXT = booleanPreferencesKey("notification_message_text")
 private val NOTIFICATIONS_ASKED = booleanPreferencesKey("notification_permission_asked")
@@ -61,8 +69,11 @@ class AppSettings @Inject constructor(
         CheckInterval.entries.find { it.name == prefs[CHECK_INTERVAL] } ?: CheckInterval.Minutes15
     }
 
-    /** Whether "Compress" starts on when sending photos and videos. */
-    val compressByDefault: Flow<Boolean> = settings.data.map { it[COMPRESS] ?: true }
+    /** The quality the send preview starts with. Earlier versions had only Compress, on or off. */
+    val sendQuality: Flow<SendQuality> = settings.data.map { prefs ->
+        SendQuality.entries.find { it.name == prefs[SEND_QUALITY] }
+            ?: if (prefs[COMPRESS] == false) SendQuality.Original else SendQuality.HD
+    }
 
     val cacheLimit: Flow<CacheLimit> = settings.data.map { prefs ->
         CacheLimit.entries.find { it.name == prefs[CACHE_LIMIT] } ?: CacheLimit.Gb2
@@ -90,8 +101,8 @@ class AppSettings @Inject constructor(
         settings.edit { it[CHECK_INTERVAL] = interval.name }
     }
 
-    suspend fun setCompressByDefault(compress: Boolean) {
-        settings.edit { it[COMPRESS] = compress }
+    suspend fun setSendQuality(quality: SendQuality) {
+        settings.edit { it[SEND_QUALITY] = quality.name }
     }
 
     suspend fun setCacheLimit(limit: CacheLimit) {

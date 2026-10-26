@@ -1,5 +1,6 @@
 package dev.otmgram.ui.chat
 
+import dev.otmgram.data.SendQuality
 import dev.otmgram.data.SizeEstimate
 import dev.otmgram.data.Sticker
 import dev.otmgram.data.StickerTab
@@ -197,7 +198,7 @@ class ChatPartsTest {
         val queue = OutgoingQueue<String>(
             backgroundScope,
             backgroundScope,
-            estimate = { SizeEstimate(10, 5) },
+            estimate = { SizeEstimate(10, 3, 5) },
             prepareMedia = { _, caption, _ -> captions += caption; TdApi.InputMessageText() },
             prepareFile = { _, _ -> TdApi.InputMessageText() },
             send = { sent += it.size },
@@ -205,8 +206,8 @@ class ChatPartsTest {
         )
         queue.pickMedia(listOf("a", "b", "c"))
         runCurrent()
-        assertEquals(SizeEstimate(10, 5), queue.sizes)
-        queue.sendMedia("the view", compress = true)
+        assertEquals(SizeEstimate(10, 3, 5), queue.sizes)
+        queue.sendMedia("the view", SendQuality.HD)
         assertTrue(queue.preparing)
         runCurrent()
         assertEquals(listOf("the view", "", ""), captions)
@@ -219,10 +220,10 @@ class ChatPartsTest {
     fun `a failed compression is reported and stops preparing`() = runTest {
         val errors = mutableListOf<Exception>()
         val queue = OutgoingQueue<String>(
-            backgroundScope, backgroundScope, { SizeEstimate(0, 0) }, { _, _, _ -> error("decoder failed") }, { _, _ -> TdApi.InputMessageText() }, {}, { errors += it },
+            backgroundScope, backgroundScope, { SizeEstimate(0, 0, 0) }, { _, _, _ -> error("decoder failed") }, { _, _ -> TdApi.InputMessageText() }, {}, { errors += it },
         )
         queue.pickMedia(listOf("a"))
-        queue.sendMedia("", compress = true)
+        queue.sendMedia("", SendQuality.HD)
         runCurrent()
         assertEquals(1, errors.size)
         assertFalse(queue.preparing)

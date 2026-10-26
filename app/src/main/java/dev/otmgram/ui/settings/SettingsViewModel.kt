@@ -23,6 +23,7 @@ import dev.otmgram.data.CheckInterval
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.MAX_HEADER_NAME
 import dev.otmgram.data.NotificationMode
+import dev.otmgram.data.SendQuality
 import dev.otmgram.data.StorageRepository
 import dev.otmgram.data.StorageUsage
 import dev.otmgram.data.fullName
@@ -76,7 +77,7 @@ class SettingsViewModel @Inject constructor(
     val pushLine: StateFlow<PushLine?> = combine(pushState.status, pushApps) { status, _ -> pushLine(status) }
         .flowOn(Dispatchers.IO)
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
-    val compressByDefault = settings.compressByDefault.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val sendQuality = settings.sendQuality.stateIn(viewModelScope, SharingStarted.Eagerly, SendQuality.HD)
     val showMessageText = settings.showMessageText.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val cacheLimit = settings.cacheLimit.stateIn(viewModelScope, SharingStarted.Eagerly, CacheLimit.Gb2)
 
@@ -160,8 +161,8 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settings.setShowMessageText(show) }
     }
 
-    fun setCompressByDefault(compress: Boolean) {
-        viewModelScope.launch { settings.setCompressByDefault(compress) }
+    fun setSendQuality(quality: SendQuality) {
+        viewModelScope.launch { settings.setSendQuality(quality) }
     }
 
     fun setCacheLimit(limit: CacheLimit) {

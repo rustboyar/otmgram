@@ -49,6 +49,7 @@ import dev.otmgram.R
 import dev.otmgram.core.log.LogArchive
 import dev.otmgram.data.CacheLimit
 import dev.otmgram.data.MAX_HEADER_NAME
+import dev.otmgram.data.SendQuality
 import dev.otmgram.data.StorageKind
 import dev.otmgram.data.StorageUsage
 import dev.otmgram.ui.chat.SelectionMark
@@ -81,7 +82,7 @@ fun SettingsScreen(onBack: () -> Unit, onChangeFolder: () -> Unit, modifier: Mod
         viewModel.refreshPush()
         onPauseOrDispose {}
     }
-    val compress by viewModel.compressByDefault.collectAsStateWithLifecycle()
+    val quality by viewModel.sendQuality.collectAsStateWithLifecycle()
     val showText by viewModel.showMessageText.collectAsStateWithLifecycle()
     val cacheLimit by viewModel.cacheLimit.collectAsStateWithLifecycle()
     var confirmLogout by rememberSaveable { mutableStateOf(false) }
@@ -164,13 +165,14 @@ fun SettingsScreen(onBack: () -> Unit, onChangeFolder: () -> Unit, modifier: Mod
                 "showMessageText",
             )
 
-            SwitchCard(
-                stringResource(R.string.compress_title),
-                stringResource(R.string.compress_description),
-                compress,
-                viewModel::setCompressByDefault,
-                "compressDefault",
-            )
+            Card {
+                Title(stringResource(R.string.quality_title), stringResource(R.string.quality_description))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SendQuality.entries.forEach { option ->
+                        Chip(stringResource(option.label), option == quality, { viewModel.setSendQuality(option) }, Modifier.testTag("quality-${option.name}"))
+                    }
+                }
+            }
 
             Card {
                 Row(verticalAlignment = Alignment.Bottom) {

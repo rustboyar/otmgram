@@ -40,9 +40,12 @@ class MediaTranscoderTest {
     @Test
     fun aCompressedPortraitVideoIsStoredUpright() {
         val input = portraitClip()
-        val output = runBlocking(Dispatchers.Main) { transcoder.compressVideo(input) }
+        val output = runBlocking(Dispatchers.Main) { transcoder.compressVideo(input, shortSide = 480, bitrate = 1_000_000) }
         try {
-            assertEquals(Triple(720, 1280, 0), output.frames())
+            val (width, height, rotation) = output.frames()
+            assertEquals(480, width)
+            assertEquals(853.0, height.toDouble(), 1.0)
+            assertEquals(0, rotation)
         } finally {
             input.delete()
             output.delete()

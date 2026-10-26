@@ -1,6 +1,7 @@
 package dev.otmgram.ui
 
 import androidx.compose.ui.graphics.Color
+import dev.otmgram.data.SendQuality
 import dev.otmgram.data.SizeEstimate
 import dev.otmgram.data.summary
 import dev.otmgram.testing.NOON_2026_10_23
@@ -49,11 +50,13 @@ class WordingTest {
     }
 
     @Test
-    fun `compression estimate`() {
-        assertEquals("About 3.4 MB instead of 15.7 MB", sizeLine(SizeEstimate(15_700_000, 3_400_000), compress = true, TestStrings))
-        assertEquals("Already small: 1.2 MB", sizeLine(SizeEstimate(1_200_000, 1_150_000), compress = true, TestStrings))
-        assertEquals("15.7 MB, sent at full quality", sizeLine(SizeEstimate(15_700_000, 3_400_000), compress = false, TestStrings))
-        assertEquals("Smaller and faster to send", sizeLine(null, compress = true, TestStrings))
+    fun `size in each quality`() {
+        val sizes = SizeEstimate(original = 15_700_000, sd = 1_100_000, hd = 3_400_000)
+        assertEquals("About 1.1 MB instead of 15.7 MB", sizeLine(sizes, SendQuality.SD, TestStrings))
+        assertEquals("About 3.4 MB instead of 15.7 MB", sizeLine(sizes, SendQuality.HD, TestStrings))
+        assertEquals("15.7 MB, sent at full quality", sizeLine(sizes, SendQuality.Original, TestStrings))
+        assertEquals("Already small: 1.2 MB", sizeLine(SizeEstimate(1_200_000, 900_000, 1_150_000), SendQuality.HD, TestStrings))
+        assertEquals("Smallest and quickest to send", sizeLine(null, SendQuality.SD, TestStrings))
     }
 
     @Test

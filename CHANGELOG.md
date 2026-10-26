@@ -6,6 +6,7 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 ## Unreleased
 
 ### Changed
+- Send photos and videos in SD (smallest), HD (as before) or Original, chosen for each message; the default is in Settings
 - Screens change faster: a chat or settings page slides in from the right and back slides it away, and photos, videos and players open over the chat
 
 ### Fixed

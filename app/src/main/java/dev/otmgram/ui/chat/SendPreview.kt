@@ -47,9 +47,11 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import dev.otmgram.R
 import dev.otmgram.core.Strings
+import dev.otmgram.data.SendQuality
 import dev.otmgram.data.SizeEstimate
 import dev.otmgram.ui.format.formatSize
 import dev.otmgram.ui.rememberStrings
+import dev.otmgram.ui.theme.Chip
 import dev.otmgram.ui.theme.DialogTags
 import dev.otmgram.ui.theme.FullScreenDialog
 import dev.otmgram.ui.theme.IconBtn
@@ -62,25 +64,25 @@ import dev.otmgram.ui.theme.paper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Picked photos and videos, large, with a caption field and Compress, before sending. */
+/** Picked photos and videos, large, with a caption field and the quality to send them in. */
 @Composable
 fun MediaPreviewScreen(
     uris: List<Uri>,
     chatTitle: String,
-    compressByDefault: Boolean,
+    defaultQuality: SendQuality,
     sizes: SizeEstimate?,
-    onSend: (caption: String, compress: Boolean) -> Unit,
+    onSend: (caption: String, quality: SendQuality) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var compress by rememberSaveable { mutableStateOf(compressByDefault) }
+    var quality by rememberSaveable { mutableStateOf(defaultQuality) }
     var shown by rememberSaveable { mutableIntStateOf(0) }
     SendPreview(
         title = pluralStringResource(R.plurals.media_items, uris.size, uris.size),
         chatTitle = chatTitle,
         captionTag = "caption",
         sendTag = "sendMedia",
-        onSend = { onSend(it, compress) },
+        onSend = { onSend(it, quality) },
         onDismiss = onDismiss,
         modifier = modifier,
     ) {
@@ -106,24 +108,29 @@ fun MediaPreviewScreen(
                 }
             }
         }
-        Row(
-            modifier = Modifier.fillMaxWidth().toggleable(compress, role = Role.Switch) { compress = it }.testTag("compress").padding(horizontal = 4.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.compress), style = OtmType.Body.copy(fontWeight = FontWeight.SemiBold), color = Otm.Ink)
-                Text(sizeLine(sizes, compress, rememberStrings()), style = OtmType.Secondary, color = Otm.InkSoft, modifier = Modifier.testTag("sizeEstimate"))
+        Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.quality), style = OtmType.Body.copy(fontWeight = FontWeight.SemiBold), color = Otm.Ink, modifier = Modifier.weight(1f))
+                SendQuality.entries.forEach { option ->
+                    Chip(stringResource(option.label), option == quality, { quality = option }, Modifier.testTag("quality-${option.name}"))
+                }
             }
-            OtmSwitch(compress, onCheckedChange = null)
+            Text(sizeLine(sizes, quality, rememberStrings()), style = OtmType.Secondary, color = Otm.InkSoft, modifier = Modifier.testTag("sizeEstimate"))
         }
     }
 }
 
 /** "About 2.4 MB instead of 31 MB", or the size as it goes. */
-internal fun sizeLine(sizes: SizeEstimate?, compress: Boolean, strings: Strings): String = when {
-    sizes == null -> strings.get(if (compress) R.string.size_compress_unknown else R.string.size_full_unknown)
-    !compress -> strings.get(R.string.size_full, formatSize(sizes.original))
-    sizes.compressed < sizes.original * 9 / 10 -> strings.get(R.string.size_compressed, formatSize(sizes.compressed), formatSize(sizes.original))
+internal fun sizeLine(sizes: SizeEstimate?, quality: SendQuality, strings: Strings): String = when {
+    sizes == null -> strings.get(
+        when (quality) {
+            SendQuality.SD -> R.string.size_sd_unknown
+            SendQuality.HD -> R.string.size_hd_unknown
+            SendQuality.Original -> R.string.size_full_unknown
+        },
+    )
+    quality == SendQuality.Original -> strings.get(R.string.size_full, formatSize(sizes.original))
+    sizes.of(quality) < sizes.original * 9 / 10 -> strings.get(R.string.size_compressed, formatSize(sizes.of(quality)), formatSize(sizes.original))
     else -> strings.get(R.string.size_already_small, formatSize(sizes.original))
 }
 

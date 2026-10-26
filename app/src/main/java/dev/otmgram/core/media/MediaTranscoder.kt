@@ -41,12 +41,9 @@ class MediaTranscoder @Inject constructor(
     suspend fun videoNote(input: File): File =
         transcode(input, Presentation.createForWidthAndHeight(VIDEO_NOTE_SIZE, VIDEO_NOTE_SIZE, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP))
 
-    /**
-     * A smaller video: [COMPRESSED_SHORT_SIDE] px on the short side at [COMPRESSED_BITRATE].
-     * Keeps [input], to fall back on.
-     */
-    suspend fun compressVideo(input: File): File =
-        transcode(input, Presentation.createForShortSide(COMPRESSED_SHORT_SIDE), bitrate = COMPRESSED_BITRATE, keepInput = true)
+    /** A smaller video: [shortSide] px on the short side at [bitrate] bits/s. Keeps [input], to fall back on. */
+    suspend fun compressVideo(input: File, shortSide: Int, bitrate: Int): File =
+        transcode(input, Presentation.createForShortSide(shortSide), bitrate = bitrate, keepInput = true)
 
     /**
      * Transcodes to H.264/AAC, deleting [input] unless [keepInput]. Retries with software
@@ -105,7 +102,5 @@ class MediaTranscoder @Inject constructor(
 
     companion object {
         const val VIDEO_NOTE_SIZE = 480
-        const val COMPRESSED_SHORT_SIDE = 720
-        const val COMPRESSED_BITRATE = 2_500_000
     }
 }

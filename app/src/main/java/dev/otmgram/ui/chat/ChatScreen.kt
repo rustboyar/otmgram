@@ -446,9 +446,9 @@ fun ChatScreen(
         FilesPreviewScreen(outgoing.files, title, onSend = outgoing::sendFiles, onDismiss = outgoing::cancelFiles)
     }
     if (outgoing.media.isNotEmpty()) {
-        val compress by viewModel.compressByDefault.collectAsStateWithLifecycle()
+        val quality by viewModel.sendQuality.collectAsStateWithLifecycle()
         MediaPreviewScreen(
-            outgoing.media, title, compress, outgoing.sizes,
+            outgoing.media, title, quality, outgoing.sizes,
             onSend = outgoing::sendMedia, onDismiss = outgoing::cancelMedia,
         )
     }

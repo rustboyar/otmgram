@@ -31,6 +31,7 @@ import dev.otmgram.data.FileRepository
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.MessageRepository
 import dev.otmgram.data.OutgoingMedia
+import dev.otmgram.data.SendQuality
 import dev.otmgram.data.Sticker
 import dev.otmgram.data.StickerRepository
 import dev.otmgram.data.isGroup
@@ -101,8 +102,8 @@ class ChatViewModel @Inject constructor(
     /** Voice message being recorded, or null. */
     val recording: StateFlow<RecorderState?> = voiceRecorder.state
 
-    /** Whether "Compress" starts on in the send preview. */
-    val compressByDefault: StateFlow<Boolean> = appSettings.compressByDefault.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    /** The quality the send preview starts with. */
+    val sendQuality: StateFlow<SendQuality> = appSettings.sendQuality.stateIn(viewModelScope, SharingStarted.Eagerly, SendQuality.HD)
 
     /** Voice message being played, anywhere in the app. */
     val audio: StateFlow<AudioState?> = audioPlayer.state

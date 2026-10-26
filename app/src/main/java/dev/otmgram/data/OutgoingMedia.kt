@@ -26,8 +26,30 @@ import javax.inject.Singleton
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-/** Total size of picked media as it is, and roughly after compression. */
-data class SizeEstimate(val original: Long, val compressed: Long)
+/** Total size of picked media as it is, and roughly in [SendQuality.SD] and [SendQuality.HD]. */
+data class SizeEstimate(val original: Long, val sd: Long, val hd: Long) {
+    fun of(quality: SendQuality): Long = when (quality) {
+        SendQuality.SD -> sd
+        SendQuality.HD -> hd
+        SendQuality.Original -> original
+    }
+}
+
+/** What a quality makes of media: photos at most [photoSide] px, videos [videoSide] px on the short side at [videoBitrate] bits/s. */
+private class Target(val photoSide: Int, val videoSide: Int, val videoBitrate: Int) {
+    /** A JPEG within [photoSide] and this small is sent as it is. */
+    val smallJpegBytes: Long get() = (photoSide.toLong() * photoSide * SMALL_JPEG_BYTES_PER_PIXEL).toLong()
+}
+
+// Telegram keeps photos up to 2560 px, the size its apps send as HD, and 1280 px otherwise.
+private val SendQuality.target: Target?
+    get() = when (this) {
+        SendQuality.SD -> Target(photoSide = 1280, videoSide = 480, videoBitrate = 1_200_000)
+        SendQuality.HD -> Target(photoSide = 2560, videoSide = 720, videoBitrate = 2_500_000)
+        SendQuality.Original -> null
+    }
+
+private const val SMALL_JPEG_BYTES_PER_PIXEL = 0.23
 
 /** Turns picked or recorded media into message content TDLib can send. */
 @Singleton
@@ -38,9 +60,10 @@ class OutgoingMedia @Inject constructor(
 ) {
     /**
      * A photo or video picked from the gallery, with an optional caption; null for other
-     * types. With [compress], large photos and videos are made smaller first.
+     * types. Large photos and videos are made smaller first, to [quality].
      */
-    suspend fun fromGallery(uri: Uri, caption: String = "", compress: Boolean = true): TdApi.InputMessageContent? {
+    suspend fun fromGallery(uri: Uri, caption: String = "", quality: SendQuality = SendQuality.HD): TdApi.InputMessageContent? {
+        val target = quality.target
         val type = context.contentResolver.getType(uri).orEmpty()
         val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(type)
         return when {
@@ -48,13 +71,13 @@ class OutgoingMedia @Inject constructor(
             type == "image/gif" -> withContext(Dispatchers.IO) { animation(copy(uri, files.newFile("gif")), caption) }
             type.startsWith("image/") -> withContext(Dispatchers.IO) {
                 val original = copy(uri, files.newFile(extension ?: "jpg"))
-                photo(if (compress) compressedPhoto(original, type) else original, caption)
+                photo(if (target != null) compressedPhoto(original, type, target) else original, caption)
             }
             type.startsWith("video/") -> {
                 val original = withContext(Dispatchers.IO) { copy(uri, files.newFile(extension ?: "mp4")) }
                 // Reading the video's details takes a while for a large one: not on the main thread.
-                val compressing = compress && withContext(Dispatchers.IO) { needsCompression(original) }
-                val file = if (compressing) compressedVideo(original) else original
+                val compressing = target != null && withContext(Dispatchers.IO) { videoInfo(original).worthCompressing(target) }
+                val file = if (target != null && compressing) compressedVideo(original, target) else original
                 withContext(Dispatchers.IO) { video(file, caption) }
             }
             else -> null
@@ -66,9 +89,9 @@ class OutgoingMedia @Inject constructor(
      * can't take some videos) or doesn't make it smaller: it's sent as it is then.
      */
     @OptIn(UnstableApi::class)
-    private suspend fun compressedVideo(original: File): File {
+    private suspend fun compressedVideo(original: File, target: Target): File {
         val compressed = try {
-            transcoder.compressVideo(original) // On the main thread.
+            transcoder.compressVideo(original, target.videoSide, target.videoBitrate) // On the main thread.
         } catch (e: ExportException) {
             AppLog.w(TAG, "Compressing a video failed; sending it as it is", e)
             return original
@@ -83,53 +106,49 @@ class OutgoingMedia @Inject constructor(
     }
 
     /**
-     * How big the picked media is, and about how big it gets compressed: photos by their
-     * pixels after scaling, videos by their duration at the compressed bitrate. Nothing is
-     * actually compressed here.
+     * How big the picked media is, and about how big it gets in each quality: photos by their
+     * pixels after scaling, videos by their duration at the bitrate. Nothing is actually
+     * compressed here.
      */
     suspend fun estimate(uris: List<Uri>): SizeEstimate = withContext(Dispatchers.IO) {
         var original = 0L
-        var compressed = 0L
+        var sd = 0L
+        var hd = 0L
         uris.forEach { uri ->
             val size = fileSize(uri)
             val type = context.contentResolver.getType(uri).orEmpty()
-            original += size
-            compressed += try {
+            val sizeFor: (Target) -> Long = try {
                 when {
-                    type.startsWith("image/") -> estimatePhoto(uri, type, size)
-                    type.startsWith("video/") -> estimateVideo(uri, size)
-                    else -> size
+                    type.startsWith("image/") -> imageSize(ImageDecoder.createSource(context.contentResolver, uri)).let { (width, height) ->
+                        { target -> estimatePhoto(width, height, type, size, target) }
+                    }
+                    type.startsWith("video/") -> videoInfo { setDataSource(context, uri) }.let { info -> { target -> estimateVideo(info, size, target) } }
+                    else -> { _ -> size }
                 }
             } catch (e: Exception) {
-                size // Can't read it: assume it stays as it is.
+                { _ -> size } // Can't read it: assume it stays as it is.
             }
+            original += size
+            sd += sizeFor(SendQuality.SD.target!!)
+            hd += sizeFor(SendQuality.HD.target!!)
         }
-        SizeEstimate(original, compressed)
+        SizeEstimate(original, sd, hd)
     }
 
-    private fun estimatePhoto(uri: Uri, type: String, size: Long): Long {
-        var width = 0
-        var height = 0
-        ImageDecoder.decodeDrawable(ImageDecoder.createSource(context.contentResolver, uri)) { decoder, info, _ ->
-            width = info.size.width
-            height = info.size.height
-            decoder.setTargetSize(1, 1) // Only the header is needed.
-        }
-        if (type == "image/jpeg" && max(width, height) <= MAX_PHOTO_SIDE && size <= SMALL_PHOTO_BYTES) return size
-        val scale = minOf(1.0, MAX_PHOTO_SIDE.toDouble() / max(width, height))
-        return (width * height * scale * scale * JPEG_BYTES_PER_PIXEL).toLong()
+    private fun estimatePhoto(width: Int, height: Int, type: String, size: Long, target: Target): Long {
+        if (type == "image/jpeg" && max(width, height) <= target.photoSide && size <= target.smallJpegBytes) return size
+        val scale = minOf(1.0, target.photoSide.toDouble() / max(width, height))
+        return minOf(size, (width * height * scale * scale * JPEG_BYTES_PER_PIXEL).toLong())
     }
 
-    private fun estimateVideo(uri: Uri, size: Long): Long = MediaMetadataRetriever().use { retriever ->
-        retriever.setDataSource(context, uri)
-        fun int(key: Int) = retriever.extractMetadata(key)?.toIntOrNull() ?: 0
-        val shortSide = minOf(int(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH), int(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT))
-        val worth = shortSide > MediaTranscoder.COMPRESSED_SHORT_SIDE ||
-            int(MediaMetadataRetriever.METADATA_KEY_BITRATE) > MediaTranscoder.COMPRESSED_BITRATE * 3 / 2
-        if (!worth) return size
-        val seconds = int(MediaMetadataRetriever.METADATA_KEY_DURATION) / 1000.0
-        minOf(size, (seconds * (MediaTranscoder.COMPRESSED_BITRATE + AUDIO_BITRATE) / 8).toLong())
+    private fun estimateVideo(info: VideoInfo, size: Long, target: Target): Long {
+        if (!info.worthCompressing(target)) return size
+        return minOf(size, (info.duration * (target.videoBitrate.toLong() + AUDIO_BITRATE) / 8))
     }
+
+    /** Larger than [target], or a high bitrate: worth re-encoding. */
+    private fun VideoInfo.worthCompressing(target: Target): Boolean =
+        minOf(width, height) > target.videoSide || bitrate > target.videoBitrate * 3 / 2
 
     private fun fileSize(uri: Uri): Long =
         context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
@@ -144,8 +163,10 @@ class OutgoingMedia @Inject constructor(
     }
 
     /** Duration in seconds, display size accounting for rotation, and bitrate in bits/s. */
-    fun videoInfo(file: File): VideoInfo = MediaMetadataRetriever().use { retriever ->
-        retriever.setDataSource(file.path)
+    fun videoInfo(file: File): VideoInfo = videoInfo { setDataSource(file.path) }
+
+    private fun videoInfo(source: MediaMetadataRetriever.() -> Unit): VideoInfo = MediaMetadataRetriever().use { retriever ->
+        retriever.source()
         fun int(key: Int) = retriever.extractMetadata(key)?.toIntOrNull() ?: 0
         val width = int(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
         val height = int(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
@@ -165,15 +186,15 @@ class OutgoingMedia @Inject constructor(
     }
 
     /**
-     * At most [MAX_PHOTO_SIDE] px as JPEG, rotated upright; Telegram's servers recompress
-     * photos to that anyway, so only the upload gets smaller. Small JPEGs stay as they are.
+     * At most the [target]'s side as JPEG, rotated upright; Telegram's servers recompress
+     * photos to 2560 px anyway. Small JPEGs stay as they are.
      */
-    private fun compressedPhoto(file: File, type: String): File {
+    private fun compressedPhoto(file: File, type: String, target: Target): File {
         val (width, height) = imageSize(file)
-        val small = max(width, height) <= MAX_PHOTO_SIDE && file.length() <= SMALL_PHOTO_BYTES
+        val small = max(width, height) <= target.photoSide && file.length() <= target.smallJpegBytes
         if (type == "image/jpeg" && small) return file
         val bitmap = ImageDecoder.decodeBitmap(ImageDecoder.createSource(file)) { decoder, info, _ ->
-            val scale = minOf(1f, MAX_PHOTO_SIDE.toFloat() / max(info.size.width, info.size.height))
+            val scale = minOf(1f, target.photoSide.toFloat() / max(info.size.width, info.size.height))
             decoder.setTargetSize((info.size.width * scale).roundToInt(), (info.size.height * scale).roundToInt())
             decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
         }
@@ -208,17 +229,12 @@ class OutgoingMedia @Inject constructor(
         return TdApi.InputMessageVideo(video, formatted(caption), false, null, false)
     }
 
-    /** Larger than 720p, or a high bitrate: worth re-encoding. */
-    private fun needsCompression(file: File): Boolean {
-        val info = videoInfo(file)
-        return minOf(info.width, info.height) > MediaTranscoder.COMPRESSED_SHORT_SIDE ||
-            info.bitrate > MediaTranscoder.COMPRESSED_BITRATE * 3 / 2
-    }
-
     /** Width and height as displayed, with the orientation applied. */
-    private fun imageSize(file: File): Pair<Int, Int> {
+    private fun imageSize(file: File): Pair<Int, Int> = imageSize(ImageDecoder.createSource(file))
+
+    private fun imageSize(source: ImageDecoder.Source): Pair<Int, Int> {
         var size = 0 to 0
-        ImageDecoder.decodeDrawable(ImageDecoder.createSource(file)) { decoder, info, _ ->
+        ImageDecoder.decodeDrawable(source) { decoder, info, _ ->
             size = info.size.width to info.size.height
             decoder.setTargetSize(1, 1) // Only the header is needed.
         }
@@ -244,8 +260,6 @@ class OutgoingMedia @Inject constructor(
 
     private companion object {
         const val TAG = "OutgoingMedia"
-        const val MAX_PHOTO_SIDE = 2560
-        const val SMALL_PHOTO_BYTES = 1_500_000L
         const val JPEG_QUALITY = 87
 
         /** Typical for photos at [JPEG_QUALITY]; screenshots and flat images come out smaller. */

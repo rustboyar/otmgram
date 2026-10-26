@@ -29,8 +29,8 @@
     <string name="message_text_title">Show message text</string>
     <string name="message_text_on">Notifications show what was written. Android shows it on the lock screen too, unless you hide sensitive content there.</string>
     <string name="message_text_off">Notifications only say who wrote, so no text reaches the lock screen.</string>
-    <string name="compress_title">Compress photos and videos</string>
-    <string name="compress_description">Smaller and faster to send. You can turn it off for each message.</string>
+    <string name="quality_title">Quality of photos and videos</string>
+    <string name="quality_description">SD is smallest, HD sharper, Original sends them as they are. You can choose for each message too.</string>
     <string name="storage">Storage</string>
     <string name="storage_total">%1$s on this phone</string>
     <string name="storage_counting">Counting…</string>
