@@ -60,6 +60,7 @@ import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.core.userMessage
 import dev.otmgram.data.DownloadsFolder
 import dev.otmgram.data.FileRepository
+import dev.otmgram.data.senderName
 import dev.otmgram.di.ApplicationScope
 import dev.otmgram.di.onMain
 import dev.otmgram.ui.format.postedAt
@@ -311,11 +312,7 @@ class MediaViewerViewModel @Inject constructor(
         notice = null
     }
 
-    private suspend fun sender(message: TdApi.Message): String = when (val sender = message.senderId) {
-        is TdApi.MessageSenderUser -> td.send(TdApi.GetUser(sender.userId)).let { listOf(it.firstName, it.lastName).filter(String::isNotEmpty).joinToString(" ") }
-        is TdApi.MessageSenderChat -> td.send(TdApi.GetChat(sender.chatId)).title
-        else -> ""
-    }
+    private suspend fun sender(message: TdApi.Message): String = td.senderName(message.senderId).orEmpty()
 }
 
 private const val ALBUM_MAX = 10

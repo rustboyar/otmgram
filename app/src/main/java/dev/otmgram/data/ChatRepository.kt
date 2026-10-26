@@ -117,7 +117,6 @@ class ChatRepository @Inject constructor(
         private var defaults = mapOf(false to TdApi.ScopeNotificationSettings(), true to TdApi.ScopeNotificationSettings())
         private var order = emptyList<Long>()
         private val chats = mutableMapOf<Long, FolderChat>()
-        private val firstNames = mutableMapOf<Long, String>()
 
         suspend fun loadAll(): List<FolderChat> {
             myId = td.send(TdApi.GetMe()).id
@@ -162,12 +161,7 @@ class ChatRepository @Inject constructor(
             val message = chat.lastMessage ?: return null
             if (!chat.isGroup || message.isOutgoing) return null
             return try {
-                when (val sender = message.senderId) {
-                    is TdApi.MessageSenderUser ->
-                        firstNames[sender.userId] ?: td.send(TdApi.GetUser(sender.userId)).firstName.also { firstNames[sender.userId] = it }
-                    is TdApi.MessageSenderChat -> td.send(TdApi.GetChat(sender.chatId)).title
-                    else -> null
-                }
+                td.senderName(message.senderId, firstOnly = true)
             } catch (e: TdException) {
                 null
             }

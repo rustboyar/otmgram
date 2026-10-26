@@ -422,7 +422,7 @@ class ChatSession internal constructor(
         } catch (e: TdException) {
             return
         }
-        senderNames[userId] = "${user.firstName} ${user.lastName}".trim()
+        senderNames[userId] = user.fullName()
     }
 
     private suspend fun resolveChatName(chatId: Long) {

@@ -15,6 +15,7 @@ import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TdException
 import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.core.td.updates
+import dev.otmgram.data.fullName
 import dev.otmgram.ui.chat.MessageMedia
 import dev.otmgram.ui.chat.toMedia
 import kotlinx.coroutines.CoroutineStart
@@ -117,7 +118,7 @@ class MapViewModel @Inject constructor(
 
     private suspend fun senderOf(message: TdApi.Message): MapSender? = when (val id = message.senderId) {
         is TdApi.MessageSenderUser -> td.send(TdApi.GetUser(id.userId)).let { user ->
-            MapSender(user.id, listOf(user.firstName, user.lastName).filter(String::isNotEmpty).joinToString(" "), user.profilePhoto?.small?.id, user.profilePhoto?.minithumbnail?.data)
+            MapSender(user.id, user.fullName(), user.profilePhoto?.small?.id, user.profilePhoto?.minithumbnail?.data)
         }
         is TdApi.MessageSenderChat -> td.send(TdApi.GetChat(id.chatId)).let { chat ->
             MapSender(chat.id, chat.title, chat.photo?.small?.id, chat.photo?.minithumbnail?.data)

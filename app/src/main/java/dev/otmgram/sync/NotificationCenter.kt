@@ -9,6 +9,7 @@ import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.MAX_FOLDER_CHATS
 import dev.otmgram.data.isGroup
 import dev.otmgram.data.isShown
+import dev.otmgram.data.senderName
 import dev.otmgram.data.summary
 import dev.otmgram.di.ApplicationScope
 import kotlinx.coroutines.CancellationException
@@ -68,7 +69,6 @@ class NotificationCenter @Inject constructor(
     /** Chats whose notifications changed since they were last shown. */
     private val changed = mutableSetOf<Long>()
 
-    private val firstNames = mutableMapOf<Long, String>()
 
     @Volatile
     private var foreground = false
@@ -226,12 +226,7 @@ class NotificationCenter @Inject constructor(
     private suspend fun senderName(chat: TdApi.Chat, sender: TdApi.MessageSender): String {
         if (!chat.isGroup) return chat.title
         return try {
-            when (sender) {
-                is TdApi.MessageSenderUser ->
-                    firstNames[sender.userId] ?: td.send(TdApi.GetUser(sender.userId)).firstName.also { firstNames[sender.userId] = it }
-                is TdApi.MessageSenderChat -> td.send(TdApi.GetChat(sender.chatId)).title
-                else -> chat.title
-            }
+            td.senderName(sender, firstOnly = true) ?: chat.title
         } catch (e: TdException) {
             chat.title
         }

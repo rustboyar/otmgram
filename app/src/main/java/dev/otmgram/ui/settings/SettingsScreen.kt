@@ -67,6 +67,7 @@ import dev.otmgram.data.NotificationMode
 import dev.otmgram.data.StorageKind
 import dev.otmgram.data.StorageRepository
 import dev.otmgram.data.StorageUsage
+import dev.otmgram.data.fullName
 import dev.otmgram.data.limitTo
 import dev.otmgram.sync.PushRegistration
 import dev.otmgram.sync.PushState
@@ -415,7 +416,7 @@ class SettingsViewModel @Inject constructor(
             val user = td.send(TdApi.GetMe())
             _me.value = Account(
                 id = user.id,
-                name = listOf(user.firstName, user.lastName).filter { it.isNotEmpty() }.joinToString(" "),
+                name = user.fullName(),
                 phone = user.phoneNumber.takeIf { it.isNotEmpty() }?.let { "+$it" },
                 photoFileId = user.profilePhoto?.small?.id,
                 minithumbnail = user.profilePhoto?.minithumbnail?.data,
