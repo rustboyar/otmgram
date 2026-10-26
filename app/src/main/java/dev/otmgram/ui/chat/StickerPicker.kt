@@ -12,6 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.otmgram.ui.theme.DialogTags
+import dev.otmgram.ui.theme.LoadingScreen
 import dev.otmgram.ui.theme.PlainDialogWindow
 import dev.otmgram.ui.theme.SoftButton
 import androidx.compose.foundation.layout.Arrangement
@@ -49,7 +50,6 @@ import androidx.compose.ui.unit.dp
 import dev.otmgram.R
 import dev.otmgram.data.Sticker
 import dev.otmgram.data.StickerTab
-import dev.otmgram.ui.auth.LoadingScreen
 import dev.otmgram.ui.theme.Hairline
 import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmIcons

@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,7 +23,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -58,6 +56,7 @@ import dev.otmgram.data.CodeDelivery
 import dev.otmgram.ui.format.formatDuration
 import dev.otmgram.ui.theme.Hero
 import dev.otmgram.ui.theme.IconBtn
+import dev.otmgram.ui.theme.LoadingScreen
 import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmField
 import dev.otmgram.ui.theme.OtmIcons
@@ -76,13 +75,6 @@ fun AuthScreen(state: AuthState, viewModel: AuthViewModel) {
         is AuthState.WaitCode -> CodeStep(state, viewModel)
         is AuthState.WaitPassword -> PasswordStep(state, viewModel)
         is AuthState.Unsupported -> UnsupportedStep(state, viewModel)
-    }
-}
-
-@Composable
-fun LoadingScreen(modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(Modifier.size(28.dp), color = Otm.Slate, strokeWidth = 2.5.dp)
     }
 }
 

@@ -2,98 +2,53 @@
 
 package dev.otmgram.ui.chat
 
-import dev.otmgram.core.log.AppLog
 import dev.otmgram.ui.format.formatDuration
 import dev.otmgram.ui.format.formatSize
-import java.io.ByteArrayOutputStream
-import java.io.IOException
-import dev.otmgram.core.launchLogged
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.airbnb.lottie.compose.LottieAnimation
-import com.airbnb.lottie.compose.LottieCompositionSpec
-import com.airbnb.lottie.compose.LottieConstants
-import com.airbnb.lottie.compose.rememberLottieComposition
 import dev.otmgram.R
-import dev.otmgram.core.Strings
-import dev.otmgram.core.location.MapSnapshots
 import dev.otmgram.core.media.AudioState
-import dev.otmgram.data.FileState
-import dev.otmgram.data.StickerKind
-import dev.otmgram.ui.media.LocalFileRepository
 import dev.otmgram.ui.media.LoopingVideo
 import dev.otmgram.ui.media.OnDemandFile
 import dev.otmgram.ui.media.TdImage
-import dev.otmgram.ui.media.openFile
 import dev.otmgram.ui.media.rememberDownloadedPath
 import dev.otmgram.ui.media.rememberFileState
 import dev.otmgram.ui.media.rememberOnDemandFile
-import dev.otmgram.ui.rememberStrings
 import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmType
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
-import java.io.File
-import java.util.zip.GZIPInputStream
 
 /** Stickers and video messages are shown without a bubble around them. */
 val MessageMedia.isBare: Boolean
@@ -141,225 +96,6 @@ fun MediaContent(
         is MessageMedia.Location -> LocationPreview(media, outgoing, onOpen, onLongClick)
         is MessageMedia.Document -> DocumentContent(media, onLongClick, onCancelUpload)
     }
-}
-
-/** A file: tap downloads it, tap again (once downloaded) opens it in another app. */
-@Composable
-private fun DocumentContent(media: MessageMedia.Document, onLongClick: () -> Unit, onCancelUpload: (() -> Unit)?) {
-    val context = LocalContext.current
-    val files = LocalFileRepository.current
-    val scope = rememberCoroutineScope()
-    val file = rememberFileState(media.fileId)
-    val path = file?.path
-    val downloading = file?.isDownloading == true
-    if (onCancelUpload != null && file != null) {
-        UploadingDocument(media, file, onCancelUpload, onLongClick)
-        return
-    }
-    Row(
-        modifier = Modifier
-            .widthIn(max = MEDIA_WIDTH)
-            .combinedClickable(onLongClick = onLongClick) {
-                when {
-                    path != null -> openFile(context, path, media.mimeType)
-                    downloading -> scope.launchLogged("DocumentContent") { files.cancelDownload(media.fileId) }
-                    else -> scope.launchLogged("DocumentContent") { files.startDownload(media.fileId) }
-                }
-            }
-            .padding(vertical = 2.dp)
-            .testTag("document"),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Box(
-            Modifier.size(44.dp).clip(if (downloading) CircleShape else RoundedCornerShape(12.dp)).background(Otm.Haze),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (downloading) {
-                val progress = if (media.size > 0) file.downloaded.toFloat() / media.size else 0f
-                CircularProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier.matchParentSize().padding(2.dp),
-                    color = Otm.Slate,
-                    trackColor = Otm.Slate.copy(alpha = 0.18f),
-                    strokeWidth = 3.dp,
-                )
-                Icon(OtmIcons.Close, stringResource(R.string.download_cancel), tint = Otm.SlateDeep, modifier = Modifier.size(16.dp))
-            } else {
-                Icon(if (path != null) OtmIcons.File else OtmIcons.Download, null, tint = Otm.SlateDeep, modifier = Modifier.size(22.dp))
-            }
-        }
-        Column(Modifier.weight(1f, fill = false)) {
-            Text(media.name, style = OtmType.Body.copy(fontWeight = FontWeight.Medium), color = Otm.Ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(
-                when {
-                    downloading -> stringResource(R.string.size_of, formatSize(file.downloaded), formatSize(media.size))
-                    path != null -> stringResource(R.string.file_tap_to_open, formatSize(media.size))
-                    else -> stringResource(R.string.file_tap_to_download, formatSize(media.size))
-                },
-                style = OtmType.Secondary,
-                color = Otm.InkSoft,
-                modifier = Modifier.testTag("documentStatus"),
-            )
-        }
-    }
-}
-
-/** A file of yours being sent: upload progress, tap to stop. */
-@Composable
-private fun UploadingDocument(media: MessageMedia.Document, file: FileState, onCancel: () -> Unit, onLongClick: () -> Unit) {
-    val total = file.size.takeIf { it > 0 } ?: media.size
-    val sent = file.uploaded
-    Row(
-        modifier = Modifier.widthIn(max = MEDIA_WIDTH).combinedClickable(onLongClick = onLongClick, onClick = onCancel).padding(vertical = 2.dp).testTag("cancelUpload"),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Box(Modifier.size(44.dp).clip(CircleShape).background(Otm.Haze), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(
-                progress = { if (total > 0) sent.toFloat() / total else 0f },
-                modifier = Modifier.matchParentSize().padding(2.dp),
-                color = Otm.Slate,
-                trackColor = Otm.Slate.copy(alpha = 0.18f),
-                strokeWidth = 3.dp,
-            )
-            Icon(OtmIcons.Close, stringResource(R.string.upload_stop), tint = Otm.SlateDeep, modifier = Modifier.size(16.dp))
-        }
-        Column(Modifier.weight(1f, fill = false)) {
-            Text(media.name, style = OtmType.Body.copy(fontWeight = FontWeight.Medium), color = Otm.Ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(stringResource(R.string.size_of, formatSize(sent), formatSize(total)), style = OtmType.Secondary, color = Otm.InkSoft)
-        }
-    }
-}
-
-/** Over a photo or video being sent: how much is uploaded, and a cross to stop it. */
-@Composable
-private fun UploadRing(fileId: Int, onCancel: () -> Unit) {
-    val progress = rememberFileState(fileId)?.uploadProgress ?: 0f
-    Box(
-        modifier = Modifier
-            .size(52.dp)
-            .clip(CircleShape)
-            .background(Otm.Ink.copy(alpha = 0.5f))
-            .clickable(onClick = onCancel, onClickLabel = stringResource(R.string.upload_stop))
-            .testTag("cancelUpload"),
-        contentAlignment = Alignment.Center,
-    ) {
-        CircularProgressIndicator(
-            progress = { progress },
-            modifier = Modifier.matchParentSize().padding(3.dp),
-            color = Color.White,
-            trackColor = Color.White.copy(alpha = 0.25f),
-            strokeWidth = 3.dp,
-        )
-        Icon(OtmIcons.Close, null, tint = Color.White, modifier = Modifier.size(16.dp))
-    }
-}
-
-@Composable
-private fun LocationPreview(media: MessageMedia.Location, outgoing: Boolean, onOpen: () -> Unit, onLongClick: () -> Unit) {
-    val context = LocalContext.current
-    val density = LocalDensity.current.density
-    val map by produceState<ImageBitmap?>(null, media.latitude, media.longitude) {
-        value = MapSnapshots.get(
-            context, media.latitude, media.longitude, MAP_WIDTH_DP, MAP_HEIGHT_DP, density,
-        )?.asImageBitmap()
-    }
-    Column(Modifier.width(MAP_WIDTH_DP.dp).combinedClickable(onClick = onOpen, onLongClick = onLongClick).testTag("location")) {
-        Box(
-            modifier = Modifier
-                .width(MAP_WIDTH_DP.dp)
-                .height(MAP_HEIGHT_DP.dp)
-                .clip(RoundedCornerShape(13.dp))
-                .background(Color(0xFFEFEDE6)),
-            contentAlignment = Alignment.Center,
-        ) {
-            map?.let { Image(it, contentDescription = null, modifier = Modifier.matchParentSize()) }
-            MapPin()
-        }
-        val live = media.live
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 7.dp, end = 7.dp, top = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            if (live != null) {
-                Text(
-                    liveStatus(live, rememberNow(), rememberStrings()),
-                    style = OtmType.Time.copy(fontWeight = FontWeight.SemiBold),
-                    color = Otm.SlateDeep,
-                    modifier = Modifier.testTag("liveStatus"),
-                )
-            } else {
-                Text(stringResource(R.string.summary_location), style = OtmType.Time, color = Color(0xFF56626B))
-            }
-        }
-    }
-}
-
-/**
- * Where your location message will be while the phone finds out where you are: a fix can
- * take a while, and an empty chat meanwhile looked like nothing happened.
- */
-@Composable
-fun LocatingBubble(modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(18.dp, 18.dp, 6.dp, 18.dp)
-    val pulse by rememberInfiniteTransition(label = "locating").animateFloat(
-        initialValue = 0.35f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
-        label = "pin",
-    )
-    Box(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp), contentAlignment = Alignment.CenterEnd) {
-        Column(
-            Modifier
-                .shadow(1.dp, shape, ambientColor = Otm.Ink.copy(alpha = 0.3f), spotColor = Otm.Ink.copy(alpha = 0.3f))
-                .clip(shape)
-                .background(Otm.Apricot)
-                .padding(5.dp)
-                .testTag("locating"),
-        ) {
-            Box(
-                Modifier.width(MAP_WIDTH_DP.dp).height(MAP_HEIGHT_DP.dp).clip(RoundedCornerShape(13.dp)).background(Color(0xFFEFEDE6)),
-                contentAlignment = Alignment.Center,
-            ) {
-                MapPin(Modifier.graphicsLayer { alpha = pulse })
-            }
-            Text(
-                stringResource(R.string.location_finding),
-                style = OtmType.Time,
-                color = Color(0xFF56626B),
-                modifier = Modifier.padding(start = 7.dp, end = 7.dp, top = 4.dp, bottom = 2.dp),
-            )
-        }
-    }
-}
-
-/** A slate dot with a soft halo, where the location is. */
-@Composable
-fun MapPin(modifier: Modifier = Modifier) {
-    Canvas(modifier.size(44.dp)) {
-        drawCircle(Otm.Slate.copy(alpha = 0.18f))
-        drawCircle(Color.White, radius = 12.dp.toPx())
-        drawCircle(Otm.Slate, radius = 9.dp.toPx())
-    }
-}
-
-/** Current Unix time, refreshed every 30 s. */
-@Composable
-fun rememberNow(): Int {
-    val now by produceState((System.currentTimeMillis() / 1000).toInt()) {
-        while (true) {
-            delay(30_000)
-            value = (System.currentTimeMillis() / 1000).toInt()
-        }
-    }
-    return now
-}
-
-fun liveStatus(live: MessageMedia.LiveInfo, now: Int, strings: Strings): String {
-    if (now >= live.expiresAt) return strings.get(R.string.live_ended)
-    val minutes = (now - live.updatedAt).coerceAtLeast(0) / 60
-    return if (minutes == 0) strings.get(R.string.live_updated_now) else strings.get(R.string.live_updated_ago, minutes)
 }
 
 /** A video downloads when played: tapping opens the viewer, which shows the progress. */
@@ -435,95 +171,6 @@ private fun DownloadButton(file: OnDemandFile, label: String) {
 }
 
 @Composable
-private fun VoiceNote(
-    media: MessageMedia.VoiceNote,
-    audio: AudioState?,
-    outgoing: Boolean,
-    onPlay: (Int, String) -> Unit,
-    onLongClick: () -> Unit,
-) {
-    // Downloads on the first tap, then plays as soon as it's in.
-    val voice = rememberOnDemandFile(media.fileId)
-    val path = voice.path
-    var playWhenReady by remember { mutableStateOf(false) }
-    LaunchedEffect(path, playWhenReady) {
-        if (playWhenReady && path != null) {
-            playWhenReady = false
-            onPlay(media.fileId, path)
-        }
-    }
-    val current = audio?.takeIf { it.fileId == media.fileId }
-    val progress = if (current != null && current.durationMs > 0) current.positionMs.toFloat() / current.durationMs else 0f
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(if (outgoing) Color(0xFFFBF1E7) else Otm.Haze)
-                .combinedClickable(onLongClick = onLongClick) {
-                    when {
-                        path != null -> onPlay(media.fileId, path)
-                        else -> {
-                            playWhenReady = !voice.downloading
-                            voice.toggle()
-                        }
-                    }
-                }
-                .testTag("playVoice"),
-            contentAlignment = Alignment.Center,
-        ) {
-            val tint = if (outgoing) Color(0xFF8A5A3C) else Otm.SlateDeep
-            when {
-                voice.downloading -> {
-                    CircularProgressIndicator(
-                        progress = { voice.progress },
-                        modifier = Modifier.matchParentSize().padding(2.dp),
-                        color = tint,
-                        trackColor = tint.copy(alpha = 0.18f),
-                        strokeWidth = 2.5.dp,
-                    )
-                    Icon(OtmIcons.Close, stringResource(R.string.download_stop), tint = tint, modifier = Modifier.size(14.dp))
-                }
-                current?.isPlaying == true -> Icon(OtmIcons.Pause, stringResource(R.string.pause), tint = tint, modifier = Modifier.size(16.dp))
-                else -> Icon(OtmIcons.Play, stringResource(R.string.play_voice), tint = tint, modifier = Modifier.size(16.dp))
-            }
-        }
-        Column {
-            Waveform(
-                media.waveform,
-                progress,
-                played = if (outgoing) Color(0xFF8A5A3C) else Otm.Slate,
-                rest = if (outgoing) Otm.ApricotDeep else Otm.RidgeLight,
-                modifier = Modifier.width(140.dp).height(24.dp),
-            )
-            Text(
-                formatDuration(if (current != null) (current.positionMs / 1000).toInt() else media.duration),
-                style = OtmType.Time,
-                color = Color(0xFF56626B),
-            )
-        }
-    }
-}
-
-@Composable
-fun Waveform(levels: List<Int>, progress: Float, played: Color, rest: Color, modifier: Modifier, bars: Int = WAVEFORM_BARS) {
-    val samples = remember(levels, bars) { resample(levels.ifEmpty { listOf(0) }, bars) }
-    Canvas(modifier) {
-        val step = size.width / samples.size
-        val barWidth = step * 0.6f
-        samples.forEachIndexed { i, level ->
-            val height = size.height * (0.15f + 0.85f * level / 31f)
-            drawRoundRect(
-                color = if ((i + 0.5f) / samples.size <= progress) played else rest,
-                topLeft = Offset(i * step, (size.height - height) / 2),
-                size = Size(barWidth, height),
-                cornerRadius = CornerRadius(barWidth / 2),
-            )
-        }
-    }
-}
-
-@Composable
 private fun VideoNote(media: MessageMedia.VideoNote, onSound: () -> Unit, onLongClick: () -> Unit) {
     val path = rememberDownloadedPath(media.fileId)
     var withSound by remember { mutableStateOf(false) }
@@ -578,52 +225,6 @@ private fun VideoNote(media: MessageMedia.VideoNote, onSound: () -> Unit, onLong
 }
 
 @Composable
-fun StickerView(media: MessageMedia.Sticker, modifier: Modifier) {
-    when (media.kind) {
-        StickerKind.Image -> TdImage(media.fileId, null, modifier, contentScale = ContentScale.Fit)
-        StickerKind.Lottie -> {
-            val path = rememberDownloadedPath(media.fileId)
-            if (path != null) LottieSticker(path, modifier) else Box(modifier)
-        }
-        // Android's decoders don't support transparent video: show the still thumbnail.
-        StickerKind.Video -> TdImage(media.thumbnailFileId, null, modifier, contentScale = ContentScale.Fit)
-    }
-}
-
-/** TGS stickers are gzipped Lottie animations; a broken or oversized one stays blank. */
-@Composable
-private fun LottieSticker(path: String, modifier: Modifier) {
-    val json by produceState<String?>(null, path) {
-        value = withContext(Dispatchers.IO) { readTgs(File(path)) }
-    }
-    val loaded = json ?: return Box(modifier)
-    // Only create the composition once loaded: an empty placeholder one breaks the animation.
-    val composition by rememberLottieComposition(LottieCompositionSpec.JsonString(loaded))
-    // Telegram stickers use merge paths, which Lottie disables by default.
-    LottieAnimation(composition, iterations = LottieConstants.IterateForever, enableMergePaths = true, modifier = modifier)
-}
-
-/** The animation's JSON, or null if the file is broken or unpacks to more than [TGS_MAX_BYTES]. */
-private fun readTgs(file: File): String? = try {
-    GZIPInputStream(file.inputStream()).use { input ->
-        val out = ByteArrayOutputStream()
-        val buffer = ByteArray(16 * 1024)
-        while (out.size() <= TGS_MAX_BYTES) {
-            val read = input.read(buffer)
-            if (read < 0) break
-            out.write(buffer, 0, read)
-        }
-        if (out.size() > TGS_MAX_BYTES) null else out.toString(Charsets.UTF_8.name())
-    }
-} catch (e: IOException) {
-    AppLog.w("LottieSticker", "Can't read a sticker", e)
-    null
-}
-
-/** Telegram allows 64 KB packed; real ones unpack to a few hundred KB. */
-private const val TGS_MAX_BYTES = 2 * 1024 * 1024
-
-@Composable
 private fun Label(text: String, modifier: Modifier, trailing: @Composable RowScope.() -> Unit = {}) {
     Row(
         modifier = modifier
@@ -641,13 +242,6 @@ private fun Label(text: String, modifier: Modifier, trailing: @Composable RowSco
 private fun aspect(width: Int, height: Int): Float =
     if (width <= 0 || height <= 0) 1f else (width.toFloat() / height).coerceIn(0.5f, 2f)
 
-private fun resample(levels: List<Int>, count: Int): List<Int> =
-    List(count) { i -> levels[i * levels.size / count] }
-
-
-private val MEDIA_WIDTH = 260.dp
-private const val MAP_WIDTH_DP = 260
-private const val MAP_HEIGHT_DP = 140
+internal val MEDIA_WIDTH = 260.dp
 private val VIDEO_NOTE_SIZE = 190.dp
 private val STICKER_SIZE = 140.dp
-private const val WAVEFORM_BARS = 32

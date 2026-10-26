@@ -61,8 +61,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.otmgram.R
-import dev.otmgram.ui.auth.LoadingScreen
-import dev.otmgram.ui.chat.OtmSheet
 import dev.otmgram.sync.MessagesNotification
 import dev.otmgram.ui.format.chatListDate
 import dev.otmgram.ui.highlightMatches
@@ -71,11 +69,13 @@ import dev.otmgram.ui.theme.Banner
 import dev.otmgram.ui.theme.ChatAvatar
 import dev.otmgram.ui.theme.CountPill
 import dev.otmgram.ui.theme.IconBtn
+import dev.otmgram.ui.theme.LoadingScreen
 import dev.otmgram.ui.theme.MentionPill
 import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmDialog
 import dev.otmgram.ui.theme.OtmField
 import dev.otmgram.ui.theme.OtmIcons
+import dev.otmgram.ui.theme.OtmSheet
 import dev.otmgram.ui.theme.OtmType
 import dev.otmgram.ui.theme.SectionLabel
 import dev.otmgram.ui.theme.SkyBand

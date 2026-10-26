@@ -27,7 +27,6 @@ import dev.otmgram.data.AuthState
 import dev.otmgram.data.Folder
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.ui.auth.AuthScreen
-import dev.otmgram.ui.auth.LoadingScreen
 import dev.otmgram.ui.chat.ChatScreen
 import dev.otmgram.ui.chats.ChatListScreen
 import dev.otmgram.ui.embed.EmbedPlayerScreen
@@ -36,6 +35,7 @@ import dev.otmgram.ui.folder.FolderPickerScreen
 import dev.otmgram.ui.map.MapScreen
 import dev.otmgram.ui.media.MediaViewerScreen
 import dev.otmgram.ui.settings.SettingsScreen
+import dev.otmgram.ui.theme.LoadingScreen
 import dev.otmgram.ui.videonote.VideoNoteScreen
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
