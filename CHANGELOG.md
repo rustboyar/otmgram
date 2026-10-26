@@ -5,6 +5,8 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 
 ## Unreleased
 
+## 0.2.0 - 2026-10-26
+
 ### Added
 - Albums show as one bubble, their photos and videos side by side; forwarding, selecting or deleting one takes the whole album
 
