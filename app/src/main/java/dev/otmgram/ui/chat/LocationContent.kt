@@ -36,6 +36,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.otmgram.R
@@ -55,7 +57,8 @@ internal fun LocationPreview(media: MessageMedia.Location, outgoing: Boolean, on
             context, media.latitude, media.longitude, MAP_WIDTH_DP, MAP_HEIGHT_DP, density,
         )?.asImageBitmap()
     }
-    Column(Modifier.width(MAP_WIDTH_DP.dp).combinedClickable(onClick = onOpen, onLongClick = onLongClick).testTag("location")) {
+    val description = media.label()
+    Column(Modifier.width(MAP_WIDTH_DP.dp).combinedClickable(onClick = onOpen, onLongClick = onLongClick).semantics { contentDescription = description }.testTag("location")) {
         Box(
             modifier = Modifier
                 .width(MAP_WIDTH_DP.dp)

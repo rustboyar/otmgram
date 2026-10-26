@@ -1,11 +1,13 @@
 package dev.otmgram.ui.chat
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.otmgram.ui.theme.OtmgramTheme
 import org.junit.Assert.assertEquals
@@ -32,14 +34,25 @@ class MessageBubbleTest {
         onToggle: () -> Unit = {},
         onRetry: () -> Unit = {},
         onDiscard: () -> Unit = {},
+        onMenu: () -> Unit = {},
     ) = compose.setContent {
         OtmgramTheme {
             MessageBubble(
-                message, audio = null, onLongClick = {}, onReactionClick = {}, onOpenMedia = {}, onPlayVoice = { _, _ -> },
+                message, audio = null, onLongClick = onMenu, onReactionClick = {}, onOpenMedia = {}, onPlayVoice = { _, _ -> },
                 onVideoNoteSound = {}, selecting = selecting, selected = selected, onToggleSelected = onToggle,
                 onRetry = onRetry, onDiscard = onDiscard,
             )
         }
+    }
+
+    @Test
+    fun screenReadersOpenTheMenuWithADoubleTap() {
+        var menus = 0
+        show(item(), onMenu = { menus++ })
+        val node = compose.onNodeWithTag("message-1")
+        assertEquals("Message actions", node.fetchSemanticsNode().config[SemanticsActions.OnClick].label)
+        node.performSemanticsAction(SemanticsActions.OnClick)
+        assertEquals(1, menus)
     }
 
     @Test

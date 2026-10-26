@@ -2,6 +2,8 @@
 
 package dev.otmgram.ui.chat
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import dev.otmgram.ui.format.formatDuration
 import dev.otmgram.ui.format.formatSize
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -71,6 +73,8 @@ fun MediaContent(
     /** Set while the message is being sent: stops the upload. */
     onCancelUpload: (() -> Unit)? = null,
 ) {
+    // Said by screen readers on the media itself, the part that takes taps: "Photo", "Location".
+    val description = media.label()
     when (media) {
         is MessageMedia.Photo -> Box(contentAlignment = Alignment.Center) {
             TdImage(
@@ -81,6 +85,7 @@ fun MediaContent(
                     .aspectRatio(aspect(media.width, media.height))
                     .clip(RoundedCornerShape(13.dp))
                     .combinedClickable(onClick = onOpen, onLongClick = onLongClick)
+                    .semantics { contentDescription = description }
                     .testTag("photo"),
             )
             onCancelUpload?.let { UploadRing(media.fileId, it) }
@@ -92,7 +97,7 @@ fun MediaContent(
         is MessageMedia.Animation -> Gif(media, onLongClick)
         is MessageMedia.VoiceNote -> VoiceNote(media, audio, outgoing, onPlayVoice, onLongClick)
         is MessageMedia.VideoNote -> VideoNote(media, onVideoNoteSound, onLongClick)
-        is MessageMedia.Sticker -> StickerView(media, Modifier.size(STICKER_SIZE).testTag("sticker-${media.kind}"))
+        is MessageMedia.Sticker -> StickerView(media, Modifier.size(STICKER_SIZE).semantics { contentDescription = description }.testTag("sticker-${media.kind}"))
         is MessageMedia.Location -> LocationPreview(media, outgoing, onOpen, onLongClick)
         is MessageMedia.Document -> DocumentContent(media, onLongClick, onCancelUpload)
     }
@@ -102,12 +107,14 @@ fun MediaContent(
 @Composable
 private fun VideoPreview(media: MessageMedia.Video, onOpen: () -> Unit, onLongClick: () -> Unit, uploading: Boolean) {
     val file = rememberFileState(media.fileId)
+    val description = media.label()
     Box(
         modifier = Modifier
             .width(MEDIA_WIDTH)
             .aspectRatio(aspect(media.width, media.height))
             .clip(RoundedCornerShape(12.dp))
             .combinedClickable(onClick = onOpen, onLongClick = onLongClick)
+            .semantics { contentDescription = description }
             .testTag("video"),
         contentAlignment = Alignment.Center,
     ) {
@@ -131,6 +138,7 @@ private fun VideoPreview(media: MessageMedia.Video, onOpen: () -> Unit, onLongCl
 @Composable
 private fun Gif(media: MessageMedia.Animation, onLongClick: () -> Unit) {
     val gif = rememberOnDemandFile(media.fileId)
+    val description = media.label()
     val path = gif.path
     Box(
         modifier = Modifier
@@ -138,6 +146,7 @@ private fun Gif(media: MessageMedia.Animation, onLongClick: () -> Unit) {
             .aspectRatio(aspect(media.width, media.height))
             .clip(RoundedCornerShape(13.dp))
             .combinedClickable(onClick = gif.toggle, onLongClick = onLongClick)
+            .semantics { contentDescription = description }
             .testTag("gif"),
         contentAlignment = Alignment.Center,
     ) {
@@ -173,6 +182,7 @@ private fun DownloadButton(file: OnDemandFile, label: String) {
 @Composable
 private fun VideoNote(media: MessageMedia.VideoNote, onSound: () -> Unit, onLongClick: () -> Unit) {
     val path = rememberDownloadedPath(media.fileId)
+    val description = media.label()
     var withSound by remember { mutableStateOf(false) }
     var progress by remember { mutableFloatStateOf(0f) }
     Box(
@@ -202,6 +212,7 @@ private fun VideoNote(media: MessageMedia.VideoNote, onSound: () -> Unit, onLong
                 withSound = !withSound
                 if (withSound) onSound()
             }
+            .semantics { contentDescription = description }
             .testTag("videoNote"),
     ) {
         if (path != null) {

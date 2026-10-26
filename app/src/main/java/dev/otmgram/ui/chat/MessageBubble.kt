@@ -4,6 +4,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.onClick
 import dev.otmgram.ui.format.formatTime
 import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -184,6 +185,7 @@ private fun Bubble(
         else -> Otm.Card
     }
     val textPadding = if (framed) Modifier.padding(horizontal = 7.dp) else Modifier
+    val actionsLabel = stringResource(R.string.message_actions)
     Column(
         modifier = Modifier
             .widthIn(max = 290.dp)
@@ -191,7 +193,12 @@ private fun Bubble(
             .clip(shape)
             .background(background)
             .then(if (failed) Modifier.border(1.dp, Otm.ErrorLine, shape) else Modifier)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = stringResource(R.string.message_actions))
+            // A tap does nothing outside selection; for screen readers it opens the menu instead
+            // of an action that does nothing. Before the clickable: of two click actions on a
+            // node, the first one's is kept. (invoke: in here, onLongClick() is the semantics
+            // property's setter.)
+            .then(if (selecting) Modifier else Modifier.semantics { onClick(actionsLabel) { onLongClick.invoke(); true } })
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = actionsLabel)
             .testTag("message-${message.id}")
             .padding(
                 horizontal = when {
