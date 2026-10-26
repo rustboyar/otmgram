@@ -30,7 +30,7 @@ import javax.inject.Singleton
  *
  * Telegram pushes to only one of a session's registrations (in testing, the oldest), so
  * there must never be more than this one. And it doesn't push while it thinks the app is
- * connected, so TDLib disconnects in the background ([TelegramClient.disconnectInBackground]).
+ * connected, so TDLib disconnects in the background ([TelegramClient.whileConnected]).
  */
 @Singleton
 class PushRegistration @Inject constructor(

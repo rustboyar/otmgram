@@ -62,14 +62,16 @@ class CheckWorker @AssistedInject constructor(
             return Result.success()
         }
         folders.selectedFolderId.first() ?: return Result.success().also { AppLog.i(TAG, "Skipped: no folder") }
-        // Let TDLib catch up with what happened while it was offline. Reconnecting first, as
+        // Let TDLib catch up with what happened while it was offline. Reconnected first, as
         // "ready" may be left over from before the process was frozen; the reconnect shows
-        // as another state, unless it's over before this looks.
-        td.reconnect()
-        try {
+        // as another state, unless it's over before this looks. Disconnected after, so that
+        // the next message comes by push.
+        td.whileConnected {
             withTimeoutOrNull(RECONNECT_TIMEOUT_MS) { td.connectionState.first { it !is TdApi.ConnectionStateReady } }
-            withTimeoutOrNull(SYNC_TIMEOUT_MS) { td.connectionState.first { it is TdApi.ConnectionStateReady } }
-                ?: return Result.success().also { AppLog.w(TAG, "Skipped: no connection within ${SYNC_TIMEOUT_MS / 1000} s") }
+            if (withTimeoutOrNull(SYNC_TIMEOUT_MS) { td.connectionState.first { it is TdApi.ConnectionStateReady } } == null) {
+                AppLog.w(TAG, "Skipped: no connection within ${SYNC_TIMEOUT_MS / 1000} s")
+                return@whileConnected
+            }
             // TDLib holds new notifications back for a moment, in case they're read elsewhere.
             delay(PENDING_START_MS)
             withTimeoutOrNull(PENDING_TIMEOUT_MS) { notifications.havePending.first { !it } }
@@ -80,11 +82,8 @@ class CheckWorker @AssistedInject constructor(
             } catch (e: TdException) {
                 AppLog.w(TAG, "Storage limit failed", e)
             }
-        } finally {
-            // So that the next message comes by push.
-            td.disconnectInBackground()
+            AppLog.i(TAG, "Check done")
         }
-        AppLog.i(TAG, "Check done")
         return Result.success()
     }
 

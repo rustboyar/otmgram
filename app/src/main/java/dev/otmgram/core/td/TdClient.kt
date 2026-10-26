@@ -26,6 +26,7 @@ import org.drinkless.tdlib.Client
 import org.drinkless.tdlib.TdApi
 import java.io.File
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
@@ -127,7 +128,7 @@ class TdClient @Inject constructor(
      * Makes TDLib reopen its connections now. A process that was frozen between background
      * checks still reports [connectionState] as ready from before, over dead connections.
      */
-    override fun reconnect() {
+    private fun reconnect() {
         disconnected = false
         sendIgnoringResult(TdApi.SetNetworkType(context.tdNetworkType()))
     }
@@ -138,16 +139,31 @@ class TdClient @Inject constructor(
 
     private val main = Handler(Looper.getMainLooper())
 
+    /** Work running [whileConnected]; the connections stay open until it's done. */
+    private val connectionUsers = AtomicInteger()
+
+    override suspend fun <T> whileConnected(block: suspend () -> T): T {
+        connectionUsers.incrementAndGet()
+        reconnect()
+        try {
+            return block()
+        } finally {
+            // Two checks can overlap (one after a push, one periodic): the last one closes.
+            if (connectionUsers.decrementAndGet() == 0) disconnectInBackground()
+        }
+    }
+
     /**
      * Closes TDLib's connections if the app is in the background, unless a live location is
-     * being shared. Android soon freezes a process in the background, with its connections
-     * still open; Telegram then sends new messages there, to a process that can't read them,
-     * instead of pushing them. [reconnect], or the app coming back, opens them again.
+     * being shared or work runs [whileConnected]. Android soon freezes a process in the
+     * background, with its connections still open; Telegram then sends new messages there, to
+     * a process that can't read them, instead of pushing them. [reconnect], or the app coming
+     * back, opens them again.
      */
-    override fun disconnectInBackground() {
+    private fun disconnectInBackground() {
         main.post {
             if (ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return@post
-            if (!_activeLiveLocations.value.isNullOrEmpty()) return@post
+            if (!_activeLiveLocations.value.isNullOrEmpty() || connectionUsers.get() > 0) return@post
             disconnected = true
             sendIgnoringResult(TdApi.SetNetworkType(TdApi.NetworkTypeNone()))
             AppLog.i(TAG, "Disconnected in the background")
@@ -218,7 +234,12 @@ class TdClient @Inject constructor(
         when (update) {
             is TdApi.UpdateAuthorizationState -> onAuthorizationState(update.authorizationState)
             is TdApi.UpdateChatFolders -> _chatFolders.value = update.chatFolders.toList()
-            is TdApi.UpdateActiveLiveLocationMessages -> _activeLiveLocations.value = update.messages.toList()
+            is TdApi.UpdateActiveLiveLocationMessages -> {
+                val wasSharing = !_activeLiveLocations.value.isNullOrEmpty()
+                _activeLiveLocations.value = update.messages.toList()
+                // Sharing ended, e.g. in the background: the connections it kept open can close.
+                if (wasSharing && update.messages.isEmpty()) disconnectInBackground()
+            }
             is TdApi.UpdateConnectionState -> {
                 AppLog.i(TAG, "Connection: ${update.state.javaClass.simpleName.removePrefix("ConnectionState")}")
                 _connectionState.value = update.state

@@ -24,11 +24,12 @@ interface TelegramClient {
     /** Live location messages this app sent that are still running, or null until known. */
     val activeLiveLocations: StateFlow<List<TdApi.Message>?>
 
-    /** Makes TDLib reopen its connections now, e.g. after the process was frozen. */
-    fun reconnect()
-
-    /** Closes the connections if the app is in the background, so that Telegram pushes. */
-    fun disconnectInBackground()
+    /**
+     * Runs [block] with TDLib's connections open, even in the background (reopened first, as
+     * they may be dead after the process was frozen). Afterwards they close again if the app
+     * is still in the background and nothing else needs them, so that Telegram pushes.
+     */
+    suspend fun <T> whileConnected(block: suspend () -> T): T
 
     /** Sends [function] and returns its result, throwing [TdException] on error. */
     suspend fun <R : TdApi.Object> send(function: TdApi.Function<R>): R

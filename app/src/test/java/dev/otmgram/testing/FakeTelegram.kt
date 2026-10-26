@@ -23,18 +23,12 @@ class FakeTelegram : TelegramClient {
     override val chatFolders = MutableStateFlow<List<TdApi.ChatFolderInfo>?>(emptyList())
     override val activeLiveLocations = MutableStateFlow<List<TdApi.Message>?>(emptyList())
 
-    /** How often [reconnect] was called. */
-    var reconnects = 0
+    /** How often [whileConnected] ran. */
+    var connectedRuns = 0
 
-    override fun reconnect() {
-        reconnects++
-    }
-
-    /** How often [disconnectInBackground] was called. */
-    var disconnects = 0
-
-    override fun disconnectInBackground() {
-        disconnects++
+    override suspend fun <T> whileConnected(block: suspend () -> T): T {
+        connectedRuns++
+        return block()
     }
 
     /** Every request sent, in order. */
