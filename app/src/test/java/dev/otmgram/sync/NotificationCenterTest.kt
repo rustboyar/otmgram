@@ -42,9 +42,10 @@ class NotificationCenterTest {
     private val shows = mutableListOf<Shown>()
     private val showing = mutableMapOf<Long, ChatNotification>()
     private val display = object : NotificationDisplay {
-        override fun show(chat: ChatNotification, alert: Boolean) {
+        override fun show(chat: ChatNotification, alert: Boolean): Boolean {
             shows += Shown(chat, alert)
             showing[chat.chatId] = chat
+            return true
         }
 
         override fun cancel(chatId: Long) {

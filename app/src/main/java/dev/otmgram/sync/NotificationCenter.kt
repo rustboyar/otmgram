@@ -170,6 +170,9 @@ class NotificationCenter @Inject constructor(
         val folderId = folders.selectedFolderId.first() ?: return
         val folder = td.send(TdApi.GetChats(TdApi.ChatListFolder(folderId), MAX_FOLDER_CHATS)).chatIds.toSet()
         val wanted = notifiedMessages(groups.values, folder, state.seen().orEmpty())
+        // Telegram tells about messages anywhere; this says whether it told anything at all.
+        val left = changedChats.count { chatId -> chatId !in wanted && groups.values.any { it.chatId == chatId } }
+        if (left > 0) AppLog.i(TAG, "Left out $left chat(s): outside the folder, or seen in the app")
         val withText = settings.showMessageText.first()
         wanted.forEach { (chatId, notifications) ->
             // Unchanged chats stay as they are, also when swiped away.
@@ -179,7 +182,10 @@ class NotificationCenter @Inject constructor(
             // Opened meanwhile (the requests above take a moment): it cleared them, and stays so.
             if (foreground) return
             val alert = notifications.any { it.id > alerting && !it.isSilent }
-            display.show(chatNotification(chat, notifications, withText), alert)
+            if (!display.show(chatNotification(chat, notifications, withText), alert)) {
+                AppLog.w(TAG, "Not shown: notifications are off for the app or its chats, in Android's settings")
+                return@forEach
+            }
             rendered += chatId
             AppLog.i(TAG, "Shown ${notifications.size} in a chat${if (alert) ", alerting" else ""}")
         }

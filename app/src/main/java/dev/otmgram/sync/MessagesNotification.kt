@@ -25,8 +25,11 @@ import javax.inject.Inject
 
 /** Where [NotificationCenter]'s decisions end up: Android's notifications, or a test's record. */
 interface NotificationDisplay {
-    /** Shows or replaces [chat]'s notification; [alert]: with sound, for a new message. */
-    fun show(chat: ChatNotification, alert: Boolean)
+    /**
+     * Shows or replaces [chat]'s notification; [alert]: with sound, for a new message. False
+     * if Android wouldn't show it: notifications are off for the app, or for its chats.
+     */
+    fun show(chat: ChatNotification, alert: Boolean): Boolean
 
     fun cancel(chatId: Long)
 
@@ -48,10 +51,12 @@ class MessagesNotification @Inject constructor(
 
     private val manager = NotificationManagerCompat.from(context)
 
-    override fun show(chat: ChatNotification, alert: Boolean) {
+    override fun show(chat: ChatNotification, alert: Boolean): Boolean {
         // Covers the runtime permission (Android 13+) and notifications turned off for the app.
-        if (!manager.areNotificationsEnabled()) return
+        if (!manager.areNotificationsEnabled()) return false
         createChannel()
+        // Android drops it quietly if the user turned off this channel.
+        if (!allowed(context)) return false
         val count = chat.messages.size
         val countText = strings.plural(R.plurals.new_messages, count, count)
         val newest = chat.messages.last()
@@ -88,6 +93,7 @@ class MessagesNotification @Inject constructor(
         }
         manager.notify(chat.chatId.toString(), CHAT_NOTIFICATION_ID, builder.build())
         showSummary()
+        return true
     }
 
     override fun cancel(chatId: Long) {
