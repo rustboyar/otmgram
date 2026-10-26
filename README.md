@@ -1,76 +1,74 @@
 # Otmgram
 
-A minimal Android Telegram client that only shows chats from one chat folder. See [PLAN.md](PLAN.md).
+An Android app that shows the chats of **one Telegram folder**, and nothing else: no other
+chats, no channels, no stories. Put the people who matter in a folder, and spend less time
+on everything else.
 
-## Setup
+Otmgram is an unofficial app that uses the Telegram API. It isn't made or endorsed by
+Telegram.
 
-Builds on Linux (the scripts use the NDK's `linux-x86_64` tools and GNU tools).
+## What it does
 
-Requirements: JDK 17+, Android SDK platform 37 and NDK `29.0.14206865`
-(`sdkmanager "platforms;android-37.0" "ndk;29.0.14206865"`), `cmake`, `ninja`, `gperf`,
-`perl`, `make`, `git`, `curl`, `sha256sum`. Building TDLib needs about 2 GB of disk
-(`.tdlib-build/`) and plenty of RAM: lower `JOBS` (default 8) if the build runs out.
+- Chats and groups from the folder you pick, with search; pin chats in the folder
+- Text, replies, forwards (within the folder), edits, deletions, reactions, pinned messages, find in chat
+- Photos, videos, GIFs, voice messages, round videos, stickers and files, to view and to send; photos and videos are made smaller before sending
+- YouTube, Instagram and TikTok links play inside the app
+- Send your location or share it live, and see others' on a map
+- Notifications only for the folder's chats: instant through a push app such as
+  [ntfy](https://ntfy.sh) ([UnifiedPush](https://unifiedpush.org)), or a regular check
+- Message text in notifications is off unless you turn it on, and never on the lock screen
 
-1. Build TDLib (takes a while; outputs go to `tdlib/src/main`, not committed):
+Not there, on purpose: other chats, channels, calls, stories, secret chats, several
+accounts, contacts, starting new chats. Changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
-   ```sh
-   ./scripts/build-tdlib.sh
-   ```
+## Install
 
-2. Add your Telegram API credentials from https://my.telegram.org to `local.properties`:
+Android 10 or newer, on a 64-bit ARM phone (nearly all phones from the last years).
 
-   ```properties
-   sdk.dir=/home/you/Android/Sdk
-   telegram.apiId=12345
-   telegram.apiHash=0123456789abcdef0123456789abcdef
-   ```
+- **[Obtainium](https://obtainium.imranr.net)**: add `https://github.com/rustboyar/otmgram`,
+  and it installs each new release as it comes out.
+- **By hand**: download `otmgram-X.Y.Z.apk` from
+  [Releases](https://github.com/rustboyar/otmgram/releases) and open it.
 
-3. Build and install:
+Releases are signed with this certificate (SHA-256), which tools such as
+[AppVerifier](https://github.com/soupslurpr/AppVerifier) can check:
 
-   ```sh
-   ./gradlew installDebug
-   ```
-
-## Checks
-
-```sh
-scripts/check.sh             # lint (fails on any issue), unit tests, UI tests compile
-scripts/check.sh --release   # and the release APK
-scripts/ui-tests.sh          # UI tests on the device; keeps the app's data (unlike connectedAndroidTest)
+```
+25:A0:1A:D6:BB:F2:C8:80:19:55:A9:07:48:76:5D:D8:EF:C6:FF:8D:52:0E:98:AF:7F:FB:92:B2:16:E0:C5:3D
 ```
 
-## Release builds
+Log in with your Telegram phone number, then pick the folder. Folders are made in
+Telegram's own apps (Settings → Chat Folders). For instant notifications, install ntfy, open
+it once, and choose Instant in Otmgram's settings.
 
-Signed with your own key, kept outside the repo; a release build stops if any of this is
-missing from `local.properties`:
+## Privacy
 
-```properties
-release.storeFile=/home/you/.local/share/otmgram/release.jks
-release.storePassword=…
-release.keyAlias=otmgram
-release.keyPassword=…
-```
+Otmgram has no analytics, no ads and no crash reporting. It connects to:
 
-Back up the keystore and its passwords: Android installs updates only with the same key.
+- **Telegram**, for everything to do with your account
+- **Your push app** (such as ntfy) and its server, if you choose instant notifications.
+  Telegram sends it only a number, never the message
+- **[OpenFreeMap](https://openfreemap.org)**, for map tiles when a location is shown; message
+  previews load only city-level tiles, so the server learns just the rough area
+- **YouTube, Instagram or TikTok**, only when you tap a link to play it
 
-## Debug builds and the emulator
+Its database is encrypted with a key kept in Android's Keystore. Logs stay on the phone,
+without message text or names, until you share them from Settings. More in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#security).
 
-Debug builds connect to Telegram's production servers. `telegram.testDc=true` in
-`local.properties` switches them to the test servers, but their test accounts
-(`99966XYYYY` numbers) stopped working in 2025: logins fail with `PHONE_CODE_INVALID`.
+## Build it yourself
 
-Debug APKs include x86_64 for the emulator, release APKs are arm64 only.
+You need Linux, the Android SDK and NDK, and your own Telegram API id from
+[my.telegram.org](https://my.telegram.org). See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
-```sh
-./scripts/emulator.sh            # needs: sdkmanager "emulator" "system-images;android-37.0;google_apis;x86_64"
-./scripts/emulator.sh --headless
-```
+## Contributing
 
-Logging in needs a human for the code, so keep the session of the debug app around.
-Backups contain the account's auth keys and live in `~/.local/share/otmgram/sessions`;
-they stop working once the account logs out.
+Bug reports and ideas are welcome as issues. Otmgram is meant to stay small, so before
+building a feature, open an issue to talk about it. Security problems: see
+[SECURITY.md](SECURITY.md).
 
-```sh
-./scripts/session.sh backup [name]
-./scripts/session.sh restore [name]
-```
+## License
+
+Otmgram is free software under the [GNU General Public License v3.0 or later](LICENSE).
+It bundles the Fraunces and Inter fonts, under the [SIL Open Font License](licenses/), and
+builds on [TDLib](https://github.com/tdlib/td) (Boost Software License).

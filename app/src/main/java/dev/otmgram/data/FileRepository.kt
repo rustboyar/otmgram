@@ -44,7 +44,7 @@ fun TdApi.File.toState() = FileState(
     isUploading = remote.isUploadingActive,
 )
 
-/** Downloads of TDLib files: which download when, see PLAN.md. */
+/** Downloads of TDLib files: which download when, see docs/ARCHITECTURE.md. */
 @Singleton
 class FileRepository @Inject constructor(
     private val td: TelegramClient,
