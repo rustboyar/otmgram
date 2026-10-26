@@ -20,11 +20,15 @@ import dev.otmgram.data.StorageRepository
 import dev.otmgram.di.ApplicationScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.drinkless.tdlib.TdApi
 import java.util.concurrent.TimeUnit
@@ -93,16 +97,23 @@ class CheckScheduler @Inject constructor(
             }
         }
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
+            /** Leaving, until notifications are on again; called off by coming back meanwhile. */
+            private var leaving: Job? = null
+
             override fun onStart(owner: LifecycleOwner) {
+                leaving?.cancel()
+                leaving = null
                 notifications.setForeground(true)
                 scope.launch { markSeen() }
             }
 
-            // Notifying again only once what was on screen counts as seen.
+            // Notifying again only once what was on screen counts as seen, which can take a
+            // while: back on screen by then, notifications stay off. On the main thread, as
+            // onStart, so the two can't interleave.
             override fun onStop(owner: LifecycleOwner) {
-                scope.launch {
+                leaving = scope.launch {
                     markSeen()
-                    notifications.setForeground(false)
+                    withContext(Dispatchers.Main) { if (isActive) notifications.setForeground(false) }
                 }
             }
         })
