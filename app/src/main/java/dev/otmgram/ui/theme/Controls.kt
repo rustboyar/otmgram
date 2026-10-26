@@ -25,12 +25,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
@@ -46,9 +48,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/* Things to tap and type in: buttons, fields, switches, chips, counts. */
+/*
+ * Things to tap and type in: buttons, fields, switches, chips, counts. Those drawn smaller than
+ * 48 dp keep 48 dp of room (minimumInteractiveComponentSize): Compose widens their touch area to
+ * that anyway, and the room keeps neighbours' areas from overlapping.
+ */
 
-/** A 44 dp icon button; [background] makes it a filled circle. */
+/** A 44 dp icon button; [background] makes it a filled circle, [shadow] lifts it. */
 @Composable
 fun IconBtn(
     icon: ImageVector,
@@ -61,10 +67,13 @@ fun IconBtn(
     iconSize: Dp = 22.dp,
     enabled: Boolean = true,
     tag: String? = null,
+    shadow: Dp = 0.dp,
 ) {
     Box(
         modifier = modifier
+            .minimumInteractiveComponentSize()
             .size(size)
+            .shadow(shadow, CircleShape)
             .clip(CircleShape)
             .background(background)
             .clickable(enabled = enabled, onClick = onClick, role = Role.Button)
@@ -114,6 +123,7 @@ fun SoftButton(
 ) {
     Row(
         modifier = modifier
+            .minimumInteractiveComponentSize()
             .heightIn(min = height)
             .clip(RoundedCornerShape(height / 2))
             .background(background)
@@ -132,6 +142,7 @@ fun SoftButton(
 fun TextAction(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, color: Color = Otm.SlateDeep, enabled: Boolean = true) {
     Box(
         modifier = modifier
+            .minimumInteractiveComponentSize()
             .heightIn(min = 44.dp)
             .clip(RoundedCornerShape(22.dp))
             .clickable(enabled = enabled, onClick = onClick, role = Role.Button)
@@ -260,6 +271,7 @@ fun Chip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifie
     val shape = RoundedCornerShape(18.dp)
     Box(
         modifier = modifier
+            .minimumInteractiveComponentSize()
             .height(36.dp)
             .clip(shape)
             .then(if (selected) Modifier.background(Otm.Haze) else Modifier.border(1.dp, Otm.Outline, shape))

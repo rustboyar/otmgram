@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -63,7 +62,6 @@ import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Point
-import kotlin.math.roundToInt
 
 /** Interactive map of a location message; follows live locations as they update. */
 @Composable
@@ -117,9 +115,9 @@ fun MapScreen(onBack: () -> Unit, modifier: Modifier = Modifier, viewModel: MapV
             OtmIcons.Back, stringResource(R.string.back), onBack,
             modifier = Modifier
                 .statusBarsPadding()
-                .padding(12.dp)
-                .shadow(4.dp, CircleShape),
+                .padding(12.dp),
             background = Otm.Sheet,
+            shadow = 4.dp,
             tag = "closeMap",
         )
         Column(
