@@ -2,6 +2,7 @@ package dev.otmgram.ui.chat
 
 import android.annotation.SuppressLint
 import android.net.Uri
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -80,6 +81,10 @@ data class ReactionChip(val label: String, val emoji: String?, val count: Int, v
 
 data class SearchResult(val messageId: Long, val senderName: String?, val text: String, val date: Int)
 
+// Never changed once made: each update makes new ones. Marked so, Compose compares them and
+// skips the bubbles (and their callbacks) whose message is the same; without it, any update
+// to the history recomposed every bubble on screen.
+@Immutable
 data class MessageItem(
     val id: Long,
     val isOutgoing: Boolean,
