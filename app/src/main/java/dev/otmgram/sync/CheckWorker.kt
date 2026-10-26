@@ -30,7 +30,7 @@ import org.drinkless.tdlib.TdApi
 /**
  * The periodic check for new messages, a backup for when the process isn't running: it
  * lets TDLib catch up, and [NotificationCenter] shows what TDLib then notifies about.
- * TDLib keeps the account offline meanwhile.
+ * The account stays offline meanwhile: it's online only while the app is on screen.
  */
 @HiltWorker
 class CheckWorker @AssistedInject constructor(

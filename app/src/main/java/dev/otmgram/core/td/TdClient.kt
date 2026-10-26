@@ -39,8 +39,9 @@ class TdException(val error: TdApi.Error) : Exception("TDLib error ${error.code}
  * The single TDLib instance of the app.
  *
  * Exposes requests as suspend functions and updates as flows. Handles the parts of the
- * TDLib lifecycle that need no user input: sending TDLib parameters, keeping the account
- * offline, and creating a fresh instance after logout closes the old one.
+ * TDLib lifecycle that need no user input: sending TDLib parameters, showing the account
+ * online while the app is on screen, and creating a fresh instance after logout closes the
+ * old one.
  */
 @Singleton
 class TdClient @Inject constructor(
@@ -172,6 +173,17 @@ class TdClient @Inject constructor(
 
     private val disconnectLater = Runnable { disconnectInBackground() }
 
+    /** Whether the app is on screen: the account shows as online only then. */
+    @Volatile
+    private var foreground = false
+
+    private fun showOnline(online: Boolean) {
+        foreground = online
+        if (_authorizationState.value is TdApi.AuthorizationStateReady) {
+            sendIgnoringResult(TdApi.SetOption("online", TdApi.OptionValueBoolean(online)))
+        }
+    }
+
     private var watchingNetwork = false
 
     /**
@@ -221,6 +233,7 @@ class TdClient @Inject constructor(
                 private var stoppedAt = 0L
 
                 override fun onStop(owner: LifecycleOwner) {
+                    showOnline(false)
                     stoppedAt = SystemClock.elapsedRealtime()
                     main.postDelayed(disconnectLater, BACKGROUND_DISCONNECT_MS)
                 }
@@ -228,6 +241,7 @@ class TdClient @Inject constructor(
                 override fun onStart(owner: LifecycleOwner) {
                     main.removeCallbacks(disconnectLater)
                     if (disconnected || (stoppedAt != 0L && SystemClock.elapsedRealtime() - stoppedAt > AWAY_RECONNECT_MS)) reconnect()
+                    showOnline(true)
                 }
             })
         }
@@ -257,11 +271,7 @@ class TdClient @Inject constructor(
         AppLog.i(TAG, "Authorization: ${state.javaClass.simpleName.removePrefix("AuthorizationState")}")
         when (state) {
             is TdApi.AuthorizationStateWaitTdlibParameters -> opener.open()
-            is TdApi.AuthorizationStateReady -> {
-                // Never show the account as online, see PLAN.md.
-                sendIgnoringResult(TdApi.SetOption("online", TdApi.OptionValueBoolean(false)))
-                encryptDatabase()
-            }
+            is TdApi.AuthorizationStateReady -> encryptDatabase()
             // An instance is closed after logout (its local data is already deleted by
             // TDLib); a new one is needed to log in again.
             is TdApi.AuthorizationStateClosed -> synchronized(this) {
@@ -272,6 +282,12 @@ class TdClient @Inject constructor(
             }
         }
         _authorizationState.value = state
+        // Online while on screen, as in Telegram's apps (and as its API terms require). TDLib
+        // starts out offline, which suits a background check or push. After the state is set,
+        // so either this or the app coming on screen (showOnline) sees the other.
+        if (state is TdApi.AuthorizationStateReady && foreground) {
+            sendIgnoringResult(TdApi.SetOption("online", TdApi.OptionValueBoolean(true)))
+        }
     }
 
     /** Encrypts an unencrypted database (installs from before, or after a failed switch). */

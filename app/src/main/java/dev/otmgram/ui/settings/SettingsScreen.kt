@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.otmgram.BuildConfig
 import dev.otmgram.R
 import dev.otmgram.core.log.LogArchive
 import dev.otmgram.data.CacheLimit
@@ -52,6 +53,7 @@ import dev.otmgram.data.StorageKind
 import dev.otmgram.data.StorageUsage
 import dev.otmgram.ui.chat.SelectionMark
 import dev.otmgram.ui.format.formatSize
+import dev.otmgram.ui.media.openLink
 import dev.otmgram.ui.theme.Card
 import dev.otmgram.ui.theme.ChatAvatar
 import dev.otmgram.ui.theme.Chip
@@ -99,7 +101,6 @@ fun SettingsScreen(onBack: () -> Unit, onChangeFolder: () -> Unit, modifier: Mod
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(account.name, style = OtmType.Name, color = Otm.Ink)
                             account.phone?.let { Text(it, style = OtmType.Secondary, color = Otm.InkSoft) }
-                            Text(stringResource(R.string.account_offline), style = OtmType.Secondary, color = Otm.InkSoft)
                         }
                     }
                 }
@@ -214,6 +215,13 @@ fun SettingsScreen(onBack: () -> Unit, onChangeFolder: () -> Unit, modifier: Mod
             ) {
                 Text(stringResource(R.string.log_out), style = OtmType.Button, color = Otm.Error)
             }
+
+            // Which version this is, for reports, and where its source is, as the GPL asks.
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(stringResource(R.string.about_version, BuildConfig.VERSION_NAME), style = OtmType.Secondary, color = Otm.InkSoft)
+                val context = LocalContext.current
+                TextAction(stringResource(R.string.about_source), { openLink(context, SOURCE_URL) }, Modifier.testTag("sourceCode"))
+            }
         }
     }
 
@@ -327,3 +335,5 @@ private val STORAGE_COLORS = mapOf(
     StorageKind.Files to Color(0xFFBCC8CF),
     StorageKind.Other to Color(0xFFE2DCD3),
 )
+
+private const val SOURCE_URL = "https://github.com/rustboyar/otmgram"
