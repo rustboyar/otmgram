@@ -11,6 +11,7 @@ import dev.otmgram.data.isGroup
 import dev.otmgram.data.isShown
 import dev.otmgram.di.ApplicationScope
 import dev.otmgram.ui.summary
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.channels.Channel
@@ -95,9 +96,12 @@ class NotificationCenter @Inject constructor(
             while (true) {
                 apply(changes.receive())
                 while (true) apply(changes.tryReceive().getOrNull() ?: break)
+                // Any failure, not only TDLib's: this loop is all there is to notifications.
                 try {
                     render()
-                } catch (e: TdException) {
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
                     AppLog.w(TAG, "Showing notifications failed", e)
                 }
             }

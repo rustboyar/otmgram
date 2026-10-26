@@ -1,5 +1,6 @@
 package dev.otmgram.data
 
+import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TdException
 import dev.otmgram.core.td.TelegramClient
 import kotlinx.coroutines.CoroutineStart
@@ -7,6 +8,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
@@ -54,7 +56,9 @@ class ChatRepository @Inject constructor(
      *
      * Loaded once, then each update reloads only the chat it's about (and the order, when
      * positions change); updates arriving close together are handled at once. Only a change
-     * of folders or of the default mute settings reloads everything.
+     * of folders or of the default mute settings reloads everything. A failed load (e.g. the
+     * folder was just deleted on another device) starts over after a pause, longer each time;
+     * the last list stays shown meanwhile.
      */
     fun folderChats(folderId: Int): Flow<List<FolderChat>> = channelFlow {
         val changes = Channel<Change>(Channel.UNLIMITED)
@@ -69,6 +73,10 @@ class ChatRepository @Inject constructor(
             while (true) batch += changes.tryReceive().getOrNull() ?: break
             send(folder.apply(batch))
         }
+    }.retryWhen { e, attempt ->
+        AppLog.w(TAG, "Loading the folder's chats failed", e)
+        delay((RETRY_FIRST_MS shl attempt.toInt().coerceAtMost(5)).coerceAtMost(RETRY_MAX_MS))
+        true
     }
 
     /**
@@ -174,6 +182,9 @@ class ChatRepository @Inject constructor(
     }
 
     private companion object {
+        const val TAG = "ChatRepository"
         const val RELOAD_DELAY_MS = 200L
+        const val RETRY_FIRST_MS = 1_000L
+        const val RETRY_MAX_MS = 30_000L
     }
 }

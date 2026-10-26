@@ -18,6 +18,7 @@ import dev.otmgram.data.NotificationMode
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.StorageRepository
 import dev.otmgram.di.ApplicationScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -64,14 +65,21 @@ class CheckScheduler @Inject constructor(
                     else -> null
                 }
             }.filterNotNull().distinctUntilChanged().collect { delivery ->
-                delivery.checkMinutes?.let(::schedule) ?: unschedule()
-                if (delivery.push) {
-                    // Each start: the push app answers with the endpoint, and Telegram is
-                    // told again once a day.
-                    if (!push.register()) AppLog.i("CheckScheduler", "Push: no push app picked")
-                    push.tellTelegram()
-                } else {
-                    push.unregister()
+                // A failure here stays here: this collector is what keeps checks scheduled.
+                try {
+                    delivery.checkMinutes?.let(::schedule) ?: unschedule()
+                    if (delivery.push) {
+                        // Each start: the push app answers with the endpoint, and Telegram is
+                        // told again once a day.
+                        if (!push.register()) AppLog.i("CheckScheduler", "Push: no push app picked")
+                        push.tellTelegram()
+                    } else {
+                        push.unregister()
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    AppLog.w("CheckScheduler", "Setting up notifications failed", e)
                 }
             }
         }

@@ -104,6 +104,20 @@ class ChatRepositoryTest {
     }
 
     @Test
+    fun `a failed load starts over after a pause`() = runTest {
+        var fail = true
+        td.on<TdApi.GetChats> { if (fail) error(400, "CHAT_LIST_NOT_FOUND") else TdApi.Chats(order.size, order.toLongArray()) }
+        val lists = mutableListOf<List<FolderChat>>()
+        backgroundScope.launch { ChatRepository(td).folderChats(1).collect { lists += it } }
+        runCurrent()
+        assertEquals(0, lists.size)
+        fail = false
+        advanceTimeBy(1_100)
+        runCurrent()
+        assertEquals(4, lists.single().size)
+    }
+
+    @Test
     fun `updates close together are handled at once`() = runTest {
         var lists = 0
         backgroundScope.launch { ChatRepository(td).folderChats(1).collect { lists++ } }

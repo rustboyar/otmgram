@@ -7,10 +7,12 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dev.otmgram.core.AndroidStrings
 import dev.otmgram.core.Strings
+import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.sync.MessagesNotification
 import dev.otmgram.sync.NotificationDisplay
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -48,7 +50,10 @@ object AppModule {
     @Provides
     @Singleton
     @ApplicationScope
-    fun applicationScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    fun applicationScope(): CoroutineScope =
+        // A failure nothing else caught is logged, not a crash: this scope runs the background
+        // work (notifications, checks, push), often in a process started just for it.
+        CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, e -> AppLog.e("App", "Uncaught in the background", e) })
 }
 
 /** This scope on the main thread. */
