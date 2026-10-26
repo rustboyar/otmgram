@@ -1,5 +1,6 @@
 package dev.otmgram.ui.chat
 
+import androidx.compose.foundation.layout.ColumnScope
 import dev.otmgram.ui.format.formatDuration
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -13,8 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,27 +37,26 @@ import dev.otmgram.ui.theme.Banner
 import dev.otmgram.ui.theme.Hairline
 import dev.otmgram.ui.theme.IconBtn
 import dev.otmgram.ui.theme.Otm
-import dev.otmgram.ui.theme.OtmField
 import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmType
+import dev.otmgram.ui.theme.PillField
+import dev.otmgram.ui.theme.PillHeight
+import dev.otmgram.ui.theme.PillShape
+import dev.otmgram.ui.theme.ScreenBarFrame
 import dev.otmgram.ui.theme.SoftButton
 
+/** Under the messages: a translucent bar with a hairline on top, over the navigation bar unless [overNavigationBar] is false. */
 @Composable
-private fun ScreenBarRow(content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit) {
-    Column(Modifier.fillMaxWidth().statusBarsPadding()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 10.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            content = content,
-        )
+private fun BottomBar(overNavigationBar: Boolean = true, content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.6f)).then(if (overNavigationBar) Modifier.navigationBarsPadding() else Modifier)) {
         Hairline()
+        content()
     }
 }
 
 @Composable
 internal fun SelectionBar(count: Int, onCancel: () -> Unit, onCopy: () -> Unit) {
-    ScreenBarRow {
+    ScreenBarFrame {
         IconBtn(OtmIcons.Close, stringResource(R.string.selection_cancel), onCancel, tag = "cancelSelection")
         Text(pluralStringResource(R.plurals.selected_count, count, count), style = OtmType.BarTitle, color = Otm.Ink, modifier = Modifier.weight(1f).padding(start = 4.dp).testTag("selectedCount"))
         IconBtn(OtmIcons.Copy, stringResource(R.string.action_copy), onCopy, tint = Otm.Meta, tag = "copySelected")
@@ -67,8 +65,7 @@ internal fun SelectionBar(count: Int, onCancel: () -> Unit, onCopy: () -> Unit) 
 
 @Composable
 internal fun SelectionActions(onForward: () -> Unit, onDelete: () -> Unit) {
-    Column(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.6f)).navigationBarsPadding()) {
-        Hairline()
+    BottomBar {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SoftButton(stringResource(R.string.action_forward), onForward, Modifier.weight(1f).testTag("forwardSelected"), icon = OtmIcons.Forward, height = 52.dp)
             SoftButton(stringResource(R.string.action_delete), onDelete, Modifier.weight(1f).testTag("deleteSelected"), icon = OtmIcons.Trash, background = Otm.ErrorSoft, color = Otm.Error, height = 52.dp)
@@ -80,16 +77,13 @@ internal fun SelectionActions(onForward: () -> Unit, onDelete: () -> Unit) {
 internal fun FindBar(query: String, onQueryChange: (String) -> Unit, onClose: () -> Unit) {
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
-    ScreenBarRow {
+    ScreenBarFrame {
         IconBtn(OtmIcons.Back, stringResource(R.string.search_close), onClose, tag = "closeSearch")
-        OtmField(
+        PillField(
             value = query,
             onValueChange = onQueryChange,
             placeholder = stringResource(R.string.search_chat),
             textStyle = OtmType.Body.copy(fontSize = OtmType.Name.fontSize),
-            shape = RoundedCornerShape(22.dp),
-            height = 44.dp,
-            outlined = false,
             trailing = if (query.isEmpty()) null else {
                 { IconBtn(OtmIcons.Close, stringResource(R.string.search_clear), { onQueryChange("") }, tint = Otm.InkSoft, size = 40.dp, iconSize = 20.dp) }
             },
@@ -101,8 +95,7 @@ internal fun FindBar(query: String, onQueryChange: (String) -> Unit, onClose: ()
 /** "3 of 4" and arrows to step through matches, in the input bar's place. */
 @Composable
 internal fun FindStepper(results: List<SearchResult>?, index: Int, query: String, onStep: (Int) -> Unit) {
-    Column(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.6f)).navigationBarsPadding()) {
-        Hairline()
+    BottomBar {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 10.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).testTag("matches")) {
                 Text(
@@ -164,8 +157,8 @@ internal fun InputBar(
     focus: FocusRequester,
 ) {
     val text = readText()
-    Column(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.6f)).then(if (stickersOpen) Modifier else Modifier.navigationBarsPadding())) {
-        Hairline()
+    // Over the sticker panel, which has the navigation bar's room.
+    BottomBar(overNavigationBar = !stickersOpen) {
         val banner = when (composer) {
             Composer.New -> null
             is Composer.Reply -> Triple(
@@ -193,16 +186,12 @@ internal fun InputBar(
             horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             IconBtn(OtmIcons.Attach, stringResource(R.string.attach), onAttach, tint = Otm.Meta, tag = "attach")
-            OtmField(
+            PillField(
                 value = text,
                 onValueChange = onTextChange,
                 placeholder = if (chatTitle.isEmpty()) stringResource(R.string.composer_message) else stringResource(R.string.composer_write_to, chatTitle),
-                textStyle = OtmType.Body,
-                singleLine = false,
                 maxLines = 5,
-                shape = RoundedCornerShape(22.dp),
-                height = 44.dp,
-                outlined = false,
+                bordered = true,
                 trailing = {
                     IconBtn(
                         if (stickersOpen) OtmIcons.Keyboard else OtmIcons.Smile,
@@ -213,7 +202,7 @@ internal fun InputBar(
                         tag = "stickers",
                     )
                 },
-                modifier = Modifier.weight(1f).border(1.dp, Otm.Line, RoundedCornerShape(22.dp)).focusRequester(focus).testTag("input"),
+                modifier = Modifier.weight(1f).focusRequester(focus).testTag("input"),
             )
             Box(Modifier.size(4.dp))
             if (text.isBlank() && composer !is Composer.Edit) {
@@ -259,8 +248,7 @@ internal fun RecordingBar(state: RecorderState, onCancel: () -> Unit, onSend: ()
         levels.add((state.level * 31).toInt().coerceIn(0, 31))
         if (levels.size > LIVE_BARS) levels.removeAt(0)
     }
-    Column(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.6f)).navigationBarsPadding()) {
-        Hairline()
+    BottomBar {
         Row(
             modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 10.dp).testTag("recording"),
             verticalAlignment = Alignment.CenterVertically,
@@ -270,10 +258,10 @@ internal fun RecordingBar(state: RecorderState, onCancel: () -> Unit, onSend: ()
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .height(44.dp)
-                    .clip(RoundedCornerShape(22.dp))
+                    .height(PillHeight)
+                    .clip(PillShape)
                     .background(Otm.Card)
-                    .border(1.dp, Otm.Line, RoundedCornerShape(22.dp))
+                    .border(1.dp, Otm.Line, PillShape)
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),

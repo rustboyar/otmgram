@@ -155,38 +155,21 @@ fun SettingsScreen(onBack: () -> Unit, onChangeFolder: () -> Unit, viewModel: Se
                 onRetryPush = viewModel::retryPush,
             )
 
-            Card {
-                Row(
-                    modifier = Modifier.toggleable(showText, role = Role.Switch, onValueChange = viewModel::setShowMessageText).testTag("showMessageText"),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Title(
-                            stringResource(R.string.message_text_title),
-                            if (showText) {
-                                stringResource(R.string.message_text_on)
-                            } else {
-                                stringResource(R.string.message_text_off)
-                            },
-                        )
-                    }
-                    OtmSwitch(showText, onCheckedChange = null)
-                }
-            }
+            SwitchCard(
+                stringResource(R.string.message_text_title),
+                stringResource(if (showText) R.string.message_text_on else R.string.message_text_off),
+                showText,
+                viewModel::setShowMessageText,
+                "showMessageText",
+            )
 
-            Card {
-                Row(
-                    modifier = Modifier.toggleable(compress, role = Role.Switch, onValueChange = viewModel::setCompressByDefault).testTag("compressDefault"),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Title(stringResource(R.string.compress_title), stringResource(R.string.compress_description))
-                    }
-                    OtmSwitch(compress, onCheckedChange = null)
-                }
-            }
+            SwitchCard(
+                stringResource(R.string.compress_title),
+                stringResource(R.string.compress_description),
+                compress,
+                viewModel::setCompressByDefault,
+                "compressDefault",
+            )
 
             Card {
                 Row(verticalAlignment = Alignment.Bottom) {
@@ -281,6 +264,23 @@ fun SettingsScreen(onBack: () -> Unit, onChangeFolder: () -> Unit, viewModel: Se
             onDismiss = { confirmLogout = false },
             confirm = { TextAction(stringResource(R.string.log_out), viewModel::logOut, Modifier.testTag("confirmLogout"), color = Otm.Error) },
         )
+    }
+}
+
+/** A setting that's on or off: the whole card toggles it. */
+@Composable
+private fun SwitchCard(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit, tag: String) {
+    Card {
+        Row(
+            modifier = Modifier.toggleable(checked, role = Role.Switch, onValueChange = onChange).testTag(tag),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(Modifier.weight(1f)) {
+                Title(title, subtitle)
+            }
+            OtmSwitch(checked, onCheckedChange = null)
+        }
     }
 }
 

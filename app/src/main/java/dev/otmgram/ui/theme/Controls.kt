@@ -274,3 +274,41 @@ fun Chip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifie
         )
     }
 }
+
+/** The rounder, lower field and bar of bars and sheets: the input bar, find in chat, a caption. */
+val PillShape = RoundedCornerShape(22.dp)
+val PillHeight = 44.dp
+
+/**
+ * A field in [PillShape]: the input bar, find in chat, a caption, finding a chat. [bordered]
+ * gives it a hairline, where it sits on a bar of its own colour.
+ */
+@Composable
+fun PillField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    placeholder: String = "",
+    textStyle: TextStyle = OtmType.Body,
+    maxLines: Int = 1,
+    background: Color = Otm.Card,
+    bordered: Boolean = false,
+    leading: @Composable (() -> Unit)? = null,
+    trailing: @Composable (() -> Unit)? = null,
+) {
+    OtmField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier.then(if (bordered) Modifier.border(1.dp, Otm.Line, PillShape) else Modifier),
+        placeholder = placeholder,
+        textStyle = textStyle,
+        singleLine = maxLines == 1,
+        maxLines = maxLines,
+        shape = PillShape,
+        height = PillHeight,
+        background = background,
+        outlined = false,
+        leading = leading,
+        trailing = trailing,
+    )
+}

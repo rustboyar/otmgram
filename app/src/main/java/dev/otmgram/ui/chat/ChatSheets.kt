@@ -51,10 +51,10 @@ import dev.otmgram.ui.theme.ChatAvatar
 import dev.otmgram.ui.theme.Chip
 import dev.otmgram.ui.theme.IconBtn
 import dev.otmgram.ui.theme.Otm
-import dev.otmgram.ui.theme.OtmField
 import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmSheet
 import dev.otmgram.ui.theme.OtmType
+import dev.otmgram.ui.theme.PillField
 import kotlin.math.roundToInt
 
 /** Forwarding goes only to chats of the folder. */
@@ -67,15 +67,11 @@ fun ForwardSheet(targets: List<ForwardTarget>, onForward: (ForwardTarget) -> Uni
             Text(stringResource(R.string.forward_to), style = OtmType.BarTitle.copy(fontSize = 20.sp), color = Otm.Ink, modifier = Modifier.weight(1f))
             IconBtn(OtmIcons.Close, stringResource(R.string.close), onDismiss, tint = Otm.InkSoft)
         }
-        OtmField(
+        PillField(
             value = query,
             onValueChange = { query = it },
             placeholder = stringResource(R.string.find_chat),
-            textStyle = OtmType.Body,
-            shape = RoundedCornerShape(22.dp),
-            height = 44.dp,
             background = Otm.Field,
-            outlined = false,
             leading = { Icon(OtmIcons.Search, null, tint = Otm.InkSoft, modifier = Modifier.size(20.dp)) },
             modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp),
         )

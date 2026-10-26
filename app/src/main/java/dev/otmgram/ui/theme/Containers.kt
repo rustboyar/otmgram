@@ -56,20 +56,27 @@ fun ScreenBar(
     leading: @Composable (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
+    ScreenBarFrame(modifier) {
+        if (onBack != null) IconBtn(backIcon, stringResource(R.string.back), onBack, tag = backTag)
+        leading?.invoke()
+        Column(Modifier.weight(1f).padding(start = if (leading != null) 6.dp else 4.dp)) {
+            Text(title, style = OtmType.BarTitle, color = Otm.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            subtitle?.let { Text(it, style = OtmType.Secondary, color = Otm.InkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        }
+        actions()
+    }
+}
+
+/** A screen's top bar as a frame for any content, e.g. a search field or a selection count. */
+@Composable
+fun ScreenBarFrame(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
     Column(modifier.fillMaxWidth().statusBarsPadding()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 10.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            if (onBack != null) IconBtn(backIcon, stringResource(R.string.back), onBack, tag = backTag)
-            leading?.invoke()
-            Column(Modifier.weight(1f).padding(start = if (leading != null) 6.dp else 4.dp)) {
-                Text(title, style = OtmType.BarTitle, color = Otm.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                subtitle?.let { Text(it, style = OtmType.Secondary, color = Otm.InkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-            }
-            actions()
-        }
+            content = content,
+        )
         Hairline()
     }
 }

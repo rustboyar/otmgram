@@ -47,6 +47,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.view.WindowCompat
 import dev.otmgram.R
 
@@ -172,7 +174,7 @@ fun Wordmark(modifier: Modifier = Modifier) {
  * and dark status bar icons like the screens behind.
  */
 @Composable
-fun PlainDialogWindow() {
+private fun PlainDialogWindow() {
     val view = LocalView.current
     DisposableEffect(view) {
         val window = (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window
@@ -201,5 +203,14 @@ fun DarkSystemBars() {
             controller?.isAppearanceLightStatusBars = true
             controller?.isAppearanceLightNavigationBars = true
         }
+    }
+}
+
+/** A dialog over the whole screen, for the app's own overlays: no dim, light system bars. */
+@Composable
+fun FullScreenDialog(onDismiss: () -> Unit, content: @Composable () -> Unit) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        PlainDialogWindow()
+        content()
     }
 }

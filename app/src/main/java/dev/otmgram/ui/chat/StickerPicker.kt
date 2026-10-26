@@ -9,11 +9,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import dev.otmgram.ui.theme.DialogTags
+import dev.otmgram.ui.theme.FullScreenDialog
 import dev.otmgram.ui.theme.LoadingScreen
-import dev.otmgram.ui.theme.PlainDialogWindow
 import dev.otmgram.ui.theme.SoftButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -142,8 +140,7 @@ fun StickerPicker(
 /** A sticker shown large, from a long press in the picker; a tap elsewhere closes it. */
 @Composable
 private fun StickerPreview(sticker: Sticker, onSend: () -> Unit, onDismiss: () -> Unit) {
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        PlainDialogWindow()
+    FullScreenDialog(onDismiss) {
         Box(
             modifier = Modifier
                 .fillMaxSize()

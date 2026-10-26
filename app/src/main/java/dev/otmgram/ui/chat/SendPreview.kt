@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -46,8 +45,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
 import dev.otmgram.R
 import dev.otmgram.core.Strings
@@ -55,13 +52,13 @@ import dev.otmgram.data.SizeEstimate
 import dev.otmgram.ui.format.formatSize
 import dev.otmgram.ui.rememberStrings
 import dev.otmgram.ui.theme.DialogTags
+import dev.otmgram.ui.theme.FullScreenDialog
 import dev.otmgram.ui.theme.IconBtn
 import dev.otmgram.ui.theme.Otm
-import dev.otmgram.ui.theme.OtmField
 import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmSwitch
 import dev.otmgram.ui.theme.OtmType
-import dev.otmgram.ui.theme.PlainDialogWindow
+import dev.otmgram.ui.theme.PillField
 import dev.otmgram.ui.theme.paper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -184,8 +181,7 @@ private fun SendPreview(
     body: @Composable ColumnScope.() -> Unit,
 ) {
     var caption by rememberSaveable { mutableStateOf("") }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        PlainDialogWindow()
+    FullScreenDialog(onDismiss) {
         Column(Modifier.fillMaxSize().paper().systemBarsPadding().imePadding().then(DialogTags)) {
             Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 10.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconBtn(OtmIcons.Close, stringResource(R.string.cancel), onDismiss, tag = "cancelSend")
@@ -200,17 +196,13 @@ private fun SendPreview(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                OtmField(
+                PillField(
                     value = caption,
                     onValueChange = { caption = it },
                     placeholder = stringResource(R.string.caption),
-                    textStyle = OtmType.Body,
-                    singleLine = false,
                     maxLines = 4,
-                    shape = RoundedCornerShape(22.dp),
-                    height = 44.dp,
-                    outlined = false,
-                    modifier = Modifier.weight(1f).border(1.dp, Otm.Line, RoundedCornerShape(22.dp)).testTag(captionTag),
+                    bordered = true,
+                    modifier = Modifier.weight(1f).testTag(captionTag),
                 )
                 IconBtn(OtmIcons.Send, stringResource(R.string.send), { onSend(caption) }, tint = Color.White, background = Otm.Slate, tag = sendTag)
             }

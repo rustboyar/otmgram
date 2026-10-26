@@ -41,16 +41,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import dev.otmgram.R
 import dev.otmgram.ui.format.formatTime
 import dev.otmgram.ui.theme.DialogTags
+import dev.otmgram.ui.theme.FullScreenDialog
 import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmDialog
 import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmType
-import dev.otmgram.ui.theme.PlainDialogWindow
 import dev.otmgram.ui.theme.TextAction
 
 /**
@@ -72,8 +70,7 @@ fun MessageMenuOverlay(
     onDismiss: () -> Unit,
 ) {
     val message = menu.message
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        PlainDialogWindow()
+    FullScreenDialog(onDismiss) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
