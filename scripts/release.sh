@@ -83,6 +83,6 @@ if [ "$answer" = y ]; then
     git push origin main "$tag"
     "${publish[@]}"
 else
-    echo "Not published. Later: git push origin main $tag && ${publish[*]}"
+    echo "Not published. Later: git push origin main $tag && $(printf '%q ' "${publish[@]}")"
     echo "Or undo: git tag -d $tag && git reset --hard HEAD~1"
 fi
