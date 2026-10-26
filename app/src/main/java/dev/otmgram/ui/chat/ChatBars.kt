@@ -111,7 +111,7 @@ internal fun FindStepper(results: List<SearchResult>?, index: Int, query: String
                 )
             }
             val any = !results.isNullOrEmpty()
-            IconBtn(OtmIcons.ChevronUp, stringResource(R.string.search_earlier), { onStep(1) }, tint = Otm.SlateDeep, background = Otm.Haze, enabled = any && index < results!!.lastIndex, tag = "olderMatch")
+            IconBtn(OtmIcons.ChevronUp, stringResource(R.string.search_earlier), { onStep(1) }, tint = Otm.SlateDeep, background = Otm.Haze, enabled = any && index < results.orEmpty().lastIndex, tag = "olderMatch")
             Box(Modifier.size(8.dp))
             IconBtn(OtmIcons.ChevronDown, stringResource(R.string.search_later), { onStep(-1) }, tint = Otm.SlateDeep, background = Otm.Haze, enabled = any && index > 0, tag = "newerMatch")
         }

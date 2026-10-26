@@ -153,12 +153,14 @@ class ChatSession internal constructor(
     }
 
     /** Back to the newest messages after a [jumpTo]: the history shown starts over from there. */
-    suspend fun returnToNewest() = loadLock.withLock {
-        if (reachedEnd) return
-        messages.clear()
-        reachedStart = false
-        reachedEnd = true
-        loadPage()
+    suspend fun returnToNewest() {
+        loadLock.withLock {
+            if (reachedEnd) return
+            messages.clear()
+            reachedStart = false
+            reachedEnd = true
+            loadPage()
+        }
     }
 
     /** Loads the next page of older messages, unless already loading or at the start. */

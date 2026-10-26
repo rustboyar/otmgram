@@ -103,7 +103,7 @@ android {
     }
 }
 
-val checkReleaseSetup by tasks.registering {
+val checkReleaseSetup = tasks.register("checkReleaseSetup") {
     val missing = missingForRelease
     doLast {
         if (missing.isNotEmpty()) {
@@ -112,6 +112,13 @@ val checkReleaseSetup by tasks.registering {
     }
 }
 tasks.matching { it.name == "preReleaseBuild" }.configureEach { dependsOn(checkReleaseSetup) }
+
+kotlin {
+    compilerOptions {
+        // Warnings are fixed, not collected: deprecations and needless code, as lint's are.
+        allWarningsAsErrors = true
+    }
+}
 
 dependencies {
     implementation(project(":tdlib"))

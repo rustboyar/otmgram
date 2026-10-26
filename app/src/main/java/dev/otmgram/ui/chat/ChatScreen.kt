@@ -1,5 +1,8 @@
 package dev.otmgram.ui.chat
 
+import android.content.ClipData
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.Lifecycle
 import androidx.compose.ui.platform.LocalDensity
@@ -54,14 +57,12 @@ import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -103,7 +104,7 @@ fun ChatScreen(
     val selecting = viewModel.selection.isActive
     val search = viewModel.search
     val searching = search.isOpen
-    val clipboard = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
     val title = header?.title.orEmpty()
 
     BackHandler(enabled = selecting, onBack = viewModel.selection::clear)
@@ -224,7 +225,8 @@ fun ChatScreen(
                     count = selection.size,
                     onCancel = viewModel.selection::clear,
                     onCopy = {
-                        clipboard.setText(AnnotatedString(viewModel.selection.text()))
+                        val text = viewModel.selection.text()
+                        scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(null, text))) }
                         viewModel.selection.clear()
                     },
                 )
@@ -456,7 +458,8 @@ fun ChatScreen(
             onReply = { viewModel.reply(menu.message) },
             onEdit = { viewModel.edit(menu.message) },
             onCopy = {
-                clipboard.setText(AnnotatedString(menu.message.text))
+                val text = menu.message.text
+                scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(null, text))) }
                 viewModel.closeMenu()
             },
             onForward = { viewModel.startForward(menu.message) },

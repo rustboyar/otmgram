@@ -9,6 +9,7 @@ import dev.otmgram.testing.chat
 import dev.otmgram.testing.message
 import dev.otmgram.testing.text
 import dev.otmgram.testing.user
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -21,6 +22,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /** What gets shown from TDLib's notifications, and when not. */
+@OptIn(ExperimentalCoroutinesApi::class)
 class NotificationCenterTest {
 
     @get:Rule

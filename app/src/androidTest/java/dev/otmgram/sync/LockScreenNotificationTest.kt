@@ -44,7 +44,7 @@ class LockScreenNotificationTest {
     }
 
     private fun Notification.allText() =
-        listOf(Notification.EXTRA_TITLE, Notification.EXTRA_TEXT, Notification.EXTRA_SUMMARY_TEXT).joinToString(" ") { extras.get(it)?.toString().orEmpty() } +
+        listOf(Notification.EXTRA_TITLE, Notification.EXTRA_TEXT, Notification.EXTRA_SUMMARY_TEXT).joinToString(" ") { extras.getCharSequence(it)?.toString().orEmpty() } +
             extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.joinToString(" ").orEmpty()
 
     @Test

@@ -37,7 +37,7 @@ class MessageMediaTest {
 
     @Test
     fun `live locations end after their period`() {
-        val info = live(period = 900, expiresIn = 600)!!.live!!
+        val info = live(period = 900, expiresIn = 600).live!!
         assertEquals(NOON_2026_10_23 + 900, info.expiresAt)
         assertEquals(NOON_2026_10_23, info.updatedAt)
     }
