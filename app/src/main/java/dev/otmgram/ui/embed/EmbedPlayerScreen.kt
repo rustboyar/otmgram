@@ -151,6 +151,8 @@ private fun Player(embedUrl: String, onFullScreen: (FullScreen?) -> Unit) {
         lifecycle.addObserver(observer)
         onDispose {
             lifecycle.removeObserver(observer)
+            // Nothing of the visit kept: its cache too, not only cookies and storage.
+            webView.clearCache(true)
             webView.destroy()
             CookieManager.getInstance().removeAllCookies(null)
             WebStorage.getInstance().deleteAllData()
