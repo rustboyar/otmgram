@@ -7,6 +7,11 @@
     <string name="live_text">With %1$s until %2$s</string>
     <string name="live_stop">Stop sharing</string>
 
+    <!-- While staying connected (Instant notifications) -->
+    <string name="connection_channel">Connection</string>
+    <string name="connection_title">Receiving messages</string>
+    <string name="connection_text">Connected to Telegram, so new messages arrive at once</string>
+
     <!-- New messages -->
     <string name="messages_channel">New messages</string>
     <plurals name="new_messages">

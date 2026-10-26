@@ -15,8 +15,8 @@ import javax.inject.Singleton
 
 /** How new messages reach the phone, for notifications. */
 enum class NotificationMode(@StringRes val label: Int) {
-    /** Telegram pushes them through a push app (UnifiedPush); a check every hour backs it up. */
-    Push(R.string.mode_push),
+    /** The app stays connected in the background ([dev.otmgram.sync.ConnectionService]); a check every hour backs it up. */
+    Instant(R.string.mode_instant),
 
     /** The app checks every [CheckInterval]. */
     Interval(R.string.mode_interval),
@@ -59,10 +59,15 @@ private val NOTIFICATIONS_ASKED = booleanPreferencesKey("notification_permission
 class AppSettings @Inject constructor(
     @SettingsStore private val settings: DataStore<Preferences>,
 ) {
-    /** Earlier versions had only intervals, "Never" among them. */
+    /** Earlier versions had only intervals, "Never" among them, then Instant by push ("Push"). */
     val notificationMode: Flow<NotificationMode> = settings.data.map { prefs ->
-        NotificationMode.entries.find { it.name == prefs[NOTIFICATION_MODE] }
-            ?: if (prefs[CHECK_INTERVAL] == "Never") NotificationMode.Off else NotificationMode.Interval
+        val stored = prefs[NOTIFICATION_MODE]
+        NotificationMode.entries.find { it.name == stored }
+            ?: when {
+                stored == "Push" -> NotificationMode.Instant
+                prefs[CHECK_INTERVAL] == "Never" -> NotificationMode.Off
+                else -> NotificationMode.Interval
+            }
     }
 
     val checkInterval: Flow<CheckInterval> = settings.data.map { prefs ->

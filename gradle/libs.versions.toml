@@ -22,11 +22,9 @@ work = "2.12.0"
 androidxHilt = "1.4.0"
 coil = "3.6.3"
 lottie = "6.7.1"
-unifiedpush = "3.3.5"
 
 [libraries]
 compose-lint-checks = { module = "com.slack.lint.compose:compose-lint-checks", version = "1.6.1" }
-unifiedpush-connector = { module = "org.unifiedpush.android:connector", version.ref = "unifiedpush" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }

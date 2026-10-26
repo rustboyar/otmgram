@@ -77,7 +77,7 @@ now (debug builds only).
 ## Conventions
 
 - Texts are string resources, one file per area (`res/values/strings_*.xml`)
-- Never log message text, names, phone numbers, file names or the push endpoint
+- Never log message text, names, phone numbers or file names
 - User-facing changes get a line under "Unreleased" in [CHANGELOG.md](../CHANGELOG.md), in the words a user would use
 
 ## Releasing

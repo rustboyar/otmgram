@@ -3,6 +3,7 @@ package dev.otmgram.data
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -24,5 +25,17 @@ class AppSettingsTest {
         assertEquals(SendQuality.Original, settings.sendQuality.first())
         settings.setSendQuality(SendQuality.SD)
         assertEquals(SendQuality.SD, settings.sendQuality.first())
+    }
+
+    @Test
+    fun `instant by push carries on as instant`() = runTest {
+        val store = PreferenceDataStoreFactory.create(scope = backgroundScope) { dir.newFile("settings.preferences_pb").also { it.delete() } }
+        val settings = AppSettings(store)
+        assertEquals(NotificationMode.Interval, settings.notificationMode.first())
+        store.edit { it[stringPreferencesKey("notification_mode")] = "Push" }
+        assertEquals(NotificationMode.Instant, settings.notificationMode.first())
+        store.edit { it[stringPreferencesKey("notification_mode")] = "" }
+        store.edit { it[stringPreferencesKey("check_interval")] = "Never" }
+        assertEquals(NotificationMode.Off, settings.notificationMode.first())
     }
 }

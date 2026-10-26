@@ -75,13 +75,6 @@ fun SettingsScreen(onBack: () -> Unit, onChangeFolder: () -> Unit, modifier: Mod
     val folderName by viewModel.folderName.collectAsStateWithLifecycle()
     val interval by viewModel.checkInterval.collectAsStateWithLifecycle()
     val mode by viewModel.notificationMode.collectAsStateWithLifecycle()
-    val push by viewModel.pushLine.collectAsStateWithLifecycle()
-    val activity = LocalActivity.current
-    // Back from installing a push app, or from picking one in it.
-    LifecycleResumeEffect(Unit) {
-        viewModel.refreshPush()
-        onPauseOrDispose {}
-    }
     val quality by viewModel.sendQuality.collectAsStateWithLifecycle()
     val showText by viewModel.showMessageText.collectAsStateWithLifecycle()
     val cacheLimit by viewModel.cacheLimit.collectAsStateWithLifecycle()
@@ -150,11 +143,8 @@ fun SettingsScreen(onBack: () -> Unit, onChangeFolder: () -> Unit, modifier: Mod
             NotificationsCard(
                 mode = mode,
                 interval = interval,
-                push = push,
                 onMode = viewModel::setNotificationMode,
                 onInterval = viewModel::setCheckInterval,
-                onPickPushApp = { activity?.let(viewModel::pickPushApp) },
-                onRetryPush = viewModel::retryPush,
             )
 
             SwitchCard(

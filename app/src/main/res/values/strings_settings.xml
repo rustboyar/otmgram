@@ -56,21 +56,14 @@
 
     <!-- How messages arrive -->
     <string name="notifications_title">Notifications</string>
-    <string name="mode_push">Instant</string>
+    <string name="mode_instant">Instant</string>
     <string name="mode_interval">Periodic</string>
     <string name="mode_off">Off</string>
-    <string name="mode_push_description">New messages arrive within seconds, through a push app such as ntfy. The app also checks every hour, in case a push gets lost.</string>
+    <string name="mode_instant_description">New messages arrive as they\'re sent: the app stays connected to Telegram in the background, with a silent notification to show it. It also checks every hour, in case the connection was lost.</string>
     <string name="mode_interval_description">The app checks for new messages at most this often.</string>
     <string name="mode_off_description">No notifications. New messages show when you open the app.</string>
-    <string name="push_get_app">Needs a push app, such as ntfy. Install it, then come back here.</string>
-    <string name="push_get_app_action">Get ntfy</string>
-    <string name="push_pick">Several push apps are installed.</string>
-    <string name="push_pick_action">Choose one</string>
-    <string name="push_connecting">Connecting to %1$s…</string>
-    <string name="push_working">Through %1$s · no push yet</string>
-    <string name="push_last">Through %1$s · last push %2$s</string>
-    <string name="push_failed">%1$s couldn\'t register.</string>
-    <string name="push_retry">Try again</string>
+    <string name="battery_restricted">Android may close the connection to save battery.</string>
+    <string name="battery_allow">Allow</string>
 
     <!-- Folder -->
     <string name="folder_card_description">Otmgram shows only the chats in %1$s.</string>

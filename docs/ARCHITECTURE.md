@@ -8,12 +8,12 @@ they are. For building and testing, see [DEVELOPMENT.md](DEVELOPMENT.md).
 - Kotlin and Jetpack Compose, minSdk 29 (Android 10); arm64-v8a (debug builds add x86_64 for the emulator)
 - TDLib, built from source at a pinned version (`scripts/build-tdlib.sh`)
 - Coroutines and Flow, Hilt, Navigation Compose with type-safe routes, DataStore, WorkManager
-- Coil (images), Media3 ExoPlayer and Transformer (video and audio, cropping round videos), CameraX (recording round videos), lottie-android (animated stickers), MapLibre (maps), the UnifiedPush connector (push)
+- Coil (images), Media3 ExoPlayer and Transformer (video and audio, cropping round videos), CameraX (recording round videos), lottie-android (animated stickers), MapLibre (maps)
 - `api_id` and `api_hash` come from `local.properties` into `BuildConfig`, never into git
 
 ## Structure
 
-- `core` (TDLib client, media, location, logging), `data` (repositories, and how messages and senders read: `MessageSummary`, `People`), `sync` (notifications, push and background checks), `ui` (screens and their view models). Dependencies point from `ui` to `sync`/`data` to `core`, never back; `SessionCleanup`, which ties logout across them, sits next to `OtmgramApp`
+- `core` (TDLib client, media, location, logging), `data` (repositories, and how messages and senders read: `MessageSummary`, `People`), `sync` (notifications, the background connection and checks), `ui` (screens and their view models). Dependencies point from `ui` to `sync`/`data` to `core`, never back; `SessionCleanup`, which ties logout across them, sits next to `OtmgramApp`
 - Everything takes `TelegramClient` (requests, updates, the states the app watches), not `TdClient`, which only app start uses. Collectors on the main thread take `TelegramClient.updates(keep)`, filtered on TDLib's thread
 - Background work runs in the app's scope, whose handler logs what nothing else caught instead of crashing; long-lived loops (notifications, the scheduler) catch everything but cancellation
 - Navigation by type-safe routes (`ui/Routes.kt`, kotlinx.serialization); view models read their arguments with `toRoute()`. Screens above the chat list go through `screen<T>()` in `AppRoot`, which makes the device's back act as the screen's own
@@ -32,9 +32,9 @@ they are. For building and testing, see [DEVELOPMENT.md](DEVELOPMENT.md).
 ## Telegram connection
 
 - `TdClient` is the one TDLib instance. It sends TDLib its parameters, and makes a fresh instance after logout closes the old one
-- Online status: the account is online while the app is on screen and offline otherwise (TDLib's `online` option, following the app's lifecycle), as in Telegram's apps and as Telegram's API terms require. Background checks and pushes leave it offline
+- Online status: the account is online while the app is on screen and offline otherwise (TDLib's `online` option, following the app's lifecycle), as in Telegram's apps and as Telegram's API terms require. Background checks and the background connection leave it offline
 - TDLib is told about network changes, so it reconnects at once rather than on a timeout, and again after the app was away for a while
-- Telegram doesn't push while the session looks connected, so TDLib disconnects 5 s after the app leaves the screen and after each background check (`TelegramClient.disconnectInBackground`), unless a live location is being shared; otherwise Android freezes the process with its connections open
+- Otherwise TDLib disconnects 5 s after the app leaves the screen and after each background check (`TelegramClient.disconnectInBackground`), unless a live location is being shared or Instant notifications keep it connected; Android would freeze the process with its connections open
 
 ## Login and the folder
 
@@ -98,9 +98,10 @@ they are. For building and testing, see [DEVELOPMENT.md](DEVELOPMENT.md).
 - Message text is off by default, so nothing readable reaches the lock screen whatever Android's settings. With it on, the lock screen gets a version without text or names; a chat whose previews are off in Telegram never shows text
 - Delivery: notifications come while the process runs. In the background Android soon blocks the app's network, so a check (`CheckWorker`, needs network) reconnects TDLib and waits for its pending notifications
 - Three modes in Settings: Instant, Periodic (the default), Off
-- Instant (`sync/PushRegistration`): UnifiedPush, through a push app on the phone (ntfy, from F-Droid or Play). The app asks it for an endpoint and registers it with Telegram as "Simple Push": Telegram pings it on each new message with nothing but a number, the push app wakes the app (`PushEventService`), and an expedited check fetches the message. A backup check runs every hour, and Telegram is told the endpoint again once a day
-- Telegram pushes to only one registration per session (the oldest, in testing), so the app keeps exactly one. Web Push isn't used: Telegram encrypts it in an old scheme whose keys travel in HTTP headers, which push apps drop
-- Settings show the push app's state: get ntfy (none installed), pick one (several), connecting, failed (with Try again), or working with the time of the last push. ntfy has to be opened once after installing (Android sends nothing to an app never opened) and allowed to run in the background (it asks)
+- Instant (`sync/ConnectionService`): TDLib stays connected in the background, in a foreground service (type "special use") with a silent, minimized notification, so messages come in as they're sent. A backup check runs every hour. The service starts with the app, after the phone starts and after an update; Android allows starting it only then, so if it's stopped otherwise it's back the next time the app opens
+- While the phone sleeps nothing runs, and Telegram closes a connection that hasn't pinged for about 2 minutes, so an alarm wakes the phone every minute (inexact, allowed while idle) to send one tiny request, which TDLib sends with its ping; a closed connection is reopened then. In Doze Android lets it run less often, about every 2 minutes, so a message can be that late
+- Settings ask to turn off battery optimization for the app while it's on (Android's own dialog), since it can close the connection
+- Earlier versions used Telegram's push through UnifiedPush (ntfy). Telegram skipped pushes for minutes after a client was connected or online, so messages came up to an hour late (the backup check); the app now tells Telegram to stop pushing once, on update
 - Periodic: every 15 min, 30 min, 1 h or 3 h. Android's Doze may delay checks while the phone is idle
 
 ## Design
@@ -126,7 +127,7 @@ they are. For building and testing, see [DEVELOPMENT.md](DEVELOPMENT.md).
 - `AppLog`: logcat plus `files/logs/app.log` (512 KB, rotated once): app start with version and device, login and connection changes, each background check and its outcome, notifications, live location, every caught failure with its stack trace, and crashes
 - TDLib's warnings and errors go to `files/logs/tdlib.log` (2 MB). TDLib prints whole messages and users in some of them, so this log can contain message text, names and phone numbers
 - Settings → Share logs: a zip with the app's log and the device info, through the share sheet; TDLib's log only if chosen in the dialog, which says what it may contain
-- Never logged: message text, names, phone numbers, file names (exceptions that carry a path aren't logged with it), the push endpoint
+- Never logged: message text, names, phone numbers, file names (exceptions that carry a path aren't logged with it)
 
 ## Ideas, not built
 

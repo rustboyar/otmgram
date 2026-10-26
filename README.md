@@ -14,8 +14,8 @@ Telegram.
 - Photos, videos, GIFs, voice messages, round videos, stickers and files, to view and to send; photos and videos go in SD, HD or as they are
 - YouTube, Instagram and TikTok links play inside the app
 - Send your location or share it live, and see others' on a map
-- Notifications only for the folder's chats: instant through a push app such as
-  [ntfy](https://ntfy.sh) ([UnifiedPush](https://unifiedpush.org)), or a regular check
+- Notifications only for the folder's chats: instant, over a connection kept open in the
+  background (no Google services needed), or a regular check
 - Message text in notifications is off unless you turn it on, and never on the lock screen
 
 Not there, on purpose: other chats, channels, calls, stories, secret chats, several
@@ -38,16 +38,14 @@ Releases are signed with this certificate (SHA-256), which tools such as
 ```
 
 Log in with your Telegram phone number, then pick the folder. Folders are made in
-Telegram's own apps (Settings → Chat Folders). For instant notifications, install ntfy, open
-it once, and choose Instant in Otmgram's settings.
+Telegram's own apps (Settings → Chat Folders). For instant notifications, choose Instant in
+Otmgram's settings, and allow it to run in the background when it asks.
 
 ## Privacy
 
 Otmgram has no analytics, no ads and no crash reporting. It connects to:
 
 - **Telegram**, for everything to do with your account
-- **Your push app** (such as ntfy) and its server, if you choose instant notifications.
-  Telegram sends it only a number, never the message
 - **[OpenFreeMap](https://openfreemap.org)**, for map tiles when a location is shown; message
   previews load only city-level tiles, so the server learns just the rough area
 - **YouTube, Instagram or TikTok**, only when you tap a link to play it

@@ -1,6 +1,11 @@
 package dev.otmgram.sync
 
 import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
@@ -18,6 +23,7 @@ import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.NotificationMode
 import dev.otmgram.data.StorageRepository
 import dev.otmgram.di.ApplicationScope
+import dev.otmgram.di.NotificationStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,9 +43,9 @@ import javax.inject.Singleton
 
 /**
  * Sets up how messages arrive while logged in with a folder picked, as the settings say:
- * push ([PushRegistration]) with an hourly [CheckWorker] as backup, or only the check at
- * its interval, or nothing. Also records when the app is open, so messages seen there
- * aren't notified about.
+ * a connection kept open ([ConnectionService]) with an hourly [CheckWorker] as backup, or
+ * only the check at its interval, or nothing. Also records when the app is open, so
+ * messages seen there aren't notified about.
  */
 @Singleton
 class CheckScheduler @Inject constructor(
@@ -47,11 +53,15 @@ class CheckScheduler @Inject constructor(
     private val td: TelegramClient,
     private val folders: FolderRepository,
     private val notifications: NotificationCenter,
-    private val push: PushRegistration,
     private val settings: AppSettings,
     private val storage: StorageRepository,
+    @NotificationStore private val store: DataStore<Preferences>,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
+    /** Messages come over a connection kept open. */
+    @Volatile
+    private var live = false
+
     fun start() {
         scope.launch {
             combine(
@@ -60,8 +70,8 @@ class CheckScheduler @Inject constructor(
                 when (auth) {
                     is TdApi.AuthorizationStateReady -> when {
                         folder == null -> OFF
-                        mode == NotificationMode.Push -> Delivery(push = true, checkMinutes = PUSH_BACKUP_MINUTES)
-                        mode == NotificationMode.Interval -> Delivery(push = false, checkMinutes = interval.minutes)
+                        mode == NotificationMode.Instant -> Delivery(live = true, checkMinutes = BACKUP_MINUTES)
+                        mode == NotificationMode.Interval -> Delivery(live = false, checkMinutes = interval.minutes)
                         else -> OFF
                     }
                     is TdApi.AuthorizationStateWaitPhoneNumber, is TdApi.AuthorizationStateLoggingOut -> OFF
@@ -69,17 +79,11 @@ class CheckScheduler @Inject constructor(
                     else -> null
                 }
             }.filterNotNull().distinctUntilChanged().collect { delivery ->
+                live = delivery.live
                 // A failure here stays here: this collector is what keeps checks scheduled.
                 try {
                     delivery.checkMinutes?.let(::schedule) ?: unschedule()
-                    if (delivery.push) {
-                        // Each start: the push app answers with the endpoint, and Telegram is
-                        // told again once a day.
-                        if (!push.register()) AppLog.i("CheckScheduler", "Push: no push app picked")
-                        push.tellTelegram()
-                    } else {
-                        push.unregister()
-                    }
+                    if (delivery.live) ConnectionService.start(context) else ConnectionService.stop(context)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -95,6 +99,7 @@ class CheckScheduler @Inject constructor(
             } catch (e: TdException) {
                 AppLog.w("CheckScheduler", "Storage limit failed", e)
             }
+            forgetPush()
         }
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             /** Leaving, until notifications are on again; called off by coming back meanwhile. */
@@ -103,6 +108,8 @@ class CheckScheduler @Inject constructor(
             override fun onStart(owner: LifecycleOwner) {
                 leaving?.cancel()
                 leaving = null
+                // Again, if Android stopped it meanwhile (it can be started only now).
+                if (live) ConnectionService.start(context)
                 notifications.setForeground(true)
                 scope.launch { markSeen() }
             }
@@ -145,17 +152,38 @@ class CheckScheduler @Inject constructor(
         notifications.clear()
     }
 
-    /** How messages arrive: by push, by checking every [checkMinutes] (null: never), or both. */
-    private data class Delivery(val push: Boolean, val checkMinutes: Long?)
+    /**
+     * Earlier versions had Telegram push through a push app (UnifiedPush), which skipped
+     * messages for minutes after the app was used. Telegram stops pushing once told an empty
+     * endpoint; the push app's subscription stays until removed there.
+     */
+    private suspend fun forgetPush() {
+        val endpoint = store.data.first()[OLD_PUSH_ENDPOINT] ?: return
+        try {
+            if (endpoint.isNotEmpty()) td.send(TdApi.RegisterDevice(TdApi.DeviceTokenSimplePush(""), LongArray(0)))
+            store.edit { prefs -> OLD_PUSH_KEYS.forEach { prefs.remove(it) } }
+            AppLog.i("CheckScheduler", "Unregistered the old push")
+        } catch (e: TdException) {
+            AppLog.w("CheckScheduler", "Unregistering the old push failed", e)
+        }
+    }
+
+    /** How messages arrive: live, by checking every [checkMinutes] (null: never), or both. */
+    private data class Delivery(val live: Boolean, val checkMinutes: Long?)
 
     private companion object {
         const val WORK_NAME = "check_new_messages"
         const val MARK_SEEN_TIMEOUT_MS = 10_000L
 
-        /** With push, a check now and then still catches what a push app missed. */
-        const val PUSH_BACKUP_MINUTES = 60L
+        /** Live, a check now and then still catches what a lost connection missed. */
+        const val BACKUP_MINUTES = 60L
 
         /** Logged out, no folder, or notifications turned off. */
-        val OFF = Delivery(push = false, checkMinutes = null)
+        val OFF = Delivery(live = false, checkMinutes = null)
+
+        val OLD_PUSH_ENDPOINT = stringPreferencesKey("push_endpoint")
+        val OLD_PUSH_KEYS = listOf(
+            OLD_PUSH_ENDPOINT, longPreferencesKey("push_registered_at"), stringPreferencesKey("push_failed"), longPreferencesKey("push_last_at"),
+        )
     }
 }

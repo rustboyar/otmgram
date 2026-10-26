@@ -10,6 +10,10 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -58,14 +62,26 @@
                 tools:node="remove" />
         </provider>
 
-        <!-- Endpoints and pushes from the push app (UnifiedPush). -->
+        <!-- Instant notifications: stays connected to Telegram in the background. -->
         <service
-            android:name=".sync.PushEventService"
+            android:name=".sync.ConnectionService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the connection to Telegram open to receive messages as they arrive, without Google's push service" />
+        </service>
+        <receiver
+            android:name=".sync.ConnectionService$Heartbeat"
+            android:exported="false" />
+        <receiver
+            android:name=".sync.ConnectionService$Starter"
             android:exported="false">
             <intent-filter>
-                <action android:name="org.unifiedpush.android.connector.PUSH_EVENT" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
-        </service>
+        </receiver>
 
         <service
             android:name=".core.location.LiveLocationService"

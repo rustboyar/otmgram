@@ -164,7 +164,6 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.video)
     implementation(libs.lottie.compose)
-    implementation(libs.unifiedpush.connector)
 
     implementation(libs.hilt.android)
     implementation(libs.hilt.lifecycle.viewmodel.compose)

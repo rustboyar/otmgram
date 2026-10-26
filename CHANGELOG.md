@@ -5,6 +5,9 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 
 ## Unreleased
 
+### Changed
+- Instant notifications no longer need ntfy: the app stays connected to Telegram in the background, shown by a silent notification, so messages arrive as they're sent. Telegram skipped pushes for minutes after you used the app, so some messages came up to an hour late. Settings ask to let the app run in the background; ntfy's Otmgram topics can be removed there
+
 ## 0.2.0 - 2026-10-26
 
 ### Added

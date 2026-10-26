@@ -28,9 +28,6 @@ import dev.otmgram.data.StorageRepository
 import dev.otmgram.data.StorageUsage
 import dev.otmgram.data.fullName
 import dev.otmgram.data.limitTo
-import dev.otmgram.sync.PushRegistration
-import dev.otmgram.sync.PushState
-import dev.otmgram.sync.PushStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -56,8 +53,6 @@ class SettingsViewModel @Inject constructor(
     private val folders: FolderRepository,
     private val settings: AppSettings,
     private val storage: StorageRepository,
-    private val push: PushRegistration,
-    pushState: PushState,
 ) : ViewModel() {
 
     private val _me = MutableStateFlow<Account?>(null)
@@ -71,12 +66,6 @@ class SettingsViewModel @Inject constructor(
     val checkInterval = settings.checkInterval.stateIn(viewModelScope, SharingStarted.Eagerly, CheckInterval.Minutes15)
     val notificationMode = settings.notificationMode.stateIn(viewModelScope, SharingStarted.Eagerly, NotificationMode.Interval)
 
-    /** Bumped to read the installed push apps again. */
-    private val pushApps = MutableStateFlow(0)
-
-    val pushLine: StateFlow<PushLine?> = combine(pushState.status, pushApps) { status, _ -> pushLine(status) }
-        .flowOn(Dispatchers.IO)
-        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val sendQuality = settings.sendQuality.stateIn(viewModelScope, SharingStarted.Eagerly, SendQuality.HD)
     val showMessageText = settings.showMessageText.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val cacheLimit = settings.cacheLimit.stateIn(viewModelScope, SharingStarted.Eagerly, CacheLimit.Gb2)
@@ -122,35 +111,6 @@ class SettingsViewModel @Inject constructor(
 
     fun setNotificationMode(mode: NotificationMode) {
         viewModelScope.launch { settings.setNotificationMode(mode) }
-    }
-
-    /** Reads the push apps again, and asks the push app again: it may just have been installed or set up. */
-    fun refreshPush() {
-        pushApps.value++
-        if (notificationMode.value == NotificationMode.Push) push.register()
-    }
-
-    fun pickPushApp(activity: Activity) = push.pick(activity)
-
-    fun retryPush() {
-        push.register()
-    }
-
-    private fun pushLine(status: PushStatus): PushLine {
-        val apps = push.distributors()
-        if (apps.isEmpty()) return PushLine.GetApp
-        val app = push.savedDistributor()?.let(::appName) ?: return if (apps.size == 1) PushLine.Connecting(appName(apps.single())) else PushLine.Pick
-        return when {
-            status.failed != null -> PushLine.Failed(app)
-            !status.hasEndpoint || status.registeredAt == null -> PushLine.Connecting(app)
-            else -> PushLine.Working(app, status.lastPushAt)
-        }
-    }
-
-    private fun appName(packageName: String): String = try {
-        context.packageManager.getApplicationInfo(packageName, 0).loadLabel(context.packageManager).toString()
-    } catch (e: PackageManager.NameNotFoundException) {
-        packageName
     }
 
     fun setCheckInterval(interval: CheckInterval) {

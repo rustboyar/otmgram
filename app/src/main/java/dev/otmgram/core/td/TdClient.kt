@@ -156,10 +156,9 @@ class TdClient @Inject constructor(
 
     /**
      * Closes TDLib's connections if the app is in the background, unless a live location is
-     * being shared or work runs [whileConnected]. Android soon freezes a process in the
-     * background, with its connections still open; Telegram then sends new messages there, to
-     * a process that can't read them, instead of pushing them. [reconnect], or the app coming
-     * back, opens them again.
+     * being shared or work runs [whileConnected] (such as the connection kept open for Instant
+     * notifications). Android soon freezes a process in the background, with its connections
+     * still open, to no use. [reconnect], or the app coming back, opens them again.
      */
     private fun disconnectInBackground() {
         main.post {

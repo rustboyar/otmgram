@@ -27,7 +27,7 @@ interface TelegramClient {
     /**
      * Runs [block] with TDLib's connections open, even in the background (reopened first, as
      * they may be dead after the process was frozen). Afterwards they close again if the app
-     * is still in the background and nothing else needs them, so that Telegram pushes.
+     * is still in the background and nothing else needs them.
      */
     suspend fun <T> whileConnected(block: suspend () -> T): T
 
