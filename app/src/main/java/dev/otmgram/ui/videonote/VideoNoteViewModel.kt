@@ -20,6 +20,8 @@ import dev.otmgram.data.isSavedMessages
 import dev.otmgram.di.ApplicationScope
 import dev.otmgram.di.onMain
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.drinkless.tdlib.TdApi
 import java.io.File
 import javax.inject.Inject
@@ -70,7 +72,7 @@ class VideoNoteViewModel @Inject constructor(
             state = VideoNoteState.Recording
         }) {
             val videoNote = transcoder.videoNote(recording)
-            val duration = outgoing.videoInfo(videoNote).duration.coerceAtLeast(1)
+            val duration = withContext(Dispatchers.IO) { outgoing.videoInfo(videoNote) }.duration.coerceAtLeast(1)
             messages.sendVideoNote(chatId, videoNote, duration, MediaTranscoder.VIDEO_NOTE_SIZE)
             state = VideoNoteState.Sent
         }

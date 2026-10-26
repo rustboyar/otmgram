@@ -51,7 +51,9 @@ class OutgoingMedia @Inject constructor(
             }
             type.startsWith("video/") -> {
                 val original = withContext(Dispatchers.IO) { copy(uri, files.newFile(extension ?: "mp4")) }
-                val file = if (compress && needsCompression(original)) compressedVideo(original) else original
+                // Reading the video's details takes a while for a large one: not on the main thread.
+                val compressing = compress && withContext(Dispatchers.IO) { needsCompression(original) }
+                val file = if (compressing) compressedVideo(original) else original
                 withContext(Dispatchers.IO) { video(file, caption) }
             }
             else -> null
