@@ -51,6 +51,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
+import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.otmgram.R
 import dev.otmgram.core.Strings
@@ -63,6 +64,7 @@ import dev.otmgram.data.FileRepository
 import dev.otmgram.data.senderName
 import dev.otmgram.di.ApplicationScope
 import dev.otmgram.di.onMain
+import dev.otmgram.ui.MediaRoute
 import dev.otmgram.ui.format.postedAt
 import dev.otmgram.ui.theme.DarkSystemBars
 import dev.otmgram.ui.theme.IconBtn
@@ -266,8 +268,8 @@ class MediaViewerViewModel @Inject constructor(
         private set
 
     init {
-        val chatId: Long = checkNotNull(savedState["chatId"])
-        val messageId: Long = checkNotNull(savedState["messageId"])
+        val chatId: Long = savedState.toRoute<MediaRoute>().chatId
+        val messageId: Long = savedState.toRoute<MediaRoute>().messageId
         viewModelScope.launchLogged(TAG, onError = { notice = strings.get(R.string.viewer_unavailable) }) {
             val message = td.send(TdApi.GetMessage(chatId, messageId))
             info = ViewerInfo(sender(message), postedAt(message.date, strings))

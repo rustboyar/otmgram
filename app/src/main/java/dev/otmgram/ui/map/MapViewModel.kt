@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.otmgram.core.launchLogged
 import dev.otmgram.core.location.LiveLocationSharing
@@ -16,6 +17,7 @@ import dev.otmgram.core.td.TdException
 import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.core.td.updates
 import dev.otmgram.data.fullName
+import dev.otmgram.ui.MapRoute
 import dev.otmgram.ui.chat.MessageMedia
 import dev.otmgram.ui.chat.toMedia
 import kotlinx.coroutines.CoroutineStart
@@ -39,8 +41,8 @@ class MapViewModel @Inject constructor(
     private val liveLocation: LiveLocationSharing,
 ) : ViewModel() {
 
-    private val chatId: Long = checkNotNull(savedState["chatId"])
-    private val messageId: Long = checkNotNull(savedState["messageId"])
+    private val chatId: Long = savedState.toRoute<MapRoute>().chatId
+    private val messageId: Long = savedState.toRoute<MapRoute>().messageId
 
     private val _location = MutableStateFlow<MessageMedia.Location?>(null)
 

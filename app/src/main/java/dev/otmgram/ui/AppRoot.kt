@@ -1,6 +1,5 @@
 package dev.otmgram.ui
 
-import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -12,15 +11,13 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
+import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.otmgram.data.AuthRepository
 import dev.otmgram.data.AuthState
@@ -72,55 +69,41 @@ private fun MainNavHost(openChatId: Long?, viewModel: RootViewModel = hiltViewMo
         if (openChatId != null && !openedChat) {
             openedChat = true
             // Only a chat of the folder: any app can start this activity with any id.
-            if (viewModel.isInFolder(openChatId)) navController.navigate("chat/$openChatId")
+            if (viewModel.isInFolder(openChatId)) navController.navigate(ChatRoute(openChatId))
         }
     }
-    NavHost(navController, startDestination = "chats") {
-        composable("chats") {
+    NavHost(navController, startDestination = ChatsRoute) {
+        composable<ChatsRoute> {
             ChatListScreen(
-                onOpenChat = { navController.navigate("chat/$it") },
-                onOpenSettings = { navController.navigate("settings") },
+                onOpenChat = { navController.navigate(ChatRoute(it)) },
+                onOpenSettings = { navController.navigate(SettingsRoute) },
             )
         }
-        screen(navController, "settings") {
-            SettingsScreen(onBack = navController::popBackStack, onChangeFolder = { navController.navigate("folder") })
+        screen<SettingsRoute>(navController) {
+            SettingsScreen(onBack = navController::popBackStack, onChangeFolder = { navController.navigate(FolderRoute) })
         }
-        screen(navController, "folder") {
+        screen<FolderRoute>(navController) {
             ChangeFolderScreen(onBack = navController::popBackStack)
         }
-        screen(navController, "chat/{chatId}", arguments = listOf(navArgument("chatId") { type = NavType.LongType })) {
+        screen<ChatRoute>(navController) {
             ChatScreen(
                 onBack = navController::popBackStack,
-                onOpenMedia = { chatId, messageId -> navController.navigate("media/$chatId/$messageId") },
-                onRecordVideoNote = { chatId -> navController.navigate("videoNote/$chatId") },
-                onOpenMap = { chatId, messageId -> navController.navigate("map/$chatId/$messageId") },
-                onOpenEmbed = { url -> navController.navigate("embed?url=${Uri.encode(url)}") },
+                onOpenMedia = { chatId, messageId -> navController.navigate(MediaRoute(chatId, messageId)) },
+                onRecordVideoNote = { chatId -> navController.navigate(VideoNoteRoute(chatId)) },
+                onOpenMap = { chatId, messageId -> navController.navigate(MapRoute(chatId, messageId)) },
+                onOpenEmbed = { url -> navController.navigate(EmbedRoute(url)) },
             )
         }
-        screen(navController, "embed?url={url}", arguments = listOf(navArgument("url") { type = NavType.StringType })) { entry ->
-            EmbedPlayerScreen(entry.arguments?.getString("url").orEmpty(), onBack = navController::popBackStack)
+        screen<EmbedRoute>(navController) { entry ->
+            EmbedPlayerScreen(entry.toRoute<EmbedRoute>().url, onBack = navController::popBackStack)
         }
-        screen(
-            navController,
-            "map/{chatId}/{messageId}",
-            arguments = listOf(
-                navArgument("chatId") { type = NavType.LongType },
-                navArgument("messageId") { type = NavType.LongType },
-            ),
-        ) {
+        screen<MapRoute>(navController) {
             MapScreen(onBack = navController::popBackStack)
         }
-        screen(navController, "videoNote/{chatId}", arguments = listOf(navArgument("chatId") { type = NavType.LongType })) {
+        screen<VideoNoteRoute>(navController) {
             VideoNoteScreen(onDone = navController::popBackStack)
         }
-        screen(
-            navController,
-            "media/{chatId}/{messageId}",
-            arguments = listOf(
-                navArgument("chatId") { type = NavType.LongType },
-                navArgument("messageId") { type = NavType.LongType },
-            ),
-        ) {
+        screen<MediaRoute>(navController) {
             MediaViewerScreen(onBack = navController::popBackStack)
         }
     }
@@ -134,12 +117,10 @@ private fun MainNavHost(openChatId: Long?, viewModel: RootViewModel = hiltViewMo
  * on the screen, so its own back handling (closing search, a selection, a full-screen video)
  * still comes first.
  */
-private fun NavGraphBuilder.screen(
+private inline fun <reified T : Any> NavGraphBuilder.screen(
     navController: NavController,
-    route: String,
-    arguments: List<NamedNavArgument> = emptyList(),
-    content: @Composable (NavBackStackEntry) -> Unit,
-) = composable(route, arguments) { entry ->
+    crossinline content: @Composable (NavBackStackEntry) -> Unit,
+) = composable<T> { entry ->
     // Not for a screen already on its way out.
     BackHandler { if (navController.currentBackStackEntry?.id == entry.id) navController.popBackStack() }
     content(entry)

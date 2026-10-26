@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.otmgram.R
 import dev.otmgram.core.Strings
@@ -19,6 +20,7 @@ import dev.otmgram.data.OutgoingMedia
 import dev.otmgram.data.isSavedMessages
 import dev.otmgram.di.ApplicationScope
 import dev.otmgram.di.onMain
+import dev.otmgram.ui.VideoNoteRoute
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -43,7 +45,7 @@ class VideoNoteViewModel @Inject constructor(
     /** Sending finishes even if the camera screen is left meanwhile. */
     private val lasting = appScope.onMain()
 
-    private val chatId: Long = checkNotNull(savedState["chatId"])
+    private val chatId: Long = savedState.toRoute<VideoNoteRoute>().chatId
 
     /** Who the circle goes to, shown above the camera. */
     var chatTitle by mutableStateOf("")

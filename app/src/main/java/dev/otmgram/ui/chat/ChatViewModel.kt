@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.otmgram.R
 import dev.otmgram.core.Strings
@@ -39,6 +40,7 @@ import dev.otmgram.data.isService
 import dev.otmgram.data.summary
 import dev.otmgram.di.ApplicationScope
 import dev.otmgram.di.onMain
+import dev.otmgram.ui.ChatRoute
 import dev.otmgram.ui.format.lastSeen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -82,7 +84,7 @@ class ChatViewModel @Inject constructor(
     /** For work that must finish even if the chat is left: sending, saving. */
     private val lasting = appScope.onMain()
 
-    val chatId: Long = checkNotNull(savedState["chatId"])
+    val chatId: Long = savedState.toRoute<ChatRoute>().chatId
     private val session = messageRepository.openChat(chatId, viewModelScope)
 
     private val _header = MutableStateFlow<ChatHeader?>(null)
