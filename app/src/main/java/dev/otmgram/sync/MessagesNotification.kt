@@ -16,6 +16,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.graphics.applyCanvas
 import androidx.core.graphics.createBitmap
+import androidx.core.net.toUri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.otmgram.MainActivity
 import dev.otmgram.R
@@ -134,14 +135,20 @@ class MessagesNotification @Inject constructor(
 
     /**
      * A fresh task, whatever screen was open before: the chat over the chat list, or only
-     * the list. One per chat, as extras don't tell pending intents apart.
+     * the list. One per chat: extras don't tell pending intents apart, but the data does
+     * (a request code from the id could be the same for two chats).
      */
     private fun openChat(chatId: Long?): PendingIntent = PendingIntent.getActivity(
         context,
-        chatId?.hashCode() ?: 0,
+        0,
         Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-            .apply { chatId?.let { putExtra(MainActivity.EXTRA_OPEN_CHAT, it) } },
+            .apply {
+                chatId?.let {
+                    data = "otmgram://chat/$it".toUri()
+                    putExtra(MainActivity.EXTRA_OPEN_CHAT, it)
+                }
+            },
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 
