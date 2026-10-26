@@ -126,8 +126,8 @@ Links, @mentions and "forwarded from" headers do not navigate to chats: web link
 ## Testing
 
 - Unit tests (`./gradlew :app:testDebugUnitTest`): message mapping, list rows, media mapping, links, wording and formats, log redaction, the mapping of login states and storage kinds, opening the database with its key, the chat's holders (composer, pinned, search, selection, stickers, outgoing), and against a fake TDLib (`testing/FakeTelegram`, behind the `TelegramClient` interface): the open chat (jumps included), the folder list, names, file states and what gets notified. Settings and notification marks use DataStore files of the test's own (they're injected)
-- UI tests on a device (`scripts/ui-tests.sh`): bubble states, delete dialog. Not `connectedAndroidTest`, which uninstalls the app and so logs it out
-- Before committing: `scripts/check.sh` (lint, failing on any issue, and unit tests; `--release` also builds the release APK). No CI: building TDLib takes too long for it
+- UI tests on a device (`scripts/ui-tests.sh`): bubble states and their accessibility actions, delete dialog. Not `connectedAndroidTest`, which uninstalls the app and so logs it out
+- Before committing: `scripts/check.sh`: formatting (Spotless with ktlint, style in `.editorconfig`; `./gradlew spotlessApply` fixes it), Android lint with Slack's compose-lints (failing on any issue), the unit tests, and compiling the UI tests; `--release` also builds the release APK. Kotlin warnings fail the build too. No CI: building TDLib takes too long for it
 
 ## Structure
 
