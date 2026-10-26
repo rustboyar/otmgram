@@ -239,7 +239,7 @@ private fun VideoNote(media: MessageMedia.VideoNote, onSound: () -> Unit, onLong
 }
 
 @Composable
-private fun Label(text: String, modifier: Modifier = Modifier, trailing: @Composable RowScope.() -> Unit = {}) {
+internal fun Label(text: String, modifier: Modifier = Modifier, trailing: @Composable RowScope.() -> Unit = {}) {
     Row(
         modifier = modifier
             .padding(8.dp)
@@ -253,7 +253,7 @@ private fun Label(text: String, modifier: Modifier = Modifier, trailing: @Compos
 }
 
 /** Width / height, kept within a range that looks reasonable in a bubble. */
-private fun aspect(width: Int, height: Int): Float =
+internal fun aspect(width: Int, height: Int): Float =
     if (width <= 0 || height <= 0) 1f else (width.toFloat() / height).coerceIn(0.5f, 2f)
 
 internal val MEDIA_WIDTH = 260.dp

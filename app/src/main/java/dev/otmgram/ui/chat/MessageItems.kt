@@ -44,6 +44,7 @@ internal fun ChatHistory.toItems(isGroup: Boolean, strings: Strings): List<Messa
             // Only where the text is the message's own; a summary has no formatting.
             spans = if (media != null || message.content is TdApi.MessageText) message.content.formattedText()?.spans().orEmpty() else emptyList(),
             link = if (media == null) (message.content as? TdApi.MessageText)?.linkCard() else null,
+            albumId = message.mediaAlbumId,
             date = message.date,
             isEdited = message.editDate > 0,
             status = if (!message.isOutgoing) null else when {

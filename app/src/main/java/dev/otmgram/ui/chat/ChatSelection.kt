@@ -17,13 +17,19 @@ class ChatSelection(
     val isActive: Boolean get() = selected.isNotEmpty()
 
     /** Starts selecting, with [message] selected. */
-    fun start(message: MessageItem) {
-        selected = setOf(message.id)
+    fun start(message: MessageItem) = start(listOf(message.id))
+
+    /** Starts selecting, with [messageIds] (a message, or an album's) selected. */
+    fun start(messageIds: List<Long>) {
+        selected = messageIds.toSet()
     }
 
-    fun toggle(message: MessageItem) {
-        if (message.isService) return
-        selected = if (message.id in selected) selected - message.id else selected + message.id
+    fun toggle(message: MessageItem) = toggle(listOf(message))
+
+    /** Selects [messages] (an album's) together, or unselects them if they all are. */
+    fun toggle(messages: List<MessageItem>) {
+        val ids = messages.filterNot { it.isService }.map { it.id }
+        selected = if (ids.all { it in selected }) selected - ids.toSet() else selected + ids
     }
 
     fun clear() {

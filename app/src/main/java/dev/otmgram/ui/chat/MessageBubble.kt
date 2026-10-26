@@ -101,6 +101,10 @@ fun MessageBubble(
     onToggleSelected: () -> Unit = {},
     onRetry: () -> Unit = {},
     onDiscard: () -> Unit = {},
+    /** The messages of [message]'s album, shown together in it; empty for a message alone. */
+    album: List<MessageItem> = emptyList(),
+    onOpenAlbumItem: (messageId: Long) -> Unit = {},
+    onCancelAlbumItem: (messageId: Long) -> Unit = {},
 ) {
     val outgoing = message.isOutgoing
     val failed = message.status == MessageStatus.Failed
@@ -135,6 +139,9 @@ fun MessageBubble(
                     onOpenReply = onOpenReply,
                     onOpenLink = if (selecting) ({ onToggleSelected() }) else onOpenLink,
                     onCancelUpload = if (message.status == MessageStatus.Sending && !selecting) onDiscard else null,
+                    album = album,
+                    onOpenAlbumItem = if (selecting) ({ onToggleSelected() }) else onOpenAlbumItem,
+                    onCancelAlbumItem = onCancelAlbumItem.takeIf { !selecting },
                 )
             }
         }
@@ -168,6 +175,9 @@ private fun Bubble(
     onOpenLink: (MediaLink) -> Unit,
     onCancelUpload: (() -> Unit)?,
     selecting: Boolean,
+    album: List<MessageItem>,
+    onOpenAlbumItem: (Long) -> Unit,
+    onCancelAlbumItem: ((Long) -> Unit)?,
 ) {
     val outgoing = message.isOutgoing
     val media = message.media
@@ -225,7 +235,9 @@ private fun Bubble(
             val onClickReply = reply.messageId?.takeIf { !selecting }?.let { id -> { onOpenReply(id) } }
             ReplyQuote(reply, textPadding.padding(vertical = 4.dp).testTag("replyQuote"), onClickReply, onLongClick)
         }
-        if (media != null) {
+        if (album.isNotEmpty()) {
+            AlbumGrid(album, onOpenAlbumItem, onLongClick, onCancelAlbumItem)
+        } else if (media != null) {
             MediaContent(
                 media,
                 audio,

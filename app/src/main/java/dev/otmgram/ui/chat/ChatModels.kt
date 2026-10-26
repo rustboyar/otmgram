@@ -52,6 +52,8 @@ data class MessageItem(
     val spans: List<TextSpan> = emptyList(),
     /** A YouTube, Instagram or TikTok link in [text], played in the app. */
     val link: LinkCard? = null,
+    /** Shared by the messages of an album, sent together; 0 for none. */
+    val albumId: Long = 0,
 )
 
 /** What the input bar does with the next send. */
@@ -64,6 +66,8 @@ sealed interface Composer {
 /** Long-press menu of a message, with the actions it allows. */
 data class MessageMenu(
     val message: MessageItem,
+    /** What forwarding, selecting and deleting act on: [message], or all of its album. */
+    val messageIds: List<Long> = listOf(message.id),
     /** Emoji reactions that can be added. */
     val reactions: List<String>,
     val canReply: Boolean,

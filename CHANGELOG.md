@@ -5,11 +5,15 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 
 ## Unreleased
 
+### Added
+- Albums show as one bubble, their photos and videos side by side; forwarding, selecting or deleting one takes the whole album
+
 ### Changed
 - Send photos and videos in SD (smallest), HD (as before) or Original, chosen for each message; the default is in Settings
 - Screens change faster: a chat or settings page slides in from the right and back slides it away, and photos, videos and players open over the chat
 
 ### Fixed
+- Videos sent as they are no longer show blank until opened
 - Portrait videos no longer show sideways in Telegram for iPhone
 
 ## 0.1.0 - 2026-10-26

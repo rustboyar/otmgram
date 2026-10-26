@@ -148,6 +148,17 @@ class ChatPartsTest {
     }
 
     @Test
+    fun `an album is selected and unselected together`() {
+        val selection = ChatSelection({ allowed(true, true) }, { emptyList() })
+        val album = listOf(item(1), item(2), item(3))
+        selection.start(listOf(5L))
+        selection.toggle(album)
+        assertEquals(setOf(1L, 2L, 3L, 5L), selection.selected)
+        selection.toggle(album)
+        assertEquals(setOf(5L), selection.selected)
+    }
+
+    @Test
     fun `copied text is in chat order, with senders`() {
         val messages = listOf(item(3, "third", "Lea"), item(2, "second"), item(1, "first", "Anna"))
         val selection = ChatSelection({ allowed(true, true) }, { messages })

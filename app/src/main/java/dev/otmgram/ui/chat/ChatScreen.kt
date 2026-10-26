@@ -139,7 +139,7 @@ fun ChatScreen(
     val atNewest by viewModel.atNewest.collectAsStateWithLifecycle()
     var previousNewestId by rememberSaveable { mutableStateOf<Long?>(null) }
     LaunchedEffect(newest?.id) {
-        val previousIndex = rows.indexOfFirst { it is ListRow.Message && it.message.id == previousNewestId }
+        val previousIndex = previousNewestId?.let { id -> rows.indexOfFirst { it.has(id) } } ?: -1
         previousNewestId = newest?.id
         // Newer messages loaded after a jump aren't new ones.
         if (!atNewest) return@LaunchedEffect
@@ -154,7 +154,7 @@ fun ChatScreen(
     viewModel.openAt?.let { target ->
         LaunchedEffect(target, rows) {
             val index = rows.indexOfFirst { it is ListRow.Unread }.takeIf { it >= 0 }
-                ?: rows.indexOfFirst { it is ListRow.Message && it.message.id == target }
+                ?: rows.indexOfFirst { it.has(target) }
             if (index < 0) return@LaunchedEffect
             listState.scrollToItem(index)
             // The list starts at the bottom: move the line up to the top, if there's room.
@@ -165,7 +165,7 @@ fun ChatScreen(
     }
     viewModel.scrollTarget?.let { target ->
         LaunchedEffect(target, rows) {
-            val index = rows.indexOfFirst { it is ListRow.Message && it.message.id == target }
+            val index = rows.indexOfFirst { it.has(target) }
             if (index >= 0) {
                 // Center-ish: leave room above the match.
                 listState.scrollToItem(index, scrollOffset = -listState.layoutInfo.viewportSize.height / 3)
@@ -311,6 +311,31 @@ fun ChatScreen(
                                     onToggleSelected = { viewModel.selection.toggle(message) },
                                     onRetry = { viewModel.retry(message) },
                                     onDiscard = { viewModel.discard(message) },
+                                )
+                            }
+                            is ListRow.Album -> {
+                                val ids = row.messages.map { it.id }
+                                MessageBubble(
+                                    row.shown,
+                                    audio = null,
+                                    onLongClick = { viewModel.openMenu(row.main, row.messages) },
+                                    onReactionClick = { viewModel.toggleReaction(row.main, it) },
+                                    onOpenMedia = {},
+                                    onPlayVoice = { _, _ -> },
+                                    onVideoNoteSound = {},
+                                    onOpenReply = viewModel::jumpTo,
+                                    highlight = if (searching && ids.any { it in resultIds }) {
+                                        Highlight(search.query.orEmpty(), current = currentMatch in ids)
+                                    } else {
+                                        null
+                                    },
+                                    selecting = selecting,
+                                    selected = ids.all { it in selection },
+                                    flashed = viewModel.flashed in ids,
+                                    onToggleSelected = { viewModel.selection.toggle(row.messages) },
+                                    album = row.messages,
+                                    onOpenAlbumItem = { onOpenMedia(viewModel.chatId, it) },
+                                    onCancelAlbumItem = { id -> row.messages.find { it.id == id }?.let(viewModel::discard) },
                                 )
                             }
                         }
@@ -463,9 +488,9 @@ fun ChatScreen(
                 scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(null, text))) }
                 viewModel.closeMenu()
             },
-            onForward = { viewModel.startForward(menu.message) },
+            onForward = { viewModel.startForward(menu) },
             onSave = { viewModel.saveToDownloads(menu.message) },
-            onSelect = { viewModel.select(menu.message) },
+            onSelect = { viewModel.select(menu) },
             onPin = { viewModel.togglePin(menu) },
             onDelete = { viewModel.askDelete(menu) },
             onDismiss = viewModel::closeMenu,

@@ -259,10 +259,11 @@ class ChatViewModel @Inject constructor(
 
     private fun members(count: Int) = if (count <= 0) null else strings.plural(R.plurals.members, count, count)
 
-    fun openMenu(message: MessageItem) {
+    /** The menu of [message], acting on all of [album] where it can (forward, select, delete). */
+    fun openMenu(message: MessageItem, album: List<MessageItem> = listOf(message)) {
         if (message.isService) return
         if (selection.isActive) {
-            selection.toggle(message)
+            selection.toggle(album)
             return
         }
         action {
@@ -274,6 +275,7 @@ class ChatViewModel @Inject constructor(
             }
             menu = MessageMenu(
                 message = message,
+                messageIds = album.map { it.id },
                 reactions = reactions,
                 canReply = properties.canBeReplied,
                 canForward = properties.canBeForwarded,
@@ -433,7 +435,7 @@ class ChatViewModel @Inject constructor(
     fun askDelete(menu: MessageMenu) {
         this.menu = null
         deleting = DeleteRequest(
-            messageIds = listOf(menu.message.id),
+            messageIds = menu.messageIds,
             quote = menu.message.text.takeIf { it.isNotEmpty() && !menu.message.isMediaPlaceholder },
             canDeleteForSelf = menu.canDeleteForSelf,
             canDeleteForEveryone = menu.canDeleteForEveryone,
@@ -459,19 +461,19 @@ class ChatViewModel @Inject constructor(
     /** Deletes a message that failed to send; it exists only on this device. */
     fun discard(message: MessageItem) = action { session.delete(listOf(message.id), forEveryone = false) }
 
-    /** Starts selecting messages, with [message] selected. */
-    fun select(message: MessageItem) {
-        menu = null
-        selection.start(message)
+    /** Starts selecting messages, with the menu's selected. */
+    fun select(menu: MessageMenu) {
+        this.menu = null
+        selection.start(menu.messageIds)
     }
 
     fun cancelDelete() {
         deleting = null
     }
 
-    fun startForward(message: MessageItem) {
-        menu = null
-        forward(listOf(message.id))
+    fun startForward(menu: MessageMenu) {
+        this.menu = null
+        forward(menu.messageIds)
     }
 
     fun forwardSelected() = forward(selection.selected.toList())

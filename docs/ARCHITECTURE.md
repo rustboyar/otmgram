@@ -55,6 +55,7 @@ they are. For building and testing, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Media
 
+- Albums (`mediaAlbumId`) show in one bubble: photos and videos in rows of up to three, each row as tall as its pictures' shapes allow, the caption below. The menu, reactions and time belong to the captioned message (or the first); forwarding, selecting and deleting take the whole album. An album with several captions, or one that failed to send, shows as separate messages
 - Photos full screen with zoom; swiping through an album
 - Videos: thumbnail in the bubble, played full screen with ExoPlayer once downloaded (no streaming); hardware decoders first, software ones when those fail (as the emulator's do)
 - Voice messages: waveform with progress, one shared player (no seeking)
@@ -67,7 +68,7 @@ they are. For building and testing, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Sending media
 
-- Photos and videos through the system photo picker, copied for TDLib, previewed with a caption and the estimated size; several go as an album (caption on the first)
+- Photos and videos through the system photo picker, copied for TDLib, previewed with a caption and the estimated size; several go as an album (caption on the first). Videos go with their first frame as the thumbnail, as Telegram's apps send them
 - Quality, chosen per send (default in Settings, HD unless changed): SD scales photos to 1280 px on the long side as JPEG and re-encodes videos to 480p H.264 (short side), about 1.2 Mbps; HD to 2560 px and 720p, about 2.5 Mbps; Original sends them as they are. AAC audio; frames stored upright, without a rotation flag. Media already that small stays as it is (Telegram recompresses photos to at most 2560 px, but never videos)
 - Files: any type, several at once, with a caption; sent as they are
 - Uploads show progress and can be cancelled. Copies of sent files are removed after 3 days

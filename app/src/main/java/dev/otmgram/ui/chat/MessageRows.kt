@@ -14,6 +14,30 @@ internal sealed interface ListRow {
         override val contentType: Any get() = if (message.isService) "service" else message.media?.let { it::class } ?: "text"
     }
 
+    /** Photos and videos sent together, oldest first, in one bubble. */
+    data class Album(val messages: List<MessageItem>) : ListRow {
+        // The newest: seeing it marks the others read too.
+        override val key get() = messages.last().id
+        override val contentType: Any get() = "album"
+
+        /** The one with the caption, else the first: its menu, reactions and time are the album's. */
+        val main: MessageItem = messages.firstOrNull { it.text.isNotEmpty() } ?: messages.first()
+
+        /** [main] as the bubble shows it: the sender of the first, and still sending while any is. */
+        val shown: MessageItem = main.copy(
+            senderName = messages.first().senderName,
+            forwardedFrom = messages.first().forwardedFrom,
+            replyTo = messages.firstNotNullOfOrNull { it.replyTo },
+            isEdited = messages.any { it.isEdited },
+            status = when {
+                main.status == null -> null
+                messages.any { it.status == MessageStatus.Sending } -> MessageStatus.Sending
+                messages.all { it.status == MessageStatus.Read } -> MessageStatus.Read
+                else -> MessageStatus.Sent
+            },
+        )
+    }
+
     data class Day(val date: Int, override val key: String) : ListRow
 
     /** "4 new since you left", above the first message that was unread. */
@@ -22,14 +46,50 @@ internal sealed interface ListRow {
     }
 }
 
+/** Whether this row shows the message [id]. */
+internal fun ListRow.has(id: Long): Boolean = when (this) {
+    is ListRow.Message -> message.id == id
+    is ListRow.Album -> messages.any { it.id == id }
+    else -> false
+}
+
 internal fun buildRows(messages: List<MessageItem>, unread: UnreadMark?): List<ListRow> = buildList {
-    messages.forEachIndexed { index, message ->
-        add(ListRow.Message(message))
+    val groups = albums(messages)
+    groups.forEachIndexed { index, group ->
+        add(if (group.size == 1) ListRow.Message(group.single()) else ListRow.Album(group.reversed()))
         // reverseLayout: the row after a message is shown above it.
-        val older = messages.getOrNull(index + 1)
-        if (unread != null && older != null && message.id > unread.afterMessageId && older.id <= unread.afterMessageId) {
+        val newest = group.first()
+        val older = groups.getOrNull(index + 1)?.first()
+        if (unread != null && older != null && newest.id > unread.afterMessageId && older.id <= unread.afterMessageId) {
             add(ListRow.Unread(unread.count))
         }
-        if (older == null || localDay(older.date) != localDay(message.date)) add(ListRow.Day(message.date, "day-${message.id}"))
+        if (older == null || localDay(older.date) != localDay(group.last().date)) add(ListRow.Day(group.last().date, "day-${group.last().id}"))
     }
 }
+
+/**
+ * [messages] (newest first) in groups: an album's photos and videos together, everything else
+ * alone. An album whose messages have more than one caption, or one that failed to send,
+ * stays apart: each caption, and the retry, belongs to its own message.
+ */
+private fun albums(messages: List<MessageItem>): List<List<MessageItem>> {
+    val groups = mutableListOf<MutableList<MessageItem>>()
+    messages.forEach { message ->
+        val last = groups.lastOrNull()
+        if (last != null && message.inAlbum && last.first().inAlbum && message.albumId == last.first().albumId) {
+            last += message
+        } else {
+            groups += mutableListOf(message)
+        }
+    }
+    return groups.flatMap { group ->
+        if (group.size > 1 && group.count { it.text.isNotEmpty() } <= 1 && group.none { it.status == MessageStatus.Failed }) {
+            listOf(group)
+        } else {
+            group.map { listOf(it) }
+        }
+    }
+}
+
+private val MessageItem.inAlbum: Boolean
+    get() = albumId != 0L && (media is MessageMedia.Photo || media is MessageMedia.Video)
