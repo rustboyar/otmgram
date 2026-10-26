@@ -121,6 +121,8 @@ kotlin {
 }
 
 dependencies {
+    // Compose's own pitfalls (state, modifiers, effects), checked with lint.
+    lintChecks(libs.compose.lint.checks)
     implementation(project(":tdlib"))
 
     implementation(libs.androidx.core.ktx)

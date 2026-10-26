@@ -90,6 +90,7 @@ fun MessageBubble(
     onOpenMedia: () -> Unit,
     onPlayVoice: (fileId: Int, path: String) -> Unit,
     onVideoNoteSound: () -> Unit,
+    modifier: Modifier = Modifier,
     onOpenReply: (messageId: Long) -> Unit = {},
     onOpenLink: (MediaLink) -> Unit = {},
     highlight: Highlight? = null,
@@ -109,7 +110,7 @@ fun MessageBubble(
         tween(if (flashed) FLASH_IN_MS else FLASH_OUT_MS),
         label = "flash",
     )
-    Column(Modifier.fillMaxWidth()) {
+    Column(modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -292,7 +293,7 @@ private fun Bubble(
 
 /** "edited 20:31" and the delivery mark; on stickers and circles, on a small paper chip. */
 @Composable
-private fun TimeLine(message: MessageItem, onChip: Boolean, modifier: Modifier) {
+private fun TimeLine(message: MessageItem, onChip: Boolean, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .padding(top = if (onChip) 4.dp else 0.dp)
@@ -314,20 +315,20 @@ private fun TimeLine(message: MessageItem, onChip: Boolean, modifier: Modifier) 
  * a postmark (circle, check and cancellation waves) once read, a mark when it failed.
  */
 @Composable
-fun StatusMark(status: MessageStatus) {
+fun StatusMark(status: MessageStatus, modifier: Modifier = Modifier) {
     // Read here: semantics blocks can't read resources.
     val sent = stringResource(R.string.status_sent)
     val read = stringResource(R.string.status_read)
     when (status) {
-        MessageStatus.Sending -> Icon(OtmIcons.Clock, stringResource(R.string.status_sending), tint = Otm.InkFaint, modifier = Modifier.size(15.dp))
-        MessageStatus.Failed -> Icon(OtmIcons.Alert, stringResource(R.string.status_not_sent), tint = Otm.Error, modifier = Modifier.size(15.dp))
-        MessageStatus.Sent -> Postmark(Otm.InkFaint, waves = false, Modifier.semantics { contentDescription = sent })
-        MessageStatus.Read -> Postmark(Otm.Slate, waves = true, Modifier.semantics { contentDescription = read })
+        MessageStatus.Sending -> Icon(OtmIcons.Clock, stringResource(R.string.status_sending), tint = Otm.InkFaint, modifier = modifier.size(15.dp))
+        MessageStatus.Failed -> Icon(OtmIcons.Alert, stringResource(R.string.status_not_sent), tint = Otm.Error, modifier = modifier.size(15.dp))
+        MessageStatus.Sent -> Postmark(Otm.InkFaint, waves = false, modifier.semantics { contentDescription = sent })
+        MessageStatus.Read -> Postmark(Otm.Slate, waves = true, modifier.semantics { contentDescription = read })
     }
 }
 
 @Composable
-private fun Postmark(color: Color, waves: Boolean, modifier: Modifier) {
+private fun Postmark(color: Color, waves: Boolean, modifier: Modifier = Modifier) {
     Canvas(modifier.width(if (waves) 22.dp else 16.dp).height(16.dp)) {
         val u = size.height / 16f
         drawCircle(color, 6.5f * u, Offset(8 * u, 8 * u), style = Stroke(1.4f * u))

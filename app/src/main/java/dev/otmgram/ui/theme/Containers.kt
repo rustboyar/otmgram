@@ -125,13 +125,14 @@ fun OtmDialog(
     title: String,
     onDismiss: () -> Unit,
     confirm: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
     text: String? = null,
     dismissLabel: String = stringResource(R.string.cancel),
     content: @Composable (ColumnScope.() -> Unit)? = null,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        modifier = DialogTags,
+        modifier = modifier.then(DialogTags),
         containerColor = Otm.Sheet,
         shape = RoundedCornerShape(24.dp),
         title = { Text(title, style = OtmType.BarTitle.copy(fontSize = 20.sp), color = Otm.Ink) },
@@ -151,7 +152,7 @@ fun OtmDialog(
 /** A bottom sheet on the sheet colour, with the design's grab handle. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OtmSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+fun OtmSheet(onDismiss: () -> Unit, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -161,7 +162,7 @@ fun OtmSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit)
         dragHandle = {
             Box(Modifier.padding(top = 10.dp, bottom = 10.dp).size(36.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFFCBCFD3)))
         },
-        modifier = DialogTags,
+        modifier = modifier.then(DialogTags),
     ) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 16.dp), content = content)
     }

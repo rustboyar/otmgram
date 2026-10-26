@@ -79,7 +79,7 @@ import java.util.concurrent.TimeUnit
 
 /** Records a round video message and sends it; dark, the circle is the camera. */
 @Composable
-fun VideoNoteScreen(onDone: () -> Unit, viewModel: VideoNoteViewModel = hiltViewModel()) {
+fun VideoNoteScreen(onDone: () -> Unit, modifier: Modifier = Modifier, viewModel: VideoNoteViewModel = hiltViewModel()) {
     val context = LocalContext.current
     val permissions = arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
     var granted by remember {
@@ -97,7 +97,7 @@ fun VideoNoteScreen(onDone: () -> Unit, viewModel: VideoNoteViewModel = hiltView
     LaunchedEffect(viewModel.state) { if (viewModel.state == VideoNoteState.Sent) onDone() }
     DarkSystemBars()
 
-    Box(Modifier.fillMaxSize().background(Otm.Night).safeDrawingPadding()) {
+    Box(modifier.fillMaxSize().background(Otm.Night).safeDrawingPadding()) {
         when {
             !granted -> Column(Modifier.align(Alignment.Center).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
@@ -119,7 +119,12 @@ fun VideoNoteScreen(onDone: () -> Unit, viewModel: VideoNoteViewModel = hiltView
                 CircularProgressIndicator(color = Otm.NightText, strokeWidth = 2.5.dp)
                 Text(stringResource(R.string.sending), style = OtmType.Body, color = Otm.NightSoft)
             }
-            else -> Recorder(viewModel, onCancel = onDone)
+            else -> Recorder(
+                viewModel.chatTitle,
+                newFile = viewModel::newRecordingFile,
+                onFinished = { take, event -> onRecorded(viewModel, take, event) },
+                onCancel = onDone,
+            )
         }
         viewModel.error?.let {
             Text(it, style = OtmType.Secondary, color = Otm.Rose, modifier = Modifier.align(Alignment.TopCenter).padding(top = 72.dp, start = 24.dp, end = 24.dp))
@@ -129,7 +134,13 @@ fun VideoNoteScreen(onDone: () -> Unit, viewModel: VideoNoteViewModel = hiltView
 
 @SuppressLint("MissingPermission") // Only shown once camera and microphone are granted.
 @Composable
-private fun Recorder(viewModel: VideoNoteViewModel, onCancel: () -> Unit) {
+private fun Recorder(
+    chatTitle: String,
+    newFile: () -> File,
+    /** A take ended: sent, dropped or failed. */
+    onFinished: (Take, VideoRecordEvent.Finalize) -> Unit,
+    onCancel: () -> Unit,
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val previewView = remember {
@@ -181,7 +192,7 @@ private fun Recorder(viewModel: VideoNoteViewModel, onCancel: () -> Unit) {
                 tag = "cancelVideoNote",
             )
             Text(
-                if (viewModel.chatTitle.isEmpty()) "" else stringResource(R.string.send_to, viewModel.chatTitle),
+                if (chatTitle.isEmpty()) "" else stringResource(R.string.send_to, chatTitle),
                 style = OtmType.Preview,
                 color = Otm.NightSoft,
                 textAlign = TextAlign.Center,
@@ -241,7 +252,7 @@ private fun Recorder(viewModel: VideoNoteViewModel, onCancel: () -> Unit) {
                             return@clickable
                         }
                         val capture = videoCapture ?: return@clickable
-                        val file = viewModel.newRecordingFile()
+                        val file = newFile()
                         val thisTake = Take(file).also { take = it }
                         val output = FileOutputOptions.Builder(file).setDurationLimitMillis(MAX_SECONDS * 1000L).build()
                         recording = capture.output.prepareRecording(context, output)
@@ -252,7 +263,7 @@ private fun Recorder(viewModel: VideoNoteViewModel, onCancel: () -> Unit) {
                                         TimeUnit.NANOSECONDS.toMillis(event.recordingStats.recordedDurationNanos)
                                     is VideoRecordEvent.Finalize -> {
                                         recording = null
-                                        onRecorded(viewModel, thisTake, event)
+                                        onFinished(thisTake, event)
                                     }
                                 }
                             }

@@ -67,7 +67,7 @@ import kotlin.math.roundToInt
 
 /** Interactive map of a location message; follows live locations as they update. */
 @Composable
-fun MapScreen(onBack: () -> Unit, viewModel: MapViewModel = hiltViewModel()) {
+fun MapScreen(onBack: () -> Unit, modifier: Modifier = Modifier, viewModel: MapViewModel = hiltViewModel()) {
     val location by viewModel.location.collectAsStateWithLifecycle()
     val sharing by viewModel.sharing.collectAsStateWithLifecycle()
     val mapView = rememberMapViewWithLifecycle()
@@ -111,7 +111,7 @@ fun MapScreen(onBack: () -> Unit, viewModel: MapViewModel = hiltViewModel()) {
         }
     }
 
-    Box(Modifier.fillMaxSize()) {
+    Box(modifier.fillMaxSize()) {
         AndroidView({ mapView }, Modifier.fillMaxSize().testTag("map"))
         IconBtn(
             OtmIcons.Back, stringResource(R.string.back), onBack,

@@ -41,25 +41,26 @@ fun ChatAvatar(
     title: String,
     photoFileId: Int?,
     minithumbnail: ByteArray?,
+    modifier: Modifier = Modifier,
     size: Dp = 52.dp,
     savedMessages: Boolean = false,
 ) {
     when {
-        savedMessages -> Box(Modifier.size(size).clip(CircleShape).background(Color(0xFFDCE4E9)), contentAlignment = Alignment.Center) {
+        savedMessages -> Box(modifier.size(size).clip(CircleShape).background(Otm.Tile), contentAlignment = Alignment.Center) {
             Box(Modifier.size(size * 0.58f).clip(CircleShape).background(Otm.Sheet), contentAlignment = Alignment.Center) {
                 Icon(BOOKMARK, null, tint = Otm.Slate, modifier = Modifier.size(size * 0.28f))
             }
         }
-        photoFileId != null -> TdImage(photoFileId, minithumbnail, Modifier.size(size).clip(CircleShape))
-        else -> PatternAvatar(chatId, title, size)
+        photoFileId != null -> TdImage(photoFileId, minithumbnail, modifier.size(size).clip(CircleShape))
+        else -> PatternAvatar(chatId, title, size, modifier)
     }
 }
 
 @Composable
-private fun PatternAvatar(chatId: Long, title: String, size: Dp) {
+private fun PatternAvatar(chatId: Long, title: String, size: Dp, modifier: Modifier = Modifier) {
     val pattern = Math.floorMod(chatId, PATTERNS)
     val (light, dark) = AVATAR_TONES[Math.floorMod(chatId / PATTERNS, AVATAR_TONES.size.toLong()).toInt()]
-    Box(Modifier.size(size).clip(CircleShape), contentAlignment = Alignment.Center) {
+    Box(modifier.size(size).clip(CircleShape), contentAlignment = Alignment.Center) {
         Canvas(Modifier.matchParentSize()) {
             drawRect(light)
             val unit = this.size.width / 52f

@@ -62,6 +62,7 @@ fun StickerPicker(
     stickers: List<Sticker>?,
     onSelectTab: (StickerTab) -> Unit,
     onSend: (Sticker) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val sendLabel = stringResource(R.string.send)
     val previewLabel = stringResource(R.string.sticker_preview)
@@ -76,7 +77,7 @@ fun StickerPicker(
             onDismiss = { previewing = null },
         )
     }
-    Column(Modifier.fillMaxWidth().height(PICKER_HEIGHT).background(Otm.Sheet).navigationBarsPadding()) {
+    Column(modifier.fillMaxWidth().height(PICKER_HEIGHT).background(Otm.Sheet).navigationBarsPadding()) {
         Hairline()
         LazyRow(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             items(tabs, key = { it.setId ?: 0 }) { tab ->

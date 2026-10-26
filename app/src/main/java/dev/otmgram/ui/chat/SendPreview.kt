@@ -72,6 +72,7 @@ fun MediaPreviewScreen(
     sizes: SizeEstimate?,
     onSend: (caption: String, compress: Boolean) -> Unit,
     onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var compress by rememberSaveable { mutableStateOf(compressByDefault) }
     var shown by rememberSaveable { mutableIntStateOf(0) }
@@ -82,6 +83,7 @@ fun MediaPreviewScreen(
         sendTag = "sendMedia",
         onSend = { onSend(it, compress) },
         onDismiss = onDismiss,
+        modifier = modifier,
     ) {
         AsyncImage(
             model = uris.getOrNull(shown),
@@ -128,7 +130,7 @@ internal fun sizeLine(sizes: SizeEstimate?, compress: Boolean, strings: Strings)
 
 /** Picked files (sent as they are) with a caption field, before sending. */
 @Composable
-fun FilesPreviewScreen(uris: List<Uri>, chatTitle: String, onSend: (caption: String) -> Unit, onDismiss: () -> Unit) {
+fun FilesPreviewScreen(uris: List<Uri>, chatTitle: String, onSend: (caption: String) -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     // Names and sizes come from the app that has the files, which may be slow to answer.
     val files by produceState(emptyList(), uris) {
@@ -148,6 +150,7 @@ fun FilesPreviewScreen(uris: List<Uri>, chatTitle: String, onSend: (caption: Str
         sendTag = "sendFiles",
         onSend = onSend,
         onDismiss = onDismiss,
+        modifier = modifier,
     ) {
         LazyColumn(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(files) { (name, size) ->
@@ -178,11 +181,12 @@ private fun SendPreview(
     sendTag: String,
     onSend: (caption: String) -> Unit,
     onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
     body: @Composable ColumnScope.() -> Unit,
 ) {
     var caption by rememberSaveable { mutableStateOf("") }
     FullScreenDialog(onDismiss) {
-        Column(Modifier.fillMaxSize().paper().systemBarsPadding().imePadding().then(DialogTags)) {
+        Column(modifier.fillMaxSize().paper().systemBarsPadding().imePadding().then(DialogTags)) {
             Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 10.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconBtn(OtmIcons.Close, stringResource(R.string.cancel), onDismiss, tag = "cancelSend")
                 Column(Modifier.padding(start = 6.dp)) {

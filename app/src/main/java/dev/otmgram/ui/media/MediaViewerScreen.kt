@@ -78,7 +78,7 @@ import javax.inject.Inject
 
 /** Full-screen photo (zoomable) or video of a message: the only dark screen, so pictures read true. */
 @Composable
-fun MediaViewerScreen(onBack: () -> Unit, viewModel: MediaViewerViewModel = hiltViewModel()) {
+fun MediaViewerScreen(onBack: () -> Unit, modifier: Modifier = Modifier, viewModel: MediaViewerViewModel = hiltViewModel()) {
     val snackbar = remember { SnackbarHostState() }
     viewModel.notice?.let { notice ->
         LaunchedEffect(notice) {
@@ -99,7 +99,7 @@ fun MediaViewerScreen(onBack: () -> Unit, viewModel: MediaViewerViewModel = hilt
         }
     }
     val current = pages.getOrNull(pager.currentPage)
-    Box(Modifier.fillMaxSize().background(Otm.Night)) {
+    Box(modifier.fillMaxSize().background(Otm.Night)) {
         HorizontalPager(pager, Modifier.fillMaxSize(), key = { pages[it].messageId }) { index ->
             when (val content = pages[index].content) {
                 is ViewerContent.Photo -> ZoomablePhoto(content)

@@ -53,9 +53,10 @@ fun NotificationsCard(
     onInterval: (CheckInterval) -> Unit,
     onPickPushApp: () -> Unit,
     onRetryPush: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    Card {
+    Card(modifier) {
         Text(stringResource(R.string.notifications_title), style = OtmType.Name, color = Otm.Ink)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             NotificationMode.entries.forEach { option ->

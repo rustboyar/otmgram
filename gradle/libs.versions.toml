@@ -24,6 +24,7 @@ lottie = "6.7.1"
 unifiedpush = "3.3.5"
 
 [libraries]
+compose-lint-checks = { module = "com.slack.lint.compose:compose-lint-checks", version = "1.6.1" }
 unifiedpush-connector = { module = "org.unifiedpush.android:connector", version.ref = "unifiedpush" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }

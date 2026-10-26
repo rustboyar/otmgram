@@ -68,11 +68,12 @@ fun MessageMenuOverlay(
     onPin: () -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val message = menu.message
     FullScreenDialog(onDismiss) {
         Box(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxSize()
                 .background(Otm.Paper.copy(alpha = 0.78f))
                 .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onDismiss)
@@ -166,11 +167,12 @@ private fun MenuAction(icon: ImageVector, label: String, tag: String, onClick: (
 }
 
 @Composable
-fun DeleteDialog(request: DeleteRequest, onDelete: (forEveryone: Boolean) -> Unit, onDismiss: () -> Unit) {
+fun DeleteDialog(request: DeleteRequest, onDelete: (forEveryone: Boolean) -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
     // Only offered when both ways are possible; otherwise it's whichever one is.
     var forEveryone by rememberSaveable { mutableStateOf(request.canDeleteForEveryone) }
     val count = request.messageIds.size
     OtmDialog(
+        modifier = modifier,
         title = pluralStringResource(R.plurals.delete_title, count, count),
         text = request.quote?.let { stringResource(R.string.quote, it.take(140)) },
         onDismiss = onDismiss,

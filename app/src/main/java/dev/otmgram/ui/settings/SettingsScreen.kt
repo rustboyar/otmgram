@@ -67,7 +67,7 @@ import dev.otmgram.ui.theme.paper
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onChangeFolder: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(onBack: () -> Unit, onChangeFolder: () -> Unit, modifier: Modifier = Modifier, viewModel: SettingsViewModel = hiltViewModel()) {
     val me by viewModel.me.collectAsStateWithLifecycle()
     val folderName by viewModel.folderName.collectAsStateWithLifecycle()
     val interval by viewModel.checkInterval.collectAsStateWithLifecycle()
@@ -86,7 +86,7 @@ fun SettingsScreen(onBack: () -> Unit, onChangeFolder: () -> Unit, viewModel: Se
     var confirmClear by rememberSaveable { mutableStateOf(false) }
     var askShareLogs by rememberSaveable { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxSize().paper().imePadding()) {
+    Column(modifier.fillMaxSize().paper().imePadding()) {
         ScreenBar(stringResource(R.string.settings), onBack = onBack)
         Column(
             modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(14.dp).navigationBarsPadding(),
@@ -295,23 +295,26 @@ private fun Title(title: String, subtitle: String) {
 /** One bar split by kind of file, with a legend. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun StorageBar(usage: StorageUsage) {
+private fun StorageBar(usage: StorageUsage, modifier: Modifier = Modifier) {
     val parts = StorageKind.entries.mapNotNull { kind -> usage.byKind[kind]?.takeIf { it > 0 }?.let { kind to it } }
     if (parts.isEmpty()) {
-        Text(stringResource(R.string.storage_empty), style = OtmType.Secondary, color = Otm.InkSoft)
+        Text(stringResource(R.string.storage_empty), modifier, style = OtmType.Secondary, color = Otm.InkSoft)
         return
     }
-    Row(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        parts.forEach { (kind, size) ->
-            Box(Modifier.weight(size.toFloat().coerceAtLeast(1f)).height(10.dp).background(STORAGE_COLORS.getValue(kind)))
+    // The bar and its legend, spaced as the card's lines.
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            parts.forEach { (kind, size) ->
+                Box(Modifier.weight(size.toFloat().coerceAtLeast(1f)).height(10.dp).background(STORAGE_COLORS.getValue(kind)))
+            }
         }
-    }
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        parts.forEach { (kind, size) ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Box(Modifier.size(10.dp).clip(CircleShape).background(STORAGE_COLORS.getValue(kind)))
-                Text(stringResource(kind.label), style = OtmType.Secondary, color = Otm.Ink)
-                Text(formatSize(size), style = OtmType.Secondary, color = Otm.InkSoft)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            parts.forEach { (kind, size) ->
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Box(Modifier.size(10.dp).clip(CircleShape).background(STORAGE_COLORS.getValue(kind)))
+                    Text(stringResource(kind.label), style = OtmType.Secondary, color = Otm.Ink)
+                    Text(formatSize(size), style = OtmType.Secondary, color = Otm.InkSoft)
+                }
             }
         }
     }

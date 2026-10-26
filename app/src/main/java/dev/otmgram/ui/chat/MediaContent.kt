@@ -70,36 +70,39 @@ fun MediaContent(
     onLongClick: () -> Unit,
     onPlayVoice: (fileId: Int, path: String) -> Unit,
     onVideoNoteSound: () -> Unit,
+    modifier: Modifier = Modifier,
     /** Set while the message is being sent: stops the upload. */
     onCancelUpload: (() -> Unit)? = null,
 ) {
     // Said by screen readers on the media itself, the part that takes taps: "Photo", "Location".
     val description = media.label()
-    when (media) {
-        is MessageMedia.Photo -> Box(contentAlignment = Alignment.Center) {
-            TdImage(
-                fileId = media.fileId,
-                minithumbnail = media.minithumbnail,
-                modifier = Modifier
-                    .width(MEDIA_WIDTH)
-                    .aspectRatio(aspect(media.width, media.height))
-                    .clip(RoundedCornerShape(13.dp))
-                    .combinedClickable(onClick = onOpen, onLongClick = onLongClick)
-                    .semantics { contentDescription = description }
-                    .testTag("photo"),
-            )
-            onCancelUpload?.let { UploadRing(media.fileId, it) }
+    Box(modifier) {
+        when (media) {
+            is MessageMedia.Photo -> Box(contentAlignment = Alignment.Center) {
+                TdImage(
+                    fileId = media.fileId,
+                    minithumbnail = media.minithumbnail,
+                    modifier = Modifier
+                        .width(MEDIA_WIDTH)
+                        .aspectRatio(aspect(media.width, media.height))
+                        .clip(RoundedCornerShape(13.dp))
+                        .combinedClickable(onClick = onOpen, onLongClick = onLongClick)
+                        .semantics { contentDescription = description }
+                        .testTag("photo"),
+                )
+                onCancelUpload?.let { UploadRing(media.fileId, it) }
+            }
+            is MessageMedia.Video -> Box(contentAlignment = Alignment.Center) {
+                VideoPreview(media, onOpen, onLongClick, uploading = onCancelUpload != null)
+                onCancelUpload?.let { UploadRing(media.fileId, it) }
+            }
+            is MessageMedia.Animation -> Gif(media, onLongClick)
+            is MessageMedia.VoiceNote -> VoiceNote(media, audio, outgoing, onPlayVoice, onLongClick)
+            is MessageMedia.VideoNote -> VideoNote(media, onVideoNoteSound, onLongClick)
+            is MessageMedia.Sticker -> StickerView(media, Modifier.size(STICKER_SIZE).semantics { contentDescription = description }.testTag("sticker-${media.kind}"))
+            is MessageMedia.Location -> LocationPreview(media, outgoing, onOpen, onLongClick)
+            is MessageMedia.Document -> DocumentContent(media, onLongClick, onCancelUpload)
         }
-        is MessageMedia.Video -> Box(contentAlignment = Alignment.Center) {
-            VideoPreview(media, onOpen, onLongClick, uploading = onCancelUpload != null)
-            onCancelUpload?.let { UploadRing(media.fileId, it) }
-        }
-        is MessageMedia.Animation -> Gif(media, onLongClick)
-        is MessageMedia.VoiceNote -> VoiceNote(media, audio, outgoing, onPlayVoice, onLongClick)
-        is MessageMedia.VideoNote -> VideoNote(media, onVideoNoteSound, onLongClick)
-        is MessageMedia.Sticker -> StickerView(media, Modifier.size(STICKER_SIZE).semantics { contentDescription = description }.testTag("sticker-${media.kind}"))
-        is MessageMedia.Location -> LocationPreview(media, outgoing, onOpen, onLongClick)
-        is MessageMedia.Document -> DocumentContent(media, onLongClick, onCancelUpload)
     }
 }
 
@@ -236,7 +239,7 @@ private fun VideoNote(media: MessageMedia.VideoNote, onSound: () -> Unit, onLong
 }
 
 @Composable
-private fun Label(text: String, modifier: Modifier, trailing: @Composable RowScope.() -> Unit = {}) {
+private fun Label(text: String, modifier: Modifier = Modifier, trailing: @Composable RowScope.() -> Unit = {}) {
     Row(
         modifier = modifier
             .padding(8.dp)

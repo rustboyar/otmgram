@@ -55,6 +55,9 @@ fun buildPlayer(context: Context, path: String, softwareDecoders: Boolean): ExoP
     }
 }
 
+// Deliberate: media sits deep in many screens, and every one would otherwise thread the
+// repository through; it's provided once, by MainActivity.
+@Suppress("ComposeCompositionLocalUsage")
 val LocalFileRepository = staticCompositionLocalOf<FileRepository> { error("No FileRepository provided") }
 
 /** State of a TDLib file, downloading it while in composition; null until known. */

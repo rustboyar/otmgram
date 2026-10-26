@@ -88,6 +88,7 @@ fun ChatScreen(
     onRecordVideoNote: (chatId: Long) -> Unit,
     onOpenMap: (chatId: Long, messageId: Long) -> Unit,
     onOpenEmbed: (url: String) -> Unit,
+    modifier: Modifier = Modifier,
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
     val header by viewModel.header.collectAsStateWithLifecycle()
@@ -218,7 +219,7 @@ fun ChatScreen(
         if (granted) viewModel.startVoice() else refused(R.string.permission_microphone)
     }
 
-    Box(Modifier.fillMaxSize().paper()) {
+    Box(modifier.fillMaxSize().paper()) {
         Column(Modifier.fillMaxSize().imePadding()) {
             when {
                 selecting -> SelectionBar(

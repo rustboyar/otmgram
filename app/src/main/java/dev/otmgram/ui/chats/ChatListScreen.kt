@@ -86,6 +86,7 @@ import dev.otmgram.ui.theme.paper
 fun ChatListScreen(
     onOpenChat: (Long) -> Unit,
     onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier,
     viewModel: ChatListViewModel = hiltViewModel(),
 ) {
     val folderName by viewModel.folderName.collectAsStateWithLifecycle()
@@ -118,7 +119,7 @@ fun ChatListScreen(
         )
     }
 
-    Column(Modifier.fillMaxSize().paper()) {
+    Column(modifier.fillMaxSize().paper()) {
         if (searching) {
             SkyBand(folderName, content = { SearchField(query, viewModel::setQuery, closeSearch) })
         } else {

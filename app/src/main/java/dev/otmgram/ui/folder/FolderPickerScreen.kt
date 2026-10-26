@@ -63,22 +63,24 @@ fun FolderPickerScreen(
     previousMissing: Boolean,
     viewModel: FolderPickerViewModel = hiltViewModel(),
 ) {
-    FolderPicker(folders, current = null, previousMissing, onBack = null, onPicked = viewModel::select, viewModel)
+    LaunchedEffect(folders) { viewModel.loadCounts(folders) }
+    FolderPicker(folders, viewModel.counts, current = null, previousMissing, onBack = null, onPicked = viewModel::select)
 }
 
 /** Another folder, from the settings. */
 @Composable
-fun ChangeFolderScreen(onBack: () -> Unit, viewModel: FolderPickerViewModel = hiltViewModel()) {
+fun ChangeFolderScreen(onBack: () -> Unit, modifier: Modifier = Modifier, viewModel: FolderPickerViewModel = hiltViewModel()) {
     val folders by viewModel.folders.collectAsStateWithLifecycle(null)
     val current by viewModel.selectedFolderId.collectAsStateWithLifecycle(null)
-    Column(Modifier.fillMaxSize().paper()) {
+    Column(modifier.fillMaxSize().paper()) {
         ScreenBar(stringResource(R.string.folder_title), onBack = onBack)
         // Loaded before the settings could open this: the chat list needs them.
         folders?.let { list ->
-            FolderPicker(list, current, previousMissing = false, onBack = onBack, onPicked = { id ->
+            LaunchedEffect(list) { viewModel.loadCounts(list) }
+            FolderPicker(list, viewModel.counts, current, previousMissing = false, onBack = onBack, onPicked = { id ->
                 viewModel.select(id)
                 onBack()
-            }, viewModel)
+            })
         }
     }
 }
@@ -86,14 +88,14 @@ fun ChangeFolderScreen(onBack: () -> Unit, viewModel: FolderPickerViewModel = hi
 @Composable
 private fun FolderPicker(
     folders: List<Folder>,
+    /** Chats per folder, as they're counted. */
+    counts: Map<Int, Int>,
     current: Int?,
     previousMissing: Boolean,
     onBack: (() -> Unit)?,
     onPicked: (Int) -> Unit,
-    viewModel: FolderPickerViewModel,
 ) {
     var picked by rememberSaveable(current) { mutableStateOf(current) }
-    LaunchedEffect(folders) { viewModel.loadCounts(folders) }
 
     Column(Modifier.fillMaxSize().paper().verticalScroll(rememberScrollState())) {
         if (onBack == null) Hero(150.dp) else Spacer(Modifier.height(16.dp))
@@ -120,7 +122,7 @@ private fun FolderPicker(
             )
             Column(Modifier.selectableGroup().padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 folders.forEach { folder ->
-                    FolderCard(folder, viewModel.counts[folder.id], selected = folder.id == picked, onClick = { picked = folder.id })
+                    FolderCard(folder, counts[folder.id], selected = folder.id == picked, onClick = { picked = folder.id })
                 }
             }
             Spacer(Modifier.height(10.dp))

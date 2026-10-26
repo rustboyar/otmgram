@@ -59,7 +59,7 @@ import java.net.URL
  * together; leaving the player (a tap on the author, say) opens the site's app or the browser.
  */
 @Composable
-fun EmbedPlayerScreen(url: String, onBack: () -> Unit) {
+fun EmbedPlayerScreen(url: String, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val link = remember(url) { MediaLink.parse(url) }
     // A short TikTok link names no video: follow it to the page it stands for.
@@ -73,7 +73,7 @@ fun EmbedPlayerScreen(url: String, onBack: () -> Unit) {
     var fullScreen by remember { mutableStateOf<FullScreen?>(null) }
     BackHandler(fullScreen != null) { fullScreen?.exit?.onCustomViewHidden() }
 
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
+    Box(modifier.fillMaxSize().background(Color.Black)) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconBtn(OtmIcons.Back, stringResource(R.string.back), onBack, tint = Color.White, tag = "back")

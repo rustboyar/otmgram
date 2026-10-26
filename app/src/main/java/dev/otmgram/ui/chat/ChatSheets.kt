@@ -60,9 +60,9 @@ import kotlin.math.roundToInt
 /** Forwarding goes only to chats of the folder. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ForwardSheet(targets: List<ForwardTarget>, onForward: (ForwardTarget) -> Unit, onDismiss: () -> Unit) {
+fun ForwardSheet(targets: List<ForwardTarget>, onForward: (ForwardTarget) -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
     var query by rememberSaveable { mutableStateOf("") }
-    OtmSheet(onDismiss) {
+    OtmSheet(onDismiss, modifier) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.forward_to), style = OtmType.BarTitle.copy(fontSize = 20.sp), color = Otm.Ink, modifier = Modifier.weight(1f))
             IconBtn(OtmIcons.Close, stringResource(R.string.close), onDismiss, tint = Otm.InkSoft)
@@ -99,8 +99,8 @@ fun ForwardSheet(targets: List<ForwardTarget>, onForward: (ForwardTarget) -> Uni
 /** All pinned messages, newest first; a tap goes to one. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PinnedSheet(pinned: List<SearchResult>, onGoTo: (messageId: Long) -> Unit, onDismiss: () -> Unit) {
-    OtmSheet(onDismiss) {
+fun PinnedSheet(pinned: List<SearchResult>, onGoTo: (messageId: Long) -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+    OtmSheet(onDismiss, modifier) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.pinned_title), style = OtmType.BarTitle.copy(fontSize = 20.sp), color = Otm.Ink, modifier = Modifier.weight(1f))
             IconBtn(OtmIcons.Close, stringResource(R.string.close), onDismiss, tint = Otm.InkSoft)
@@ -143,8 +143,9 @@ fun AttachSheet(
     onLocation: () -> Unit,
     onVoice: () -> Unit,
     onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    OtmSheet(onDismiss) {
+    OtmSheet(onDismiss, modifier) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
             AttachOption(OtmIcons.Gallery, stringResource(R.string.attach_gallery), "attachMedia", onGallery)
             AttachOption(OtmIcons.File, stringResource(R.string.attach_file), "attachFile", onFile)
@@ -177,8 +178,9 @@ fun LocationSheet(
     onSendCurrent: () -> Unit,
     onShareLive: (periodSeconds: Int) -> Unit,
     onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    OtmSheet(onDismiss) {
+    OtmSheet(onDismiss, modifier) {
         here?.let { HereMap(it) }
         Row(
             modifier = Modifier

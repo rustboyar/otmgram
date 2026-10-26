@@ -111,7 +111,7 @@ internal fun VoiceNote(
 }
 
 @Composable
-fun Waveform(levels: List<Int>, progress: Float, played: Color, rest: Color, modifier: Modifier, bars: Int = WAVEFORM_BARS) {
+fun Waveform(levels: List<Int>, progress: Float, played: Color, rest: Color, modifier: Modifier = Modifier, bars: Int = WAVEFORM_BARS) {
     val samples = remember(levels, bars) { resample(levels.ifEmpty { listOf(0) }, bars) }
     Canvas(modifier) {
         val step = size.width / samples.size

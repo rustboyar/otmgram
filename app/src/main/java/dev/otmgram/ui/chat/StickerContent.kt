@@ -1,5 +1,6 @@
 package dev.otmgram.ui.chat
 
+import androidx.compose.foundation.layout.fillMaxSize
 import dev.otmgram.core.log.AppLog
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -25,12 +26,12 @@ import java.io.File
 import java.util.zip.GZIPInputStream
 
 @Composable
-fun StickerView(media: MessageMedia.Sticker, modifier: Modifier) {
+fun StickerView(media: MessageMedia.Sticker, modifier: Modifier = Modifier) {
     when (media.kind) {
         StickerKind.Image -> TdImage(media.fileId, null, modifier, contentScale = ContentScale.Fit)
         StickerKind.Lottie -> {
             val path = rememberDownloadedPath(media.fileId)
-            if (path != null) LottieSticker(path, modifier) else Box(modifier)
+            Box(modifier) { path?.let { LottieSticker(it, Modifier.fillMaxSize()) } }
         }
         // Android's decoders don't support transparent video: show the still thumbnail.
         StickerKind.Video -> TdImage(media.thumbnailFileId, null, modifier, contentScale = ContentScale.Fit)
@@ -39,15 +40,18 @@ fun StickerView(media: MessageMedia.Sticker, modifier: Modifier) {
 
 /** TGS stickers are gzipped Lottie animations; a broken or oversized one stays blank. */
 @Composable
-private fun LottieSticker(path: String, modifier: Modifier) {
+private fun LottieSticker(path: String, modifier: Modifier = Modifier) {
     val json by produceState<String?>(null, path) {
         value = withContext(Dispatchers.IO) { readTgs(File(path)) }
     }
-    val loaded = json ?: return Box(modifier)
-    // Only create the composition once loaded: an empty placeholder one breaks the animation.
-    val composition by rememberLottieComposition(LottieCompositionSpec.JsonString(loaded))
-    // Telegram stickers use merge paths, which Lottie disables by default.
-    LottieAnimation(composition, iterations = LottieConstants.IterateForever, enableMergePaths = true, modifier = modifier)
+    Box(modifier) {
+        // Only create the composition once loaded: an empty placeholder one breaks the animation.
+        json?.let { loaded ->
+            val composition by rememberLottieComposition(LottieCompositionSpec.JsonString(loaded))
+            // Telegram stickers use merge paths, which Lottie disables by default.
+            LottieAnimation(composition, iterations = LottieConstants.IterateForever, enableMergePaths = true, modifier = Modifier.fillMaxSize())
+        }
+    }
 }
 
 /** The animation's JSON, or null if the file is broken or unpacks to more than [TGS_MAX_BYTES]. */
