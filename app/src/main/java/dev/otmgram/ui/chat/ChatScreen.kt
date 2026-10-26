@@ -252,8 +252,9 @@ fun ChatScreen(
                     actions = { IconBtn(OtmIcons.Search, stringResource(R.string.search_chat), search::open, tag = "search") },
                 )
             }
-            if (viewModel.pinned.isNotEmpty() && !selecting && !searching) {
-                PinnedBar(viewModel.pinned, viewModel.pinnedShown, onClick = viewModel::showPinned, onList = viewModel::openPinnedList)
+            val pinned = viewModel.pinned
+            if (pinned.messages.isNotEmpty() && !selecting && !searching) {
+                PinnedBar(pinned.messages, pinned.shown, onClick = pinned::showNext, onList = pinned::openList)
             }
             liveShare?.takeIf { it.chatId == viewModel.chatId }?.let { share ->
                 LiveShareBanner(share, onStop = viewModel::stopLiveLocation)
@@ -479,8 +480,8 @@ fun ChatScreen(
             onDismiss = viewModel::closeMenu,
         )
     }
-    if (viewModel.pinnedListOpen) {
-        PinnedSheet(viewModel.pinned, onGoTo = viewModel::goToPinned, onDismiss = viewModel::closePinnedList)
+    if (viewModel.pinned.listOpen) {
+        PinnedSheet(viewModel.pinned.messages, onGoTo = viewModel.pinned::goTo, onDismiss = viewModel.pinned::closeList)
     }
     viewModel.deleting?.let { request ->
         DeleteDialog(request, onDelete = viewModel::delete, onDismiss = viewModel::cancelDelete)

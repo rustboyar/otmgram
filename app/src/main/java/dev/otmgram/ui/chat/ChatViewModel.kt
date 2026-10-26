@@ -3,7 +3,6 @@ package dev.otmgram.ui.chat
 import android.annotation.SuppressLint
 import android.net.Uri
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.SavedStateHandle
@@ -16,6 +15,7 @@ import dev.otmgram.core.launchLogged
 import dev.otmgram.core.location.LiveLocationSharing
 import dev.otmgram.core.location.LiveShare
 import dev.otmgram.core.location.LocationSource
+import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.media.AudioPlayer
 import dev.otmgram.core.media.AudioState
 import dev.otmgram.core.media.RecorderState
@@ -227,13 +227,6 @@ class ChatViewModel @Inject constructor(
                 val inThisChat = this@ChatViewModel.messages.value.any { (it.media as? MessageMedia.VoiceNote)?.fileId == fileId }
                 if (inThisChat) notice = strings.get(R.string.notice_voice_cant_play)
             }
-        }
-    }
-
-    init {
-        loadPinned()
-        viewModelScope.launch {
-            td.updates { it is TdApi.UpdateMessageIsPinned && it.chatId == chatId }.collect { loadPinned() }
         }
     }
 
@@ -489,48 +482,21 @@ class ChatViewModel @Inject constructor(
         show(messageId)
     }
 
-    /** The chat's pinned messages, newest first. */
-    var pinned by mutableStateOf<List<SearchResult>>(emptyList())
-        private set
-
-    /** Which of [pinned] the bar above the messages shows: the next one a tap goes to. */
-    var pinnedShown by mutableIntStateOf(0)
-        private set
-
-    var pinnedListOpen by mutableStateOf(false)
-        private set
-
-    private fun loadPinned() = viewModelScope.launchLogged(TAG) {
-        val names = session.history.value.senderNames
-        pinned = try {
-            session.pinned().map { SearchResult(it.id, names[it.senderKey()], it.summary(strings), it.date) }
-        } catch (e: TdException) {
-            emptyList()
-        }
-        pinnedShown = pinnedShown.coerceIn(0, (pinned.size - 1).coerceAtLeast(0))
-    }
-
-    /** A tap on the bar: shows its message, then the bar moves on to the next older one, as in Telegram. */
-    fun showPinned() {
-        val message = pinned.getOrNull(pinnedShown) ?: return
-        jumpTo(message.messageId)
-        pinnedShown = (pinnedShown + 1) % pinned.size
-    }
-
-    fun openPinnedList() {
-        pinnedListOpen = true
-    }
-
-    fun closePinnedList() {
-        pinnedListOpen = false
-    }
-
-    fun goToPinned(messageId: Long) {
-        pinnedListOpen = false
-        jumpTo(messageId)
-        val index = pinned.indexOfFirst { it.messageId == messageId }
-        if (index >= 0) pinnedShown = (index + 1) % pinned.size
-    }
+    /** Pinned messages, for the bar above the messages and its list. */
+    val pinned = PinnedMessages(
+        viewModelScope,
+        load = {
+            val names = session.history.value.senderNames
+            try {
+                session.pinned().map { SearchResult(it.id, names[it.senderKey()], it.summary(strings), it.date) }
+            } catch (e: TdException) {
+                emptyList()
+            }
+        },
+        changes = td.updates { it is TdApi.UpdateMessageIsPinned && it.chatId == chatId }.map { },
+        show = ::jumpTo,
+        onError = { AppLog.w(TAG, "Loading pinned messages failed", it) },
+    )
 
     fun togglePin(menu: MessageMenu) {
         this.menu = null

@@ -4,6 +4,8 @@ import dev.otmgram.data.SizeEstimate
 import dev.otmgram.data.Sticker
 import dev.otmgram.data.StickerTab
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -75,6 +77,56 @@ class ChatPartsTest {
         runCurrent()
         assertEquals(1, errors.size)
         assertEquals(emptyList<SearchResult>(), search.results)
+    }
+
+    // Pinned messages
+
+    @Test
+    fun `the pinned bar goes from the newest to older ones, then around`() = runTest {
+        val shown = mutableListOf<Long>()
+        val pinned = PinnedMessages(backgroundScope, { listOf(result(3), result(2), result(1)) }, emptyFlow(), { shown += it }, {})
+        runCurrent()
+        repeat(4) { pinned.showNext() }
+        assertEquals(listOf(3L, 2L, 1L, 3L), shown)
+    }
+
+    @Test
+    fun `picking one from the list goes there, and the bar names the next older`() = runTest {
+        val shown = mutableListOf<Long>()
+        val pinned = PinnedMessages(backgroundScope, { listOf(result(3), result(2), result(1)) }, emptyFlow(), { shown += it }, {})
+        runCurrent()
+        pinned.openList()
+        pinned.goTo(2)
+        assertFalse(pinned.listOpen)
+        assertEquals(listOf(2L), shown)
+        assertEquals(2, pinned.shown)
+    }
+
+    @Test
+    fun `fewer pinned after a change keep the bar on one of them`() = runTest {
+        var list = listOf(result(3), result(2), result(1))
+        val changes = MutableSharedFlow<Unit>()
+        val pinned = PinnedMessages(backgroundScope, { list }, changes, {}, {})
+        runCurrent()
+        repeat(2) { pinned.showNext() }
+        list = listOf(result(3))
+        changes.emit(Unit)
+        runCurrent()
+        assertEquals(0, pinned.shown)
+    }
+
+    @Test
+    fun `a failed load is reported and keeps what was there`() = runTest {
+        var fail = false
+        val changes = MutableSharedFlow<Unit>()
+        val errors = mutableListOf<Exception>()
+        val pinned = PinnedMessages(backgroundScope, { if (fail) error("offline") else listOf(result(1)) }, changes, {}, { errors += it })
+        runCurrent()
+        fail = true
+        changes.emit(Unit)
+        runCurrent()
+        assertEquals(1, errors.size)
+        assertEquals(listOf(1L), pinned.messages.map { it.messageId })
     }
 
     // Selection
