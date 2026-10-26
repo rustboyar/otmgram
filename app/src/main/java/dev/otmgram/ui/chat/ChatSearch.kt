@@ -51,6 +51,8 @@ class ChatSearch(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
+                    // No matches rather than "Searching…" for good.
+                    results = emptyList()
                     onError(e)
                 }
             }

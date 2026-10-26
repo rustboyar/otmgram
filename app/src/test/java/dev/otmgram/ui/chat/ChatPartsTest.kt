@@ -67,13 +67,14 @@ class ChatPartsTest {
     }
 
     @Test
-    fun `a failed search is reported, not thrown`() = runTest {
+    fun `a failed search is reported, not thrown, and shows no matches`() = runTest {
         val errors = mutableListOf<Exception>()
         val search = ChatSearch(backgroundScope, { error("offline") }, {}, { errors += it })
         search.type("x")
         advanceTimeBy(ChatSearch.DELAY_MS + 1)
         runCurrent()
         assertEquals(1, errors.size)
+        assertEquals(emptyList<SearchResult>(), search.results)
     }
 
     // Selection

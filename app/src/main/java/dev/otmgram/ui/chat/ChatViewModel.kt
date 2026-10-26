@@ -356,9 +356,18 @@ class ChatViewModel @Inject constructor(
         if (text.isBlank() && !removingCaption) return
         composer = Composer.New
         type(if (mode is Composer.Edit) draftBeforeEdit else "")
+        val left = this.text
         // Sending clears the draft on Telegram.
         if (mode !is Composer.Edit) savedDraft = "" to null
-        action {
+        // Refused (an edit too late, say): the text back to try again, unless something else
+        // was typed meanwhile. A message that fails later on its way shows as failed instead.
+        action(onFailure = {
+            if (composer == Composer.New && this.text == left) {
+                if (mode is Composer.Edit) draftBeforeEdit = left
+                composer = mode
+                type(text)
+            }
+        }) {
             when (mode) {
                 Composer.New -> session.sendText(text.trim())
                 is Composer.Reply -> session.sendText(text.trim(), replyToMessageId = mode.message.id)
@@ -712,8 +721,11 @@ class ChatViewModel @Inject constructor(
     }
 
     /** Runs [block]; any failure becomes a notice instead of a crash. */
-    private fun action(block: suspend () -> Unit) {
-        viewModelScope.launchLogged(TAG, onError = { notice = it.userMessage(strings) }) { block() }
+    private fun action(onFailure: () -> Unit = {}, block: suspend () -> Unit) {
+        viewModelScope.launchLogged(TAG, onError = {
+            notice = it.userMessage(strings)
+            onFailure()
+        }) { block() }
     }
 }
 
