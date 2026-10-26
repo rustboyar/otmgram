@@ -11,8 +11,11 @@ import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.di.ApplicationScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -29,6 +32,9 @@ data class LiveShare(
     val located: Boolean = false,
 )
 
+/** A share that couldn't start in [chatId]: [locationOff], or Telegram's [reason]. */
+data class LiveFailure(val chatId: Long, val locationOff: Boolean, val reason: String?)
+
 /** Starts and stops sharing live location (one chat at a time) via [LiveLocationService]. */
 @Singleton
 class LiveLocationSharing @Inject constructor(
@@ -40,6 +46,11 @@ class LiveLocationSharing @Inject constructor(
 
     /** The current share, or null when not sharing. */
     val share: StateFlow<LiveShare?> = _share.asStateFlow()
+
+    private val _failures = MutableSharedFlow<LiveFailure>(extraBufferCapacity = 1)
+
+    /** Shares that couldn't start, to tell the user why rather than just ending. */
+    val failures: SharedFlow<LiveFailure> = _failures.asSharedFlow()
 
     /** Needs location permission; must be called while the app is in the foreground. */
     fun start(chatId: Long, chatTitle: String, periodSeconds: Int) {
@@ -83,6 +94,10 @@ class LiveLocationSharing @Inject constructor(
 
     internal fun update(share: LiveShare?) {
         _share.value = share
+    }
+
+    internal fun failed(failure: LiveFailure) {
+        _failures.tryEmit(failure)
     }
 
     companion object {

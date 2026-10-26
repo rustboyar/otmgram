@@ -170,4 +170,5 @@
     <string name="link_open_elsewhere">Open in app</string>
     <string name="link_cant_play">This one can\'t be played here.</string>
     <string name="notice_voice_cant_play">This voice message can\'t be played.</string>
+    <string name="notice_live_failed">Couldn\'t share your live location: %1$s</string>
 </resources>

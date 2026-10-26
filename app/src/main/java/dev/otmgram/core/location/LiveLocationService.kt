@@ -108,10 +108,16 @@ class LiveLocationService : Service() {
 
     @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     private suspend fun share(chatId: Long, period: Int, endsAt: Int) {
+        var sent = false
         try {
-            val first = locations.current() ?: throw IllegalStateException("Location is off")
+            val first = locations.current() ?: run {
+                AppLog.w(TAG, "Live location: no location (off?)")
+                sharing.failed(LiveFailure(chatId, locationOff = true, reason = null))
+                return quit()
+            }
             sharing.share.value?.let { sharing.update(it.copy(located = true)) }
             this.messageId = sendLiveLocation(chatId, period, first)
+            sent = true
             AppLog.i(TAG, "Live location message confirmed")
             this.chatId = chatId
             this.period = period
@@ -126,6 +132,8 @@ class LiveLocationService : Service() {
             throw e // Replaced by a new share.
         } catch (e: Exception) {
             AppLog.w(TAG, "Live location sharing failed", e)
+            // Only before it ran: a share that ended later shows as ended in the chat.
+            if (!sent) sharing.failed(LiveFailure(chatId, locationOff = false, reason = (e as? TdException)?.error?.message))
             quit()
         }
     }

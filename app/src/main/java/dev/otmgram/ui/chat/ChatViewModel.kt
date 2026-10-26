@@ -301,6 +301,16 @@ class ChatViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            liveLocation.failures.collect { failure ->
+                if (failure.chatId != chatId) return@collect
+                notice = if (failure.locationOff) {
+                    strings.get(R.string.notice_no_location)
+                } else {
+                    strings.get(R.string.notice_live_failed, failure.reason ?: strings.get(R.string.something_went_wrong))
+                }
+            }
+        }
+        viewModelScope.launch {
             audioPlayer.failures.collect { fileId ->
                 val inThisChat = this@ChatViewModel.messages.value.any { (it.media as? MessageMedia.VoiceNote)?.fileId == fileId }
                 if (inThisChat) notice = strings.get(R.string.notice_voice_cant_play)
