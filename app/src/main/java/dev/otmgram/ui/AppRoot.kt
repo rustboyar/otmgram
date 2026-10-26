@@ -64,14 +64,15 @@ fun AppRoot(openChatId: Long? = null, viewModel: RootViewModel = hiltViewModel()
 }
 
 @Composable
-private fun MainNavHost(openChatId: Long?) {
+private fun MainNavHost(openChatId: Long?, viewModel: RootViewModel = hiltViewModel()) {
     val navController = rememberNavController()
     // Once: not again after a rotation, which keeps the activity's intent.
     var openedChat by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(openChatId) {
         if (openChatId != null && !openedChat) {
             openedChat = true
-            navController.navigate("chat/$openChatId")
+            // Only a chat of the folder: any app can start this activity with any id.
+            if (viewModel.isInFolder(openChatId)) navController.navigate("chat/$openChatId")
         }
     }
     NavHost(navController, startDestination = "chats") {
@@ -147,8 +148,10 @@ private fun NavGraphBuilder.screen(
 @HiltViewModel
 class RootViewModel @Inject constructor(
     auth: AuthRepository,
-    folders: FolderRepository,
+    private val folders: FolderRepository,
 ) : ViewModel() {
+
+    suspend fun isInFolder(chatId: Long): Boolean = folders.isInFolder(chatId)
 
     val state: StateFlow<RootState> = combine(
         auth.state,

@@ -12,6 +12,7 @@ import dev.otmgram.di.SettingsStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
@@ -77,6 +78,16 @@ class FolderRepository @Inject constructor(
         td.send(TdApi.GetChats(TdApi.ChatListFolder(id), MAX_FOLDER_CHATS)).chatIds.count { td.send(TdApi.GetChat(it)).isShown }
     } catch (e: TdException) {
         null
+    }
+
+    /** Whether [chatId] is one of the selected folder's chats. */
+    suspend fun isInFolder(chatId: Long): Boolean {
+        val folderId = selectedFolderId.first() ?: return false
+        return try {
+            chatId in td.send(TdApi.GetChats(TdApi.ChatListFolder(folderId), MAX_FOLDER_CHATS)).chatIds
+        } catch (e: TdException) {
+            false
+        }
     }
 
     /** Null goes back to the folder's name; longer names are cut to [MAX_HEADER_NAME]. */
