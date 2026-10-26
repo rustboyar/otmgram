@@ -41,30 +41,46 @@ object AppLog {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, e ->
             // Written right away: the process is about to die.
-            append(line('E', "Crash", "Uncaught in thread ${thread.name}", e))
+            append(line('E', "Crash", "Uncaught in thread ${thread.name}", trace(e)))
             previous?.uncaughtException(thread, e)
         }
     }
 
     fun i(tag: String, message: String) {
         Log.i(tag, message)
-        enqueue(line('I', tag, message, null))
+        enqueue(line('I', tag, message, ""))
     }
 
     fun w(tag: String, message: String, e: Throwable? = null) {
-        Log.w(tag, message, e)
-        enqueue(line('W', tag, message, e))
+        val trace = trace(e)
+        Log.w(tag, message + "\n" + trace)
+        enqueue(line('W', tag, message, trace))
     }
 
     fun e(tag: String, message: String, e: Throwable? = null) {
-        Log.e(tag, message, e)
-        enqueue(line('E', tag, message, e))
+        val trace = trace(e)
+        Log.e(tag, message + "\n" + trace)
+        enqueue(line('E', tag, message, trace))
     }
 
-    private fun line(level: Char, tag: String, message: String, e: Throwable?): String {
-        val trace = e?.let { StringWriter().also { out -> it.printStackTrace(PrintWriter(out)) }.toString() }.orEmpty()
-        return "${LocalDateTime.now().format(time)} $level $tag: $message\n$trace"
-    }
+    private fun line(level: Char, tag: String, message: String, trace: String): String =
+        "${LocalDateTime.now().format(time)} $level $tag: $message\n$trace"
+
+    /** [e]'s stack trace, with file paths and content URIs out of its messages. */
+    private fun trace(e: Throwable?): String =
+        e?.let { redact(StringWriter().also { out -> it.printStackTrace(PrintWriter(out)) }.toString()) }.orEmpty()
+
+    /**
+     * [text] without file paths and content URIs: exception messages can name files, e.g. a
+     * document's original name when saving it to Downloads failed.
+     */
+    internal fun redact(text: String): String = text
+        .replace(CONTENT_URI, "<uri>")
+        .replace(FILE_PATH, "<path>")
+
+    private val CONTENT_URI = Regex("""(?:content|file)://\S+""")
+    // Names can have spaces: up to the end of the line, or the " (reason)" Android adds.
+    private val FILE_PATH = Regex("""(?m)(?<![\w.])/(?:data|storage|sdcard|mnt)/.*?(?= \(|$)""")
 
     private fun enqueue(text: String) {
         if (directory == null) return
