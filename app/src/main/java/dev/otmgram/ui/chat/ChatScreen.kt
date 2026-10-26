@@ -106,7 +106,6 @@ fun ChatScreen(
 ) {
     val header by viewModel.header.collectAsStateWithLifecycle()
     val messages by viewModel.messages.collectAsStateWithLifecycle()
-    val audio by viewModel.audio.collectAsStateWithLifecycle()
     val recording by viewModel.recording.collectAsStateWithLifecycle()
     val liveShare by viewModel.liveShare.collectAsStateWithLifecycle()
     var attaching by rememberSaveable { mutableStateOf(false) }
@@ -291,10 +290,13 @@ fun ChatScreen(
                             ServiceNote(row.message.text)
                         } else {
                             val message = row.message
+                            // Read only by voice messages, so playback (updated every 100 ms) recomposes
+                            // only the playing one, not the whole chat.
+                            val voice = message.media as? MessageMedia.VoiceNote
+                            val audio = voice?.let { viewModel.audio.collectAsStateWithLifecycle().value?.takeIf { it.fileId == voice.fileId } }
                             MessageBubble(
                                 message,
-                                // Only the playing bubble changes as it plays.
-                                audio = audio?.takeIf { it.fileId == (message.media as? MessageMedia.VoiceNote)?.fileId },
+                                audio = audio,
                                 onLongClick = { viewModel.openMenu(message) },
                                 onReactionClick = { viewModel.toggleReaction(message, it) },
                                 onOpenMedia = {
@@ -349,7 +351,7 @@ fun ChatScreen(
                 searching -> FindStepper(results, search.index, search.query.orEmpty(), onStep = search::step)
                 current != null -> RecordingBar(current, onCancel = viewModel::cancelVoice, onSend = viewModel::sendVoice)
                 else -> InputBar(
-                    text = viewModel.text,
+                    readText = { viewModel.text },
                     onTextChange = viewModel::type,
                     composer = viewModel.composer,
                     chatTitle = title,
@@ -621,7 +623,8 @@ private fun PinnedBar(pinned: List<SearchResult>, shown: Int, onClick: () -> Uni
 
 @Composable
 private fun InputBar(
-    text: String,
+    /** Read here, so typing recomposes only this bar, not the whole chat. */
+    readText: () -> String,
     onTextChange: (String) -> Unit,
     composer: Composer,
     chatTitle: String,
@@ -633,6 +636,7 @@ private fun InputBar(
     onRecordVideoNote: () -> Unit,
     focus: FocusRequester,
 ) {
+    val text = readText()
     Column(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.6f)).then(if (stickersOpen) Modifier else Modifier.navigationBarsPadding())) {
         Hairline()
         val banner = when (composer) {
