@@ -125,17 +125,19 @@ Links, @mentions and "forwarded from" headers do not navigate to chats: web link
 
 ## Testing
 
-- Unit tests (`./gradlew :app:testDebugUnitTest`): message mapping, list rows, media mapping, wording, the mapping of login states and storage kinds, opening the database with its key, and against a fake TDLib (`testing/FakeTelegram`, behind the `TelegramClient` interface): the open chat, the folder list, file states and what gets notified. Settings and notification marks use DataStore files of the test's own (they're injected)
+- Unit tests (`./gradlew :app:testDebugUnitTest`): message mapping, list rows, media mapping, links, wording and formats, log redaction, the mapping of login states and storage kinds, opening the database with its key, the chat's holders (composer, pinned, search, selection, stickers, outgoing), and against a fake TDLib (`testing/FakeTelegram`, behind the `TelegramClient` interface): the open chat (jumps included), the folder list, names, file states and what gets notified. Settings and notification marks use DataStore files of the test's own (they're injected)
 - UI tests on a device (`scripts/ui-tests.sh`): bubble states, delete dialog. Not `connectedAndroidTest`, which uninstalls the app and so logs it out
 - Before committing: `scripts/check.sh` (lint, failing on any issue, and unit tests; `--release` also builds the release APK). No CI: building TDLib takes too long for it
 
 ## Structure
 
-- `core` (TDLib client, media, location, logging), `data` (repositories), `sync` (notifications, push and background checks), `ui` (screens and their view models). Everything takes `TelegramClient` (requests, updates, the states the app watches), not `TdClient`, which only app start uses
+- `core` (TDLib client, media, location, logging), `data` (repositories, and how messages and senders read: `MessageSummary`, `People`), `sync` (notifications, push and background checks), `ui` (screens and their view models). Dependencies point from `ui` to `sync`/`data` to `core`, never back; `SessionCleanup`, which ties logout across them, sits next to `OtmgramApp`. Everything takes `TelegramClient` (requests, updates, the states the app watches), not `TdClient`, which only app start uses. Collectors on the main thread take `TelegramClient.updates(keep)`, filtered on TDLib's thread
+- Background work runs in the app's scope, whose handler logs what nothing else caught instead of crashing; long-lived loops (notifications, the scheduler) catch everything but cancellation
+- How times, dates, durations and sizes read: `ui/format/Formats.kt`, with "today" and the time zone as parameters
 - `NotificationCenter` decides from TDLib's notifications; `MessagesNotification` shows it, behind `NotificationDisplay`
 - Composables take app types only (`FileState`, `Sticker`, `Account`, thumbnails as JPEG bytes); view models are where TDLib types turn into those
 - TDLib's message objects are mutable and can't be copied; the open chat changes them in place and `ChatHistory.version` marks each change, before they become immutable `MessageItem`s
-- The chat screen's state is split: `ChatSearch`, `ChatSelection`, `StickerPanel`, `OutgoingQueue`, wired together by `ChatViewModel`
+- The chat screen's state is split into holders that take what they need as functions, each tested: `DraftComposer` (input bar, drafts), `PinnedMessages`, `ChatSearch`, `ChatSelection`, `StickerPanel`, `OutgoingQueue`, wired together by `ChatViewModel`; its types are in `ChatModels.kt`, `MessageItem` marked `@Immutable` so unchanged bubbles skip recomposition
 - Texts are resources, one file per area (`res/values/strings_chat.xml`, `strings_settings.xml`, …; shared words in `strings.xml`). Composables use `stringResource`; other code gets `Strings` injected, and unit tests use `TestStrings`, which reads the same files. Units (KB, MB) and date patterns stay in code
 
 ## Security
@@ -143,7 +145,8 @@ Links, @mentions and "forwarded from" headers do not navigate to chats: web link
 - TDLib's database and login are encrypted with a random 32-byte key (without one, TDLib uses a built-in key, i.e. none). The key is stored encrypted by an Android Keystore key, which never leaves the device (`core/td/DatabaseKey`)
 - Existing databases are encrypted once logged in. Opening (`core/td/DatabaseOpener`): if the database doesn't take its key (TDLib's error 401; stopped mid-switch), it opens without, and only then is the key file dropped and a new key applied; if it's encrypted and the key can never be read again, the local database is deleted and the app asks to log in again. Anything else (a busy Keystore, a full disk) is retried with backoff, never treated as a lost key
 - Downloaded and sent media are plain files (TDLib encrypts only its database). Copies of sent files (`cache/outgoing`) are removed after 3 days
-- After logout, from this phone or elsewhere (`data/SessionCleanup`): TDLib deletes its database and downloads; the app removes sent copies, shared log archives, map tiles, its notification marks and shown notifications. Its own log stays (no message text or names), as do device settings
+- After logout, from this phone or elsewhere (`SessionCleanup`): TDLib deletes its database and downloads; the app removes sent copies, shared log archives, TDLib's log (emptied, as the next instance already writes to it), map tiles, its notification marks and shown notifications. Its own log stays (no message text, names, or file paths: exception messages are redacted), as do device settings
+- A chat opens from the launch intent only if it's in the selected folder: the launcher activity is exported, and opening a chat marks what it shows as read
 - Session backups (`scripts/session.sh`) include the key file, so encrypted ones only restore into the same installation
 - Release builds are signed with a dedicated key (`~/.local/share/otmgram/release.jks`, password in `local.properties`, both outside git): back both up. Android installs updates only with the same key, so losing it means reinstalling and logging in again
 
