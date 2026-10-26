@@ -2,6 +2,7 @@ package dev.otmgram.ui.chat
 
 import dev.otmgram.testing.DAY
 import dev.otmgram.testing.NOON_2026_10_23
+import dev.otmgram.ui.format.dayLabel
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.LocalDate

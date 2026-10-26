@@ -55,7 +55,7 @@ import androidx.compose.ui.unit.sp
 import dev.otmgram.R
 import dev.otmgram.data.AuthState
 import dev.otmgram.data.CodeDelivery
-import dev.otmgram.ui.chat.formatDuration
+import dev.otmgram.ui.format.formatDuration
 import dev.otmgram.ui.theme.Hero
 import dev.otmgram.ui.theme.IconBtn
 import dev.otmgram.ui.theme.Otm

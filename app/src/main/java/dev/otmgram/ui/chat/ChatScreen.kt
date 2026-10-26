@@ -3,6 +3,8 @@ package dev.otmgram.ui.chat
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.Lifecycle
 import androidx.compose.ui.platform.LocalDensity
+import dev.otmgram.ui.format.dayLabel
+import dev.otmgram.ui.format.formatDuration
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.derivedStateOf
@@ -89,10 +91,6 @@ import dev.otmgram.ui.theme.ScreenBar
 import dev.otmgram.ui.theme.SoftButton
 import dev.otmgram.ui.theme.paper
 import kotlinx.coroutines.flow.distinctUntilChanged
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -767,9 +765,6 @@ private fun RecordingBar(state: RecorderState, onCancel: () -> Unit, onSend: () 
     }
 }
 
-fun formatTime(unixTime: Int): String =
-    Instant.ofEpochSecond(unixTime.toLong()).atZone(ZoneId.systemDefault())
-        .format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
 
 private const val LOAD_MORE_THRESHOLD = 10
 

@@ -72,7 +72,7 @@ import dev.otmgram.sync.PushRegistration
 import dev.otmgram.sync.PushState
 import dev.otmgram.sync.PushStatus
 import dev.otmgram.ui.chat.SelectionMark
-import dev.otmgram.ui.media.formatSize
+import dev.otmgram.ui.format.formatSize
 import dev.otmgram.ui.theme.Card
 import dev.otmgram.ui.theme.ChatAvatar
 import dev.otmgram.ui.theme.Chip

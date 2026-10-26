@@ -43,9 +43,3 @@ fun openFile(context: Context, path: String, mimeType: String) {
     }
 }
 
-/** "2.4 MB", "830 KB", "120 B". */
-fun formatSize(bytes: Long): String = when {
-    bytes >= 1_000_000 -> "%.1f MB".format(bytes / 1_000_000.0)
-    bytes >= 1_000 -> "${bytes / 1_000} KB"
-    else -> "$bytes B"
-}

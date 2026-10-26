@@ -64,6 +64,7 @@ import dev.otmgram.R
 import dev.otmgram.ui.auth.LoadingScreen
 import dev.otmgram.ui.chat.OtmSheet
 import dev.otmgram.sync.MessagesNotification
+import dev.otmgram.ui.format.chatListDate
 import dev.otmgram.ui.highlightMatches
 import dev.otmgram.ui.openNotificationSettings
 import dev.otmgram.ui.theme.Banner
@@ -80,13 +81,6 @@ import dev.otmgram.ui.theme.SectionLabel
 import dev.otmgram.ui.theme.SkyBand
 import dev.otmgram.ui.theme.TextAction
 import dev.otmgram.ui.theme.paper
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
-import java.time.format.TextStyle
-import java.util.Locale
 
 @Composable
 fun ChatListScreen(
@@ -295,7 +289,7 @@ private fun ChatRow(chat: ChatItem, highlight: String, onClick: () -> Unit, onLo
                     }
                 }
                 chat.date?.let {
-                    Text(formatDate(it), style = OtmType.Secondary, color = Otm.InkSoft, modifier = Modifier.padding(start = 8.dp))
+                    Text(chatListDate(it), style = OtmType.Secondary, color = Otm.InkSoft, modifier = Modifier.padding(start = 8.dp))
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -352,15 +346,3 @@ private fun ChatActions(chat: ChatItem, onPin: (Boolean) -> Unit, onDismiss: () 
     }
 }
 
-/** Time for today, weekday within the last week, date otherwise. */
-private fun formatDate(unixTime: Int): String {
-    val dateTime = Instant.ofEpochSecond(unixTime.toLong()).atZone(ZoneId.systemDefault())
-    val today = LocalDate.now()
-    return when {
-        dateTime.toLocalDate() == today ->
-            dateTime.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
-        dateTime.toLocalDate().isAfter(today.minusDays(7)) ->
-            dateTime.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())
-        else -> dateTime.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT))
-    }
-}

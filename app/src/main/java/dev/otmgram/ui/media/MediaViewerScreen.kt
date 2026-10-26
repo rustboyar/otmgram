@@ -56,28 +56,21 @@ import dev.otmgram.R
 import dev.otmgram.core.Strings
 import dev.otmgram.core.launchLogged
 import dev.otmgram.core.media.mediaAudio
-import dev.otmgram.core.td.TdException
 import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.core.userMessage
 import dev.otmgram.data.DownloadsFolder
 import dev.otmgram.data.FileRepository
 import dev.otmgram.di.ApplicationScope
 import dev.otmgram.di.onMain
-import dev.otmgram.ui.chat.formatTime
+import dev.otmgram.ui.format.postedAt
 import dev.otmgram.ui.theme.DarkSystemBars
 import dev.otmgram.ui.theme.IconBtn
 import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmType
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import java.io.File
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import javax.inject.Inject
 
 /** Full-screen photo (zoomable) or video of a message: the only dark screen, so pictures read true. */
@@ -328,13 +321,3 @@ class MediaViewerViewModel @Inject constructor(
 private const val ALBUM_MAX = 10
 private const val TAG = "MediaViewer"
 
-/** "Today, 19:01", or the date. */
-private fun postedAt(unixTime: Int, strings: Strings): String {
-    val date = Instant.ofEpochSecond(unixTime.toLong()).atZone(ZoneId.systemDefault()).toLocalDate()
-    val day = when (date) {
-        LocalDate.now() -> strings.get(R.string.day_today)
-        LocalDate.now().minusDays(1) -> strings.get(R.string.day_yesterday)
-        else -> date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
-    }
-    return strings.get(R.string.day_and_time, day, formatTime(unixTime))
-}

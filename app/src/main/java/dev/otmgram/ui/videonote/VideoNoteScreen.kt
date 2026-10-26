@@ -66,7 +66,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.otmgram.R
-import dev.otmgram.ui.chat.formatDuration
+import dev.otmgram.ui.format.formatDuration
 import dev.otmgram.ui.openAppSettings
 import dev.otmgram.ui.theme.DarkSystemBars
 import dev.otmgram.ui.theme.IconBtn

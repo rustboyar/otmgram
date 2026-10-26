@@ -3,7 +3,6 @@ package dev.otmgram.ui.settings
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.text.format.DateUtils
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -21,12 +20,12 @@ import androidx.core.net.toUri
 import dev.otmgram.R
 import dev.otmgram.data.CheckInterval
 import dev.otmgram.data.NotificationMode
+import dev.otmgram.ui.format.timeOrDate
 import dev.otmgram.ui.theme.Card
 import dev.otmgram.ui.theme.Chip
 import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmType
 import dev.otmgram.ui.theme.TextAction
-import java.text.DateFormat
 
 /** What the settings say about push, and what can be done about it. */
 sealed interface PushLine {
@@ -77,7 +76,7 @@ fun NotificationsCard(
                     is PushLine.Connecting -> Status(stringResource(R.string.push_connecting, line.app), stringResource(R.string.push_retry), onRetryPush)
                     is PushLine.Failed -> Status(stringResource(R.string.push_failed, line.app), stringResource(R.string.push_retry), onRetryPush)
                     is PushLine.Working -> Status(
-                        line.lastPushAt?.let { stringResource(R.string.push_last, line.app, formatTime(it)) } ?: stringResource(R.string.push_working, line.app),
+                        line.lastPushAt?.let { stringResource(R.string.push_last, line.app, timeOrDate(it)) } ?: stringResource(R.string.push_working, line.app),
                     )
                 }
             }
@@ -99,9 +98,6 @@ private fun Status(text: String, action: String? = null, onAction: () -> Unit = 
     }
 }
 
-/** Time for today, else the date. */
-private fun formatTime(millis: Long): String =
-    DateUtils.formatSameDayTime(millis, System.currentTimeMillis(), DateFormat.SHORT, DateFormat.SHORT).toString()
 
 /** ntfy in the phone's app store, or on F-Droid's site without one. */
 private fun Context.openNtfyListing() {

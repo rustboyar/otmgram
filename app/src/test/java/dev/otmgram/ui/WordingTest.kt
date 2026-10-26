@@ -7,12 +7,12 @@ import dev.otmgram.testing.NOON_2026_10_23
 import dev.otmgram.testing.TestStrings
 import dev.otmgram.testing.message
 import dev.otmgram.testing.text
-import dev.otmgram.ui.chat.formatDuration
-import dev.otmgram.ui.chat.lastSeen
 import dev.otmgram.ui.chat.sizeLine
+import dev.otmgram.ui.format.formatDuration
+import dev.otmgram.ui.format.formatSize
+import dev.otmgram.ui.format.lastSeen
 import dev.otmgram.ui.map.distanceMeters
 import dev.otmgram.ui.map.formatDistance
-import dev.otmgram.ui.media.formatSize
 import org.drinkless.tdlib.TdApi
 import org.junit.After
 import org.junit.Assert.assertEquals

@@ -1,10 +1,6 @@
 package dev.otmgram.ui.chat
 
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import dev.otmgram.ui.format.localDay
 
 /** Rows of the message list, newest first: messages and the dividers above them. */
 internal sealed interface ListRow {
@@ -34,16 +30,8 @@ internal fun buildRows(messages: List<MessageItem>, unread: UnreadMark?): List<L
         if (unread != null && older != null && message.id > unread.afterMessageId && older.id <= unread.afterMessageId) {
             add(ListRow.Unread(unread.count))
         }
-        if (older == null || day(older.date) != day(message.date)) add(ListRow.Day(message.date, "day-${message.id}"))
+        if (older == null || localDay(older.date) != localDay(message.date)) add(ListRow.Day(message.date, "day-${message.id}"))
     }
 }
 
-internal fun day(unixTime: Int, zone: ZoneId = ZoneId.systemDefault()): LocalDate =
-    Instant.ofEpochSecond(unixTime.toLong()).atZone(zone).toLocalDate()
 
-/** "Thursday, 23 October"; with the year when it isn't this one. */
-internal fun dayLabel(unixTime: Int, today: LocalDate = LocalDate.now(), zone: ZoneId = ZoneId.systemDefault(), locale: Locale = Locale.getDefault()): String {
-    val date = day(unixTime, zone)
-    val pattern = if (date.year == today.year) "EEEE, d MMMM" else "d MMMM yyyy"
-    return date.format(DateTimeFormatter.ofPattern(pattern, locale))
-}

@@ -6,11 +6,6 @@ import dev.otmgram.data.ChatHistory
 import dev.otmgram.data.isService
 import dev.otmgram.data.summary
 import org.drinkless.tdlib.TdApi
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 
 /** Text messages, and media that can carry a caption. */
 internal val MessageItem.hasEditableText: Boolean
@@ -82,21 +77,3 @@ internal fun TdApi.Message.senderKey(): Long = when (val sender = senderId) {
     else -> 0
 }
 
-/** "online", "last seen at 19:01", "last seen recently". */
-internal fun lastSeen(
-    status: TdApi.UserStatus?,
-    strings: Strings,
-    today: LocalDate = LocalDate.now(),
-    zone: ZoneId = ZoneId.systemDefault(),
-): String? = when (status) {
-    is TdApi.UserStatusOnline -> strings.get(R.string.status_online)
-    is TdApi.UserStatusOffline -> {
-        val time = Instant.ofEpochSecond(status.wasOnline.toLong()).atZone(zone)
-        if (time.toLocalDate() == today) strings.get(R.string.status_last_seen_at, time.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)))
-        else strings.get(R.string.status_last_seen_on, time.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)))
-    }
-    is TdApi.UserStatusRecently -> strings.get(R.string.status_recently)
-    is TdApi.UserStatusLastWeek -> strings.get(R.string.status_week)
-    is TdApi.UserStatusLastMonth -> strings.get(R.string.status_month)
-    else -> null
-}

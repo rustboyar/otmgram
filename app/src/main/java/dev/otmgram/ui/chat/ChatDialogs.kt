@@ -72,7 +72,9 @@ import dev.otmgram.core.Strings
 import dev.otmgram.core.location.LiveLocationSharing
 import dev.otmgram.core.location.MapSnapshots
 import dev.otmgram.data.SizeEstimate
-import dev.otmgram.ui.media.formatSize
+import dev.otmgram.ui.format.dayLabel
+import dev.otmgram.ui.format.formatSize
+import dev.otmgram.ui.format.formatTime
 import dev.otmgram.ui.rememberStrings
 import dev.otmgram.ui.theme.ChatAvatar
 import dev.otmgram.ui.theme.Chip

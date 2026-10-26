@@ -3,6 +3,8 @@
 package dev.otmgram.ui.chat
 
 import dev.otmgram.core.log.AppLog
+import dev.otmgram.ui.format.formatDuration
+import dev.otmgram.ui.format.formatSize
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import dev.otmgram.core.launchLogged
@@ -79,7 +81,6 @@ import dev.otmgram.ui.media.LocalFileRepository
 import dev.otmgram.ui.media.LoopingVideo
 import dev.otmgram.ui.media.OnDemandFile
 import dev.otmgram.ui.media.TdImage
-import dev.otmgram.ui.media.formatSize
 import dev.otmgram.ui.media.openFile
 import dev.otmgram.ui.media.rememberDownloadedPath
 import dev.otmgram.ui.media.rememberFileState
@@ -90,7 +91,6 @@ import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.zip.GZIPInputStream
@@ -644,7 +644,6 @@ private fun aspect(width: Int, height: Int): Float =
 private fun resample(levels: List<Int>, count: Int): List<Int> =
     List(count) { i -> levels[i * levels.size / count] }
 
-fun formatDuration(seconds: Int): String = "%d:%02d".format(seconds / 60, seconds % 60)
 
 private val MEDIA_WIDTH = 260.dp
 private const val MAP_WIDTH_DP = 260

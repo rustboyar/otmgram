@@ -40,6 +40,7 @@ import dev.otmgram.data.isService
 import dev.otmgram.data.summary
 import dev.otmgram.di.ApplicationScope
 import dev.otmgram.di.onMain
+import dev.otmgram.ui.format.lastSeen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
