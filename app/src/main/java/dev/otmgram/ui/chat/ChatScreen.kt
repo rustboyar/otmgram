@@ -94,7 +94,7 @@ fun ChatScreen(
     val header by viewModel.header.collectAsStateWithLifecycle()
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val recording by viewModel.recording.collectAsStateWithLifecycle()
-    val liveShare by viewModel.liveShare.collectAsStateWithLifecycle()
+    val liveShare by viewModel.location.live.collectAsStateWithLifecycle()
     var attaching by rememberSaveable { mutableStateOf(false) }
     var choosingLocation by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
@@ -202,7 +202,7 @@ fun ChatScreen(
         }
     }
     val requestLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-        if (result.values.any { it }) viewModel.sendCurrentLocation() else refused(R.string.permission_location)
+        if (result.values.any { it }) viewModel.location.sendCurrent() else refused(R.string.permission_location)
     }
     var pendingLivePeriod by rememberSaveable { mutableStateOf<Int?>(null) }
     val requestLiveLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -212,7 +212,7 @@ fun ChatScreen(
         @SuppressLint("InlinedApi")
         val notifications = Manifest.permission.POST_NOTIFICATIONS
         val located = result.filterKeys { it != notifications }.values.any { it } || hasLocationPermission(context)
-        if (period != null && located) viewModel.startLiveLocation(period)
+        if (period != null && located) viewModel.location.startLive(period)
         if (!located) refused(R.string.permission_location)
         pendingLivePeriod = null
     }
@@ -247,8 +247,8 @@ fun ChatScreen(
             if (pinned.messages.isNotEmpty() && !selecting && !searching) {
                 PinnedBar(pinned.messages, pinned.shown, onClick = pinned::showNext, onList = pinned::openList)
             }
-            liveShare?.takeIf { it.chatId == viewModel.chatId }?.let { share ->
-                LiveShareBanner(share, onStop = viewModel::stopLiveLocation)
+            liveShare?.let { share ->
+                LiveShareBanner(share, onStop = viewModel.location::stopLive)
             }
             if (viewModel.outgoing.preparing) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).testTag("preparing"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -332,8 +332,7 @@ fun ChatScreen(
                 }
             }
             // Under the list rather than in it, which would move the rows' indexes.
-            val liveLocating = liveShare?.let { it.chatId == viewModel.chatId && !it.located } == true
-            if (viewModel.locating || liveLocating) LocatingBubble(Modifier.padding(bottom = 10.dp))
+            if (viewModel.location.locating || liveShare?.located == false) LocatingBubble(Modifier.padding(bottom = 10.dp))
 
             val current = recording
             when {
@@ -407,14 +406,14 @@ fun ChatScreen(
         )
     }
     if (choosingLocation) {
-        LaunchedEffect(Unit) { if (hasLocationPermission(context)) viewModel.locateMe() }
+        LaunchedEffect(Unit) { if (hasLocationPermission(context)) viewModel.location.locate() }
         LocationSheet(
             chatTitle = title,
-            here = viewModel.myLocation,
+            here = viewModel.location.here,
             onSendCurrent = {
                 choosingLocation = false
                 if (hasLocationPermission(context)) {
-                    viewModel.sendCurrentLocation()
+                    viewModel.location.sendCurrent()
                 } else {
                     requestLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
                 }
@@ -433,7 +432,7 @@ fun ChatScreen(
                     }
                 }
                 if (needed.isEmpty()) {
-                    viewModel.startLiveLocation(period)
+                    viewModel.location.startLive(period)
                 } else {
                     pendingLivePeriod = period
                     requestLiveLocation.launch(needed.toTypedArray())

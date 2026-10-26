@@ -14,7 +14,6 @@ import dev.otmgram.R
 import dev.otmgram.core.Strings
 import dev.otmgram.core.launchLogged
 import dev.otmgram.core.location.LiveLocationSharing
-import dev.otmgram.core.location.LiveShare
 import dev.otmgram.core.location.LocationSource
 import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.media.AudioPlayer
@@ -98,9 +97,6 @@ class ChatViewModel @Inject constructor(
     /** Whether the messages shown reach the newest; not after jumping to an older one. */
     val atNewest: StateFlow<Boolean> = session.history.map { it.reachedEnd }.distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
-
-    /** Live location being shared from this device, in any chat. */
-    val liveShare: StateFlow<LiveShare?> = liveLocation.share
 
     /** Voice message being recorded, or null. */
     val recording: StateFlow<RecorderState?> = voiceRecorder.state
@@ -220,16 +216,6 @@ class ChatViewModel @Inject constructor(
     }
 
     init {
-        viewModelScope.launch {
-            liveLocation.failures.collect { failure ->
-                if (failure.chatId != chatId) return@collect
-                notice = if (failure.locationOff) {
-                    strings.get(R.string.notice_no_location)
-                } else {
-                    strings.get(R.string.notice_live_failed, failure.reason ?: strings.get(R.string.something_went_wrong))
-                }
-            }
-        }
         viewModelScope.launch {
             audioPlayer.failures.collect { fileId ->
                 val inThisChat = messages.value.any { (it.media as? MessageMedia.VoiceNote)?.fileId == fileId }
@@ -363,45 +349,22 @@ class ChatViewModel @Inject constructor(
         if (voiceRecorder.state.value != null) voiceRecorder.cancel()
     }
 
-    /** True while waiting for a position to send; the chat shows where the message will be. */
-    var locating by mutableStateOf(false)
-        private set
-
-    /** Sends the current position; the location permission must be granted. */
+    /** Sending where you are; the screen asks for the location permission first. */
     @SuppressLint("MissingPermission")
-    fun sendCurrentLocation() {
-        action {
-            locating = true
-            val location = try {
-                locationSource.current()
-            } finally {
-                locating = false
-            }
-            if (location == null) {
-                notice = strings.get(R.string.notice_no_location)
-            } else {
-                session.sendLocation(location.latitude, location.longitude, location.accuracy.toDouble())
-            }
-        }
-    }
-
-    /** Where you are, for the map in the location sheet; null until known. */
-    var myLocation by mutableStateOf<android.location.Location?>(null)
-        private set
-
-    /** Shows the last known position at once, then a fresh one; the location permission must be granted. */
-    @SuppressLint("MissingPermission")
-    fun locateMe() {
-        myLocation = locationSource.lastKnown()
-        viewModelScope.launchLogged(TAG) { locationSource.current()?.let { myLocation = it } }
-    }
-
-    /** Shares live location here; the location permission must be granted. */
-    fun startLiveLocation(periodSeconds: Int) {
-        liveLocation.start(chatId, header.value?.title.orEmpty(), periodSeconds)
-    }
-
-    fun stopLiveLocation() = liveLocation.stop()
+    val location = ChatLocation(
+        viewModelScope,
+        chatId,
+        current = locationSource::current,
+        lastKnown = locationSource::lastKnown,
+        send = { session.sendLocation(it.latitude, it.longitude, it.accuracy.toDouble()) },
+        liveShare = liveLocation.share,
+        liveFailures = liveLocation.failures,
+        startSharing = { period -> liveLocation.start(chatId, header.value?.title.orEmpty(), period) },
+        stopSharing = liveLocation::stop,
+        strings = strings,
+        notify = { notice = it },
+        onError = ::showError,
+    )
 
     /** Scrolls to [messageId], loading older history as needed. */
     private fun show(messageId: Long) {

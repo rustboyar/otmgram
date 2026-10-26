@@ -101,10 +101,10 @@ class LiveLocationSharing @Inject constructor(
     }
 
     companion object {
-        /** Durations offered for sharing, in seconds. */
         private const val TAG = "LiveLocation"
         private const val LEFTOVER_WAIT_MS = 10_000L
 
+        /** Durations offered for sharing, in seconds. */
         val PERIODS = listOf(15 * 60 to R.string.live_15_minutes, 60 * 60 to R.string.live_1_hour, 8 * 60 * 60 to R.string.live_8_hours)
     }
 }
