@@ -36,5 +36,8 @@
     <string name="chat_unpin">Unpin</string>
     <string name="chat_pinned">Pinned</string>
     <string name="chat_pin_failed">Couldn\'t change the pinned chats</string>
+    <string name="chat_mute">Mute</string>
+    <string name="chat_unmute">Unmute</string>
+    <string name="chat_mute_failed">Couldn\'t change the chat\'s notifications</string>
     <string name="ok">OK</string>
 </resources>

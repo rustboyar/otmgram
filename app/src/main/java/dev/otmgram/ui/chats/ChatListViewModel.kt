@@ -1,5 +1,6 @@
 package dev.otmgram.ui.chats
 
+import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -115,21 +116,30 @@ class ChatListViewModel @Inject constructor(
         _query.value = query
     }
 
-    /** Why pinning or unpinning failed, e.g. too many pinned; null if it didn't. */
-    var pinError by mutableStateOf<String?>(null)
+    /** Why pinning or muting a chat failed, e.g. too many pinned; null if it didn't. */
+    var actionError by mutableStateOf<ChatActionError?>(null)
         private set
 
     fun setPinned(chat: ChatItem, pinned: Boolean) {
-        viewModelScope.launchLogged(TAG, onError = { pinError = it.userMessage(strings) }) {
+        viewModelScope.launchLogged(TAG, onError = { actionError = ChatActionError(R.string.chat_pin_failed, it.userMessage(strings)) }) {
             val folderId = folders.selectedFolderId.first() ?: return@launchLogged
             chatRepository.setPinned(folderId, chat.id, pinned)
         }
     }
 
-    fun pinErrorShown() {
-        pinError = null
+    fun setMuted(chat: ChatItem, muted: Boolean) {
+        viewModelScope.launchLogged(TAG, onError = { actionError = ChatActionError(R.string.chat_mute_failed, it.userMessage(strings)) }) {
+            chatRepository.setMuted(chat.id, muted)
+        }
+    }
+
+    fun actionErrorShown() {
+        actionError = null
     }
 }
+
+/** A chat action that failed: what, and why. */
+data class ChatActionError(@StringRes val title: Int, val message: String)
 
 private const val TAG = "ChatList"
 private const val CONNECTION_SHOWN_AFTER_MS = 2_000L

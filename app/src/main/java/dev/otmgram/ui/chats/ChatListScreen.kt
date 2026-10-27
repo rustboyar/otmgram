@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -104,16 +105,24 @@ fun ChatListScreen(
     var actionsFor by remember { mutableStateOf<ChatItem?>(null) }
 
     actionsFor?.let { chat ->
-        ChatActions(chat, onPin = { pinned ->
-            actionsFor = null
-            viewModel.setPinned(chat, pinned)
-        }, onDismiss = { actionsFor = null })
+        ChatActions(
+            chat,
+            onPin = { pinned ->
+                actionsFor = null
+                viewModel.setPinned(chat, pinned)
+            },
+            onMute = { muted ->
+                actionsFor = null
+                viewModel.setMuted(chat, muted)
+            },
+            onDismiss = { actionsFor = null },
+        )
     }
-    viewModel.pinError?.let { error ->
+    viewModel.actionError?.let { error ->
         OtmDialog(
-            title = stringResource(R.string.chat_pin_failed),
-            text = error,
-            onDismiss = viewModel::pinErrorShown,
+            title = stringResource(error.title),
+            text = error.message,
+            onDismiss = viewModel::actionErrorShown,
             confirm = {},
             dismissLabel = stringResource(R.string.ok),
         )
@@ -318,9 +327,9 @@ private fun ChatRow(chat: ChatItem, highlight: String, onClick: () -> Unit, onLo
     }
 }
 
-/** A long press on a chat: pin it to the top of the folder, or unpin it. */
+/** A long press on a chat: pin it to the top of the folder or unpin it; mute or unmute it. */
 @Composable
-private fun ChatActions(chat: ChatItem, onPin: (Boolean) -> Unit, onDismiss: () -> Unit) {
+private fun ChatActions(chat: ChatItem, onPin: (Boolean) -> Unit, onMute: (Boolean) -> Unit, onDismiss: () -> Unit) {
     OtmSheet(onDismiss) {
         Text(
             chat.title,
@@ -330,19 +339,36 @@ private fun ChatActions(chat: ChatItem, onPin: (Boolean) -> Unit, onDismiss: () 
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp),
         )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .clickable(role = Role.Button) { onPin(!chat.isPinned) }
-                .testTag(if (chat.isPinned) "unpinChat" else "pinChat")
-                .padding(horizontal = 12.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Icon(if (chat.isPinned) OtmIcons.Unpin else OtmIcons.Pushpin, null, tint = Otm.Ink, modifier = Modifier.size(22.dp))
-            Text(stringResource(if (chat.isPinned) R.string.chat_unpin else R.string.chat_pin), style = OtmType.Body, color = Otm.Ink)
+        ChatAction(
+            if (chat.isPinned) OtmIcons.Unpin else OtmIcons.Pushpin,
+            stringResource(if (chat.isPinned) R.string.chat_unpin else R.string.chat_pin),
+            if (chat.isPinned) "unpinChat" else "pinChat",
+        ) { onPin(!chat.isPinned) }
+        // Saved Messages never notifies.
+        if (!chat.isSavedMessages) {
+            ChatAction(
+                if (chat.isMuted) OtmIcons.Unmuted else OtmIcons.Muted,
+                stringResource(if (chat.isMuted) R.string.chat_unmute else R.string.chat_mute),
+                if (chat.isMuted) "unmuteChat" else "muteChat",
+            ) { onMute(!chat.isMuted) }
         }
+    }
+}
+
+@Composable
+private fun ChatAction(icon: ImageVector, label: String, tag: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(role = Role.Button, onClick = onClick)
+            .testTag(tag)
+            .padding(horizontal = 12.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Icon(icon, null, tint = Otm.Ink, modifier = Modifier.size(22.dp))
+        Text(label, style = OtmType.Body, color = Otm.Ink)
     }
 }

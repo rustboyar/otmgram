@@ -71,6 +71,22 @@ class ChatRepositoryTest {
     }
 
     @Test
+    fun `muting is for good, and unmuting overrides a muted default`() = runTest {
+        td.on<TdApi.SetChatNotificationSettings> { TdApi.Ok() }
+        ChatRepository(td).setMuted(chatId = 10, muted = true)
+        val mute = td.sent<TdApi.SetChatNotificationSettings>().single()
+        assertEquals(10L, mute.chatId)
+        assertEquals(false, mute.notificationSettings.useDefaultMuteFor)
+        assertEquals(Int.MAX_VALUE, mute.notificationSettings.muteFor)
+
+        chats[10L] = chat(10, "Anna", muteFor = Int.MAX_VALUE)
+        ChatRepository(td).setMuted(chatId = 10, muted = false)
+        val unmute = td.sent<TdApi.SetChatNotificationSettings>().last()
+        assertEquals(false, unmute.notificationSettings.useDefaultMuteFor)
+        assertEquals(0, unmute.notificationSettings.muteFor)
+    }
+
+    @Test
     fun `channels and secret chats are left out`() = runTest {
         chats[40L] = chat(40, "news", type = TdApi.ChatTypeSupergroup(6, true))
         chats[50L] = chat(50, "secret", type = TdApi.ChatTypeSecret(1, 10))

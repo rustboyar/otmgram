@@ -56,6 +56,7 @@ object OtmIcons {
     val ChevronUp = stroke("ChevronUp", "M6 15l6-6 6 6")
     val ChevronDown = stroke("ChevronDown", "M6 9l6 6 6-6")
     val Muted = stroke("Muted", "M11 5L6 9H3v6h3l5 4z", "M22 9l-6 6M16 9l6 6", width = 2f)
+    val Unmuted = stroke("Unmuted", "M11 5L6 9H3v6h3l5 4z", "M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13", width = 2f)
     val Eye = stroke("Eye", "M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z", circle(12f, 12f, 3f))
     val EyeOff = stroke("EyeOff", "M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z", circle(12f, 12f, 3f), "M4 4l16 16")
     val Clock = stroke("Clock", circle(12f, 12f, 9f), "M12 7v5l3 2", width = 2f)

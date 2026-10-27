@@ -87,6 +87,15 @@ class ChatRepository @Inject constructor(
         td.send(TdApi.ToggleChatIsPinned(TdApi.ChatListFolder(folderId), chatId, pinned))
     }
 
+    /** Mutes the chat for good, or unmutes it, whatever the default for its kind; as in Telegram, for all your apps. */
+    suspend fun setMuted(chatId: Long, muted: Boolean) {
+        val settings = td.send(TdApi.GetChat(chatId)).notificationSettings.apply {
+            useDefaultMuteFor = false
+            muteFor = if (muted) MUTE_FOREVER else 0
+        }
+        td.send(TdApi.SetChatNotificationSettings(chatId, settings))
+    }
+
     /** What an update means for a folder list. */
     private sealed interface Change {
         data class Chat(val id: Long) : Change
@@ -178,6 +187,9 @@ class ChatRepository @Inject constructor(
 
     private companion object {
         const val TAG = "ChatRepository"
+
+        /** Longer than a year counts as for good, as Telegram's apps send it. */
+        const val MUTE_FOREVER = Int.MAX_VALUE
         const val RELOAD_DELAY_MS = 200L
         const val RETRY_FIRST_MS = 1_000L
         const val RETRY_MAX_MS = 30_000L
