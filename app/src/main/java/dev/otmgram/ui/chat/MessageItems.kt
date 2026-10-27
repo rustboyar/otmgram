@@ -3,6 +3,7 @@ package dev.otmgram.ui.chat
 import dev.otmgram.R
 import dev.otmgram.core.Strings
 import dev.otmgram.data.ChatHistory
+import dev.otmgram.data.eventNote
 import dev.otmgram.data.isService
 import dev.otmgram.data.summary
 import dev.otmgram.ui.format.localDay
@@ -45,7 +46,11 @@ internal fun ChatHistory.toItems(isGroup: Boolean, strings: Strings): List<Messa
                     else -> ReplyPreview(null, strings.get(R.string.reply_deleted))
                 }
             },
-            text = if (media != null) message.content.caption() else message.summary(strings),
+            text = when {
+                message.isService -> message.eventNote(strings) { senderNames[it] }
+                media != null -> message.content.caption()
+                else -> message.summary(strings)
+            },
             media = media,
             isMediaPlaceholder = media == null && message.content !is TdApi.MessageText && !message.isService,
             // Only where the text is the message's own; a summary has no formatting.

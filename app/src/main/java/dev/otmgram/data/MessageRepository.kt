@@ -403,6 +403,11 @@ class ChatSession internal constructor(
                 is TdApi.MessageSenderUser -> resolveUserName(sender.userId)
                 is TdApi.MessageSenderChat -> resolveChatName(sender.chatId)
             }
+            // Who an event is about: "Anna added Lea".
+            when (val content = message.content) {
+                is TdApi.MessageChatAddMembers -> content.memberUserIds.forEach { resolveUserName(it) }
+                is TdApi.MessageChatDeleteMember -> resolveUserName(content.userId)
+            }
             when (val origin = message.forwardInfo?.origin) {
                 is TdApi.MessageOriginUser -> resolveUserName(origin.senderUserId)
                 is TdApi.MessageOriginChat -> resolveChatName(origin.senderChatId)

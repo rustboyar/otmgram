@@ -21,6 +21,20 @@
     <string name="summary_pinned">Pinned a message</string>
     <string name="summary_joined_telegram">Joined Telegram</string>
     <string name="summary_message">Message</string>
+
+    <!-- Events in a chat, with who: "Anna added Lea and Tom" -->
+    <string name="event_you">You</string>
+    <string name="event_created">%1$s created the group</string>
+    <string name="event_joined">%1$s joined the group</string>
+    <string name="event_joined_by_link">%1$s joined the group via invite link</string>
+    <string name="event_added">%1$s added %2$s</string>
+    <string name="event_left">%1$s left the group</string>
+    <string name="event_removed">%1$s removed %2$s</string>
+    <string name="event_renamed">%1$s renamed the group to \"%2$s\"</string>
+    <string name="event_photo">%1$s changed the group photo</string>
+    <string name="event_pinned">%1$s pinned a message</string>
+    <string name="event_joined_telegram">%1$s joined Telegram</string>
+    <string name="names_and">%1$s and %2$s</string>
     <string name="summary_with_caption">%1$s, %2$s</string>
 
     <!-- Previews -->

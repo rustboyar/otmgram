@@ -62,6 +62,31 @@ class MessageItemsTest {
     }
 
     @Test
+    fun `group events say who did what to whom, once the names are known`() {
+        fun event(id: Long, content: TdApi.MessageContent, from: Long = 2, outgoing: Boolean = false) = message(id, content, from = from, outgoing = outgoing)
+        val items = history(
+            event(6, TdApi.MessageChatAddMembers(longArrayOf(3, 4, 5))),
+            event(5, TdApi.MessageChatAddMembers(longArrayOf(2))),
+            event(4, TdApi.MessageChatDeleteMember(3)),
+            event(3, TdApi.MessageChatDeleteMember(2)),
+            event(2, TdApi.MessageChatJoinByLink(), from = 1, outgoing = true),
+            event(1, TdApi.MessageChatAddMembers(longArrayOf(99))),
+            names = mapOf(2L to "Anna", 3L to "Lea", 4L to "Tom", 5L to "Max"),
+        ).toItems(isGroup = true, TestStrings)
+        assertEquals(
+            listOf(
+                "Anna added Lea, Tom and Max",
+                "Anna joined the group",
+                "Anna removed Lea",
+                "Anna left the group",
+                "You joined the group via invite link",
+                "Joined the group", // Whom isn't known.
+            ),
+            items.map { it.text },
+        )
+    }
+
+    @Test
     fun `private chats show no sender names`() {
         val items = history(message(2, from = 2), message(1, from = 3)).toItems(isGroup = false, TestStrings)
         assertTrue(items.all { it.senderName == null && it.sender == null && !it.showAvatar })

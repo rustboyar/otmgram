@@ -46,6 +46,50 @@ fun TdApi.MessageContent.summary(strings: Strings): String {
     }
 }
 
+/**
+ * An event as the chat shows it, saying who: "Anna added Lea and Tom", "You left the group".
+ * [name] gives a user's or chat's name, null if not known (yet); then it's the [summary].
+ */
+fun TdApi.Message.eventNote(strings: Strings, name: (Long) -> String?): String {
+    val actor = when {
+        isOutgoing -> strings.get(R.string.event_you)
+        else -> senderId.id()?.let(name)
+    } ?: return summary(strings)
+    fun names(ids: List<Long>): String? {
+        val known = ids.map { name(it) ?: return null }
+        return if (known.size < 2) known.firstOrNull() else strings.get(R.string.names_and, known.dropLast(1).joinToString(", "), known.last())
+    }
+    return when (val content = content) {
+        is TdApi.MessageBasicGroupChatCreate, is TdApi.MessageSupergroupChatCreate -> strings.get(R.string.event_created, actor)
+        is TdApi.MessageChatAddMembers -> {
+            val added = content.memberUserIds.toList()
+            if (added == listOfNotNull(senderId.id())) {
+                strings.get(R.string.event_joined, actor)
+            } else {
+                names(added)?.let { strings.get(R.string.event_added, actor, it) } ?: summary(strings)
+            }
+        }
+        is TdApi.MessageChatJoinByLink -> strings.get(R.string.event_joined_by_link, actor)
+        is TdApi.MessageChatDeleteMember -> if (content.userId == senderId.id()) {
+            strings.get(R.string.event_left, actor)
+        } else {
+            names(listOf(content.userId))?.let { strings.get(R.string.event_removed, actor, it) } ?: summary(strings)
+        }
+        is TdApi.MessageChatChangeTitle -> strings.get(R.string.event_renamed, actor, content.title)
+        is TdApi.MessageChatChangePhoto -> strings.get(R.string.event_photo, actor)
+        is TdApi.MessagePinMessage -> strings.get(R.string.event_pinned, actor)
+        is TdApi.MessageContactRegistered -> strings.get(R.string.event_joined_telegram, actor)
+        else -> summary(strings)
+    }
+}
+
+/** The user or chat id of a sender. */
+private fun TdApi.MessageSender.id(): Long? = when (this) {
+    is TdApi.MessageSenderUser -> userId
+    is TdApi.MessageSenderChat -> chatId
+    else -> null
+}
+
 /** What a message from a push notification is, when TDLib knows only that much yet. */
 fun TdApi.PushMessageContent.summary(strings: Strings): String {
     fun kind(id: Int) = strings.get(id)

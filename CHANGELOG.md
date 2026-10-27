@@ -12,6 +12,7 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 
 ### Fixed
 - Replying in a group to someone's second or later message in a row said "Reply to" the group instead of them
+- Group events say who: "Anna added Lea and Tom", "Anna left the group", rather than only "Joined the group"
 
 ## 0.3.0 - 2026-10-27
 
