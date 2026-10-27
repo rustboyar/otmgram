@@ -3,13 +3,14 @@
 
     <!-- Chat list -->
     <string name="chats_empty">No chats in this folder yet.</string>
-    <string name="chats_no_match">Nothing like that here.</string>
-    <string name="chats_search_hint">Titles only. To find a message, search inside a chat.</string>
     <string name="muted">Muted</string>
     <plurals name="chat_count">
         <item quantity="one">%1$d chat</item>
         <item quantity="other">%1$d chats</item>
     </plurals>
+    <string name="search_messages">Find messages</string>
+    <string name="search_messages_label">Messages</string>
+    <string name="search_messages_none">No messages with that in this folder\'s chats.</string>
 
     <!-- Choosing the folder -->
     <string name="folder_choose_another">Choose another folder</string>

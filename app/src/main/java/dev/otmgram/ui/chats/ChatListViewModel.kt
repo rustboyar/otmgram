@@ -10,22 +10,29 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.otmgram.R
 import dev.otmgram.core.Strings
 import dev.otmgram.core.launchLogged
+import dev.otmgram.core.log.AppLog
+import dev.otmgram.core.td.TdException
 import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.core.userMessage
 import dev.otmgram.data.AppSettings
 import dev.otmgram.data.ChatRepository
 import dev.otmgram.data.FolderChat
 import dev.otmgram.data.FolderRepository
+import dev.otmgram.data.MessageRepository
 import dev.otmgram.data.NotificationMode
+import dev.otmgram.data.senderName
 import dev.otmgram.data.summary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -33,6 +40,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
 
@@ -60,7 +68,8 @@ data class ChatItem(
 class ChatListViewModel @Inject constructor(
     private val folders: FolderRepository,
     private val chatRepository: ChatRepository,
-    td: TelegramClient,
+    private val td: TelegramClient,
+    private val messageRepository: MessageRepository,
     private val settings: AppSettings,
     private val strings: Strings,
 ) : ViewModel() {
@@ -74,16 +83,92 @@ class ChatListViewModel @Inject constructor(
     val query: StateFlow<String> = _query.asStateFlow()
 
     /**
-     * Chats of the folder matching [query], or null while loading. Kept up to date while a
-     * chat is open too, so coming back shows the list at once instead of reloading it all
-     * during the animation.
+     * The folder's chats, or null while loading. Kept up to date while a chat is open too, so
+     * coming back shows the list at once instead of reloading it all during the animation.
      */
-    val chats: StateFlow<List<ChatItem>?> = combine(
-        folders.selectedFolderId.filterNotNull().flatMapLatest(chatRepository::folderChats),
-        _query,
-    ) { all, query ->
-        all.map { it.toItem(strings) }.filter { it.title.contains(query.trim(), ignoreCase = true) }
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val chats: StateFlow<List<ChatItem>?> = folders.selectedFolderId.filterNotNull().flatMapLatest(chatRepository::folderChats)
+        .map { all -> all.map { it.toItem(strings) } }
+        .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** Messages found for [query] in the folder's chats; null while there's no query. */
+    var found by mutableStateOf<FoundMessages?>(null)
+        private set
+
+    /** Where the next page of [found] starts, as TDLib gave it. */
+    private var nextOffset = ""
+    private var loadingMore: Job? = null
+
+    init {
+        // A moment after typing stops; a new query drops what the last one was loading.
+        viewModelScope.launch {
+            _query.map { it.trim() }.distinctUntilChanged().collectLatest { query ->
+                loadingMore?.cancel()
+                if (query.isEmpty()) {
+                    found = null
+                    return@collectLatest
+                }
+                delay(SEARCH_DELAY_MS)
+                nextOffset = ""
+                found = FoundMessages(query, emptyList(), loading = true, complete = false)
+                loadFound(query)
+            }
+        }
+    }
+
+    /** The next page of [found], once scrolled near its end. */
+    fun loadMoreFound() {
+        val shown = found ?: return
+        if (shown.loading || shown.complete || loadingMore?.isActive == true) return
+        loadingMore = viewModelScope.launch { loadFound(shown.query) }
+    }
+
+    /**
+     * Pages of results for [query] until a few are in the folder's chats: Telegram searches
+     * all of them, and TDLib can't search one folder.
+     */
+    private suspend fun loadFound(query: String) {
+        found = found?.copy(loading = true)
+        val folder = chats.filterNotNull().first().associateBy { it.id }
+        val more = mutableListOf<FoundMessage>()
+        var complete = false
+        try {
+            var pages = 0
+            while (more.size < FOUND_PER_LOAD && pages < SEARCH_PAGES_PER_LOAD) {
+                val page = messageRepository.searchEverywhere(query, nextOffset)
+                pages++
+                nextOffset = page.nextOffset
+                page.messages.forEach { message ->
+                    val chat = folder[message.chatId] ?: return@forEach
+                    more += FoundMessage(chat, message.id, foundText(message, chat), message.date)
+                }
+                if (nextOffset.isEmpty()) {
+                    complete = true
+                    break
+                }
+            }
+        } catch (e: TdException) {
+            AppLog.w(TAG, "Searching messages failed", e)
+            complete = true
+        }
+        val shown = found ?: return
+        if (shown.query == query) found = shown.copy(messages = shown.messages + more, loading = false, complete = complete)
+    }
+
+    /** "You: …", "Anna: …" in a group, or the message alone in a private chat. */
+    private suspend fun foundText(message: TdApi.Message, chat: ChatItem): String {
+        val text = message.summary(strings)
+        if (chat.isSavedMessages) return text
+        if (message.isOutgoing) return strings.get(R.string.preview_you, text)
+        val sender = message.senderId
+        val fromTheChat = sender is TdApi.MessageSenderUser && sender.userId == chat.id
+        if (fromTheChat) return text
+        val name = try {
+            td.senderName(sender, firstOnly = true)
+        } catch (e: TdException) {
+            null
+        }
+        return name?.let { strings.get(R.string.preview_sender, it, text) } ?: text
+    }
 
     /**
      * What the connection is doing while it isn't ready, or null when it is. Only after a
@@ -141,7 +226,19 @@ class ChatListViewModel @Inject constructor(
 /** A chat action that failed: what, and why. */
 data class ChatActionError(@StringRes val title: Int, val message: String)
 
+/** Messages found in the folder's chats for [query], newest first. */
+data class FoundMessages(val query: String, val messages: List<FoundMessage>, val loading: Boolean, val complete: Boolean)
+
+data class FoundMessage(val chat: ChatItem, val messageId: Long, val text: String, val date: Int)
+
 private const val TAG = "ChatList"
+private const val SEARCH_DELAY_MS = 300L
+
+/** At least this many found in the folder per load, if there are, */
+private const val FOUND_PER_LOAD = 20
+
+/** looking through at most this many pages of all chats' results for them. */
+private const val SEARCH_PAGES_PER_LOAD = 5
 private const val CONNECTION_SHOWN_AFTER_MS = 2_000L
 
 private fun FolderChat.toItem(strings: Strings) = ChatItem(

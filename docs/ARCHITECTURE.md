@@ -41,7 +41,7 @@ they are. For building and testing, see [DEVELOPMENT.md](DEVELOPMENT.md).
 - TDLib's login steps: phone number, code, two-step verification password. Registration, QR login and the other steps aren't supported: the screen says to use the official app
 - Logout: `logOut`, then TDLib's database, the chosen folder and the media cache go (see Security)
 - After login, the folder is picked from the account's folders and stored in DataStore; Settings → Folder → Change picks another
-- The chat list: `getChats(chatListFolder(id))`, reloaded shortly after any update that affects it. Search filters the folder's chats by title, on the phone
+- The chat list: `getChats(chatListFolder(id))`, reloaded shortly after any update that affects it. Search finds messages in the folder's chats (`searchMessages` over all chats, as TDLib can't search a folder; pages are kept for the folder's chats until 20 are found or 5 pages are looked through, then more on scrolling), newest first; a result opens its chat at the message (`ChatRoute.messageId`), marked for a moment
 - A long press pins a chat to the top of the folder or unpins it (`toggleChatIsPinned` on the folder's list, so Telegram's apps show it too); pinned chats without unread messages show a pushpin. It also mutes a chat for good or unmutes it (`setChatNotificationSettings`, overriding the default for its kind, so it applies in all the user's apps); not offered for Saved Messages
 
 ## Chats
@@ -134,6 +134,5 @@ they are. For building and testing, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Ideas, not built
 
-- Search across all the folder's chats at once
 - Forwarding from the media viewer, a "my location" button on the map
 - Streaming videos, seeking in voice messages

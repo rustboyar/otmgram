@@ -5,6 +5,9 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 
 ## Unreleased
 
+### Changed
+- Search on the chat list finds messages in all the folder's chats, rather than chats by name; a result opens its chat at the message
+
 ## 0.4.0 - 2026-10-27
 
 ### Added

@@ -28,6 +28,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,6 +39,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -82,10 +84,13 @@ import dev.otmgram.ui.theme.SectionLabel
 import dev.otmgram.ui.theme.SkyBand
 import dev.otmgram.ui.theme.TextAction
 import dev.otmgram.ui.theme.paper
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 @Composable
 fun ChatListScreen(
     onOpenChat: (Long) -> Unit,
+    /** A message found: its chat, opened at it. */
+    onOpenMessage: (chatId: Long, messageId: Long) -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ChatListViewModel = hiltViewModel(),
@@ -135,7 +140,7 @@ fun ChatListScreen(
             SkyBand(
                 folderName,
                 actions = {
-                    IconBtn(OtmIcons.Search, stringResource(R.string.find_chat), { searching = true }, tag = "search")
+                    IconBtn(OtmIcons.Search, stringResource(R.string.search_messages), { searching = true }, tag = "search")
                     IconBtn(OtmIcons.More, stringResource(R.string.settings), onOpenSettings, tag = "menu")
                 },
             )
@@ -161,42 +166,90 @@ fun ChatListScreen(
             shownFirstId.value = firstId
             if (listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0) listState.requestScrollToItem(0)
         }
+        val found = viewModel.found
         when {
+            searching && found != null -> FoundList(found, onOpen = onOpenMessage, onNearEnd = viewModel::loadMoreFound)
             list == null -> LoadingScreen()
-            list.isEmpty() -> Empty(if (searchText.isEmpty()) stringResource(R.string.chats_empty) else stringResource(R.string.chats_no_match))
+            list.isEmpty() -> Empty(stringResource(R.string.chats_empty))
             else -> LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize().testTag("chats"),
                 contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 16.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
             ) {
-                if (searching && searchText.isNotEmpty()) {
-                    item(key = "count") {
-                        SectionLabel(pluralStringResource(R.plurals.chat_count, list.size, list.size), Modifier.padding(start = 12.dp, top = 6.dp, bottom = 4.dp))
-                    }
-                }
                 items(list, key = { it.id }) { chat ->
                     // Slides to its new place when the order changes, rather than the rows
                     // swapping at once.
                     ChatRow(
                         chat,
-                        highlight = if (searching) searchText else "",
+                        highlight = "",
                         onClick = { onOpenChat(chat.id) },
                         onLongClick = { actionsFor = chat },
                         Modifier.animateItem(),
                     )
                 }
-                if (searching) {
-                    item(key = "hint") {
-                        Text(
-                            stringResource(R.string.chats_search_hint),
-                            style = OtmType.Secondary,
-                            color = Otm.InkSoft,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 40.dp, vertical = 28.dp),
-                        )
-                    }
+            }
+        }
+    }
+}
+
+/** Messages found in the folder's chats, newest first; more load near the end. */
+@Composable
+private fun FoundList(found: FoundMessages, onOpen: (chatId: Long, messageId: Long) -> Unit, onNearEnd: () -> Unit) {
+    val state = rememberLazyListState()
+    LaunchedEffect(state, found.query) {
+        snapshotFlow { (state.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) >= state.layoutInfo.totalItemsCount - 5 }
+            .distinctUntilChanged()
+            .collect { nearEnd -> if (nearEnd) onNearEnd() }
+    }
+    if (found.messages.isEmpty() && !found.loading) {
+        Empty(stringResource(R.string.search_messages_none))
+        return
+    }
+    LazyColumn(
+        state = state,
+        modifier = Modifier.fillMaxSize().testTag("found"),
+        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 16.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+    ) {
+        item(key = "label") { SectionLabel(stringResource(R.string.search_messages_label), Modifier.padding(start = 12.dp, top = 6.dp, bottom = 4.dp)) }
+        items(found.messages, key = { "${it.chat.id}/${it.messageId}" }) { message ->
+            FoundRow(message, found.query) { onOpen(message.chat.id, message.messageId) }
+        }
+        if (found.loading) {
+            item(key = "loading") {
+                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(Modifier.size(22.dp), color = Otm.Slate, strokeWidth = 2.dp)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun FoundRow(message: FoundMessage, query: String, onClick: () -> Unit) {
+    val chat = message.chat
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(role = Role.Button, onClick = onClick)
+            .testTag("found-${message.messageId}")
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        ChatAvatar(chat.id, chat.title, chat.photoFileId, chat.photoMinithumbnail, savedMessages = chat.isSavedMessages)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(chat.title, style = OtmType.Name, color = Otm.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(chatListDate(message.date), style = OtmType.Secondary, color = Otm.InkSoft, modifier = Modifier.padding(start = 8.dp))
+            }
+            Text(
+                highlightMatches(message.text, query, Otm.Mark),
+                style = OtmType.Preview,
+                color = Otm.InkBody,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -254,7 +307,7 @@ private fun RowScope.SearchField(query: String, onQueryChange: (String) -> Unit,
     OtmField(
         value = query,
         onValueChange = onQueryChange,
-        placeholder = stringResource(R.string.find_chat),
+        placeholder = stringResource(R.string.search_messages),
         textStyle = OtmType.Body.copy(fontSize = OtmType.Name.fontSize),
         shape = RoundedCornerShape(23.dp),
         height = 46.dp,

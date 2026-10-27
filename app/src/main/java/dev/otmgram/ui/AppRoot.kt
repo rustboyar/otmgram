@@ -105,6 +105,7 @@ private fun MainNavHost(openChatId: Long?, viewModel: RootViewModel = hiltViewMo
         composable<ChatsRoute> {
             ChatListScreen(
                 onOpenChat = { navController.navigate(ChatRoute(it)) },
+                onOpenMessage = { chatId, messageId -> navController.navigate(ChatRoute(chatId, messageId)) },
                 onOpenSettings = { navController.navigate(SettingsRoute) },
             )
         }

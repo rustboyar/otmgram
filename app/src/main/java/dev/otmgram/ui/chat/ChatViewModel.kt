@@ -88,7 +88,8 @@ class ChatViewModel @Inject constructor(
     /** For work that must finish even if the chat is left: sending, saving. */
     private val lasting = appScope.onMain()
 
-    val chatId: Long = savedState.toRoute<ChatRoute>().chatId
+    private val route = savedState.toRoute<ChatRoute>()
+    val chatId: Long = route.chatId
     private val session = messageRepository.openChat(chatId, viewModelScope)
 
     private val _header = MutableStateFlow<ChatHeader?>(null)
@@ -216,12 +217,19 @@ class ChatViewModel @Inject constructor(
                 )
                 composer.restore(chat.draftMessage) { id -> messages.value.find { it.id == id } }
                 if (chat.unreadCount > 0) unreadMark = UnreadMark(chat.lastReadInboxMessageId, chat.unreadCount)
-                // Where it was left, if that message is still there: loaded with the newest
-                // ones if it's close to them, else on its own, as after a jump.
-                val left = positions[chatId]?.takeIf { left ->
+                // A message to open at (found in a search): around it, marked for a moment.
+                val target = route.messageId.takeIf { it != 0L }?.takeIf { id ->
+                    session.loadUntil(id, maxPages = POSITION_MAX_PAGES) || session.jumpTo(id)
+                }
+                // Else where it was left, if that message is still there: loaded with the
+                // newest ones if it's close to them, else on its own, as after a jump.
+                val left = if (target != null) null else positions[chatId]?.takeIf { left ->
                     session.loadUntil(left.messageId, maxPages = POSITION_MAX_PAGES) || session.jumpTo(left.messageId)
                 }
-                if (left != null) {
+                if (target != null) {
+                    flashOnArrival = target
+                    scrollTarget = target
+                } else if (left != null) {
                     openPosition = left
                 } else if (chat.unreadCount > 0) {
                     // Open at the first unread message: opening at the newest would mark them all
@@ -231,7 +239,7 @@ class ChatViewModel @Inject constructor(
                 }
             } finally {
                 // Nothing to open at (or it failed): mark what's on screen as usual.
-                if (openAt == null && openPosition == null) positioned = true
+                if (openAt == null && openPosition == null && scrollTarget == null) positioned = true
             }
         }
     }
@@ -504,6 +512,8 @@ class ChatViewModel @Inject constructor(
     fun scrolled() {
         val target = scrollTarget
         scrollTarget = null
+        // Opened at a found message: shown now.
+        positioned = true
         if (target == null || target != flashOnArrival) return
         flashOnArrival = null
         viewModelScope.launch {

@@ -21,6 +21,8 @@ import java.util.TreeMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
+private const val SEARCH_PAGE = 50
+
 @Singleton
 class MessageRepository @Inject constructor(
     private val td: TelegramClient,
@@ -30,6 +32,13 @@ class MessageRepository @Inject constructor(
         val videoNote = TdApi.InputVideoNote(TdApi.InputFileLocal(file.path), null, duration, length)
         td.send(TdApi.SendMessage(chatId, null, null, null, null, TdApi.InputMessageVideoNote(videoNote, null)))
     }
+
+    /**
+     * A page of messages matching [query] in all chats, newest first; the first page with an
+     * empty [offset], the next with the one this returned.
+     */
+    suspend fun searchEverywhere(query: String, offset: String): TdApi.FoundMessages =
+        td.send(TdApi.SearchMessages(null, query, offset, SEARCH_PAGE, null, null, 0, 0))
 
     /** Opens [chatId] for as long as [scope] lives; see [ChatSession]. */
     fun openChat(chatId: Long, scope: CoroutineScope): ChatSession = ChatSession(td, chatId, scope)

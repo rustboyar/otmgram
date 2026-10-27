@@ -15,7 +15,11 @@ data object SettingsRoute
 data object FolderRoute
 
 @Serializable
-data class ChatRoute(val chatId: Long)
+data class ChatRoute(
+    val chatId: Long,
+    /** A message to open the chat at, e.g. one found; 0 for none. */
+    val messageId: Long = 0,
+)
 
 @Serializable
 data class MediaRoute(val chatId: Long, val messageId: Long)

@@ -9,7 +9,7 @@ Telegram.
 
 ## What it does
 
-- Chats and groups from the folder you pick, with search; pin chats in the folder, mute and unmute them
+- Chats and groups from the folder you pick, with search through all their messages; pin chats in the folder, mute and unmute them
 - Text, replies, forwards (within the folder), edits, deletions, reactions, pinned messages, find in chat
 - Photos, videos, GIFs, voice messages, round videos, stickers and files, to view and to send; photos and videos go in SD, HD or as they are
 - YouTube, Instagram and TikTok links play inside the app
