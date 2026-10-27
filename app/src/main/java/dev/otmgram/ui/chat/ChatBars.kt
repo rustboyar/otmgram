@@ -151,6 +151,8 @@ internal fun InputBar(
     stickersOpen: Boolean,
     onCancel: () -> Unit,
     onSend: () -> Unit,
+    /** A long press on send: pick when. */
+    onSendLater: () -> Unit,
     onStickers: () -> Unit,
     onAttach: () -> Unit,
     onRecordVideoNote: () -> Unit,
@@ -218,6 +220,8 @@ internal fun InputBar(
                     background = if (canSend) Otm.Slate else Otm.RidgeLight,
                     enabled = canSend,
                     tag = "send",
+                    onLongClick = onSendLater.takeIf { composer !is Composer.Edit },
+                    longClickLabel = stringResource(R.string.send_later),
                 )
             }
         }

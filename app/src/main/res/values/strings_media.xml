@@ -11,6 +11,7 @@
     <string name="viewer_save_failed">Couldn\'t save: %1$s</string>
     <string name="day_today">Today</string>
     <string name="day_yesterday">Yesterday</string>
+    <string name="day_tomorrow">Tomorrow</string>
     <string name="day_and_time">%1$s, %2$s</string>
     <string name="viewer_position">%1$s · %2$d of %3$d</string>
     <string name="viewer_downloading">Downloading %1$d%%</string>

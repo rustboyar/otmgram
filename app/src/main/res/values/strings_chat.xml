@@ -34,6 +34,23 @@
     <!-- Message menu, dialogs and send previews -->
     <string name="action_reply">Reply</string>
     <string name="action_edit">Edit</string>
+
+    <!-- Scheduled messages -->
+    <string name="send_later">Send later</string>
+    <string name="send_later_in_hour">In an hour</string>
+    <string name="send_later_evening">This evening</string>
+    <string name="send_later_tomorrow">Tomorrow morning</string>
+    <string name="send_later_pick">Pick a date and time</string>
+    <string name="send_later_time">Time</string>
+    <string name="scheduled_change_time">Change time</string>
+    <string name="scheduled_title">Scheduled messages</string>
+    <string name="scheduled_send_now">Send now</string>
+    <string name="scheduled_for">Scheduled for %1$s</string>
+    <string name="scheduled_in_past">Pick a time later than now</string>
+    <plurals name="scheduled_count">
+        <item quantity="one">%1$d scheduled message</item>
+        <item quantity="other">%1$d scheduled messages</item>
+    </plurals>
     <string name="action_copy">Copy text</string>
     <string name="action_forward">Forward</string>
     <string name="action_save">Save to Downloads</string>

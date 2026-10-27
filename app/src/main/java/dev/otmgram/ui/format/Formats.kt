@@ -62,6 +62,16 @@ fun postedAt(unixTime: Int, strings: Strings, today: LocalDate = LocalDate.now()
     return strings.get(R.string.day_and_time, day, formatTime(unixTime, zone))
 }
 
+/** When a scheduled message goes: "Today, 20:00", "Tomorrow, 09:00", "Friday, 30 October, 09:00". */
+fun sendsAt(unixTime: Int, strings: Strings, today: LocalDate = LocalDate.now(), zone: ZoneId = ZoneId.systemDefault()): String {
+    val day = when (localDay(unixTime, zone)) {
+        today -> strings.get(R.string.day_today)
+        today.plusDays(1) -> strings.get(R.string.day_tomorrow)
+        else -> dayLabel(unixTime, today, zone)
+    }
+    return strings.get(R.string.day_and_time, day, formatTime(unixTime, zone))
+}
+
 /** "online", "last seen at 19:01", "last seen recently". */
 fun lastSeen(
     status: TdApi.UserStatus?,

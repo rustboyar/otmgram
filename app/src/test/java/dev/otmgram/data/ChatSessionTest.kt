@@ -9,6 +9,7 @@ import dev.otmgram.testing.messages
 import dev.otmgram.testing.user
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.drinkless.tdlib.TdApi
@@ -26,11 +27,19 @@ class ChatSessionTest {
     /** The chat's history, newest first, as TDLib would page it. */
     private var history = listOf(message(30), message(20, outgoing = true, from = 1), message(10))
 
+    /** Messages scheduled in the chat, as TDLib lists them. */
+    private var scheduled = emptyList<TdApi.Message>()
+
+    private fun scheduledAt(id: Long, sendAt: Int) = message(id, outgoing = true, from = 1).apply {
+        schedulingState = TdApi.MessageSchedulingStateSendAtDate(sendAt, 0)
+    }
+
     @Before
     fun setUp() {
         td.on<TdApi.OpenChat> { TdApi.Ok() }
         td.on<TdApi.GetChat> { chat(CHAT_ID, "band", lastMessage = null).apply { lastReadOutboxMessageId = 20 } }
         td.on<TdApi.GetUser> { user(it.userId, "User${it.userId}") }
+        td.on<TdApi.GetChatScheduledMessages> { messages(*scheduled.toTypedArray()) }
         // As TDLib: from a message on (inclusive), a negative offset reaching into newer ones.
         td.on<TdApi.GetChatHistory> { request ->
             val at = if (request.fromMessageId == 0L) 0 else history.indexOfFirst { it.id <= request.fromMessageId }.let { if (it < 0) history.size else it }
@@ -51,6 +60,35 @@ class ChatSessionTest {
         assertTrue(session.history.value.reachedStart)
         assertEquals("User2", session.history.value.senderNames[2L])
         assertEquals(1, td.sent<TdApi.OpenChat>().size)
+    }
+
+    @Test
+    fun `scheduled messages are listed apart, the soonest first, never in the history`() = runTest {
+        scheduled = listOf(scheduledAt(901, sendAt = 2000), scheduledAt(902, sendAt = 1000))
+        val session = open()
+        assertEquals(listOf(902L, 901L), session.scheduled.value.map { it.id })
+
+        // One more scheduled from another device: not in the history, the list asked for again.
+        scheduled = scheduled + scheduledAt(903, sendAt = 1500)
+        td.emit(TdApi.UpdateNewMessage(scheduled.last()))
+        advanceTimeBy(1_000)
+        runCurrent()
+        assertEquals(listOf(30L, 20L, 10L), session.ids)
+        assertEquals(listOf(902L, 903L, 901L), session.scheduled.value.map { it.id })
+    }
+
+    @Test
+    fun `scheduling sends at the time, and a scheduled message can go now or later`() = runTest {
+        td.on<TdApi.SendMessage> { message(1) }
+        td.on<TdApi.EditMessageSchedulingState> { TdApi.Ok() }
+        val session = open()
+        session.sendText("later", sendAt = 1234)
+        assertEquals(1234, (td.sent<TdApi.SendMessage>().single().options.schedulingState as TdApi.MessageSchedulingStateSendAtDate).sendDate)
+        session.reschedule(901, sendAt = 2000)
+        session.sendScheduledNow(901)
+        val (later, now) = td.sent<TdApi.EditMessageSchedulingState>()
+        assertEquals(2000, (later.schedulingState as TdApi.MessageSchedulingStateSendAtDate).sendDate)
+        assertEquals(null, now.schedulingState)
     }
 
     @Test

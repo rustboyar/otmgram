@@ -10,6 +10,7 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 - In groups, each sender's picture shows beside their messages
 - A round video grows while it plays with sound
 - Switch between the front and back camera while recording a round video
+- Scheduled messages: long-press send to send later (in an hour, this evening, tomorrow morning or a date and time you pick); a bar above the input lists them, to send now, change the time, edit or delete
 - Mute and unmute a chat with a long press, below Pin; as in Telegram, it applies to all your apps
 
 ### Fixed

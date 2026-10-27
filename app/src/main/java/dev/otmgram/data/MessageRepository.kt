@@ -8,6 +8,7 @@ import dev.otmgram.core.td.updates
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -86,6 +87,11 @@ class ChatSession internal constructor(
     private val _history = MutableStateFlow(ChatHistory())
     val history: StateFlow<ChatHistory> = _history.asStateFlow()
 
+    private val _scheduled = MutableStateFlow<List<TdApi.Message>>(emptyList())
+
+    /** Messages waiting to be sent at a set time, the soonest first; never in [history]. */
+    val scheduled: StateFlow<List<TdApi.Message>> = _scheduled.asStateFlow()
+
     init {
         // Subscribe before loading, so no update is missed in between.
         scope.launch(start = CoroutineStart.UNDISPATCHED) {
@@ -95,6 +101,7 @@ class ChatSession internal constructor(
             td.send(TdApi.OpenChat(chatId))
             lastReadOutboxMessageId = td.send(TdApi.GetChat(chatId)).lastReadOutboxMessageId
             loadOlder()
+            loadScheduled()
         }
         scope.coroutineContext[Job]?.invokeOnCompletion {
             td.sendIgnoringResult(TdApi.CloseChat(chatId))
@@ -200,8 +207,9 @@ class ChatSession internal constructor(
         }
     }
 
-    suspend fun sendText(text: String, replyToMessageId: Long? = null) {
-        send(textContent(text), replyToMessageId)
+    /** Sends [text] now, or at [sendAt] (Unix time) as a scheduled message. */
+    suspend fun sendText(text: String, replyToMessageId: Long? = null, sendAt: Int? = null) {
+        send(textContent(text), replyToMessageId, sendAt)
     }
 
     suspend fun sendSticker(sticker: Sticker) {
@@ -234,9 +242,38 @@ class ChatSession internal constructor(
         }
     }
 
-    private suspend fun send(content: TdApi.InputMessageContent, replyToMessageId: Long? = null) {
+    private suspend fun send(content: TdApi.InputMessageContent, replyToMessageId: Long? = null, sendAt: Int? = null) {
         val replyTo = replyToMessageId?.let { TdApi.InputMessageReplyToMessage(it, null, 0, "") }
-        td.send(TdApi.SendMessage(chatId, null, replyTo, null, null, content))
+        val options = sendAt?.let { TdApi.MessageSendOptions().apply { schedulingState = TdApi.MessageSchedulingStateSendAtDate(it, 0) } }
+        td.send(TdApi.SendMessage(chatId, null, replyTo, options, null, content))
+    }
+
+    /** Sends a scheduled message right away. */
+    suspend fun sendScheduledNow(messageId: Long) {
+        td.send(TdApi.EditMessageSchedulingState(chatId, messageId, null))
+        loadScheduled()
+    }
+
+    /** Moves a scheduled message to [sendAt] (Unix time). */
+    suspend fun reschedule(messageId: Long, sendAt: Int) {
+        td.send(TdApi.EditMessageSchedulingState(chatId, messageId, TdApi.MessageSchedulingStateSendAtDate(sendAt, 0)))
+        loadScheduled()
+    }
+
+    private suspend fun loadScheduled() {
+        _scheduled.value = td.send(TdApi.GetChatScheduledMessages(chatId)).messages
+            .sortedBy { (it.schedulingState as? TdApi.MessageSchedulingStateSendAtDate)?.sendDate ?: Int.MAX_VALUE }
+    }
+
+    private var loadingScheduled: Job? = null
+
+    /** Once for several updates in a row: TDLib's scheduled messages are simplest asked for again. */
+    private fun loadScheduledSoon() {
+        loadingScheduled?.cancel()
+        loadingScheduled = scope.launchLogged(TAG) {
+            delay(SCHEDULED_RELOAD_MS)
+            loadScheduled()
+        }
     }
 
     suspend fun editText(messageId: Long, text: String) {
@@ -334,6 +371,22 @@ class ChatSession internal constructor(
 
     /** Applies [update], one about this chat, right away; names it refers to are looked up separately. */
     private fun onUpdate(update: TdApi.Update) {
+        // Scheduled messages: their own list, never the history. When one's time comes it's
+        // deleted from there, and arrives as a new message.
+        val scheduledIds = _scheduled.value.mapTo(HashSet()) { it.id }
+        val aboutScheduled = when (update) {
+            is TdApi.UpdateNewMessage -> update.message.schedulingState != null
+            is TdApi.UpdateMessageSendSucceeded -> update.message.schedulingState != null
+            is TdApi.UpdateMessageSendFailed -> update.message.schedulingState != null
+            is TdApi.UpdateMessageContent -> update.messageId in scheduledIds
+            is TdApi.UpdateMessageEdited -> update.messageId in scheduledIds
+            is TdApi.UpdateDeleteMessages -> update.messageIds.any { it in scheduledIds }
+            else -> false
+        }
+        if (aboutScheduled) {
+            loadScheduledSoon()
+            if (update !is TdApi.UpdateDeleteMessages) return
+        }
         when (update) {
             is TdApi.UpdateNewMessage -> {
                 if (!reachedEnd) {
@@ -469,6 +522,7 @@ class ChatSession internal constructor(
     private companion object {
         const val TAG = "ChatSession"
         const val PAGE_SIZE = 50
+        const val SCHEDULED_RELOAD_MS = 300L
 
         /** Newer messages loaded along with one jumped to; the rest of a page is older ones. */
         const val AROUND = 20

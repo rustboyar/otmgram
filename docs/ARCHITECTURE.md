@@ -52,6 +52,7 @@ they are. For building and testing, see [DEVELOPMENT.md](DEVELOPMENT.md).
 - Find in chat (`searchChatMessages`), stepping through highlighted matches
 - Jumping to a message that isn't loaded (a search result, a pinned or replied-to one) loads the messages around it in its place, in one request, as Telegram does; scrolling loads more either way, and ↓ goes back to the newest. Meanwhile new messages aren't added (they'd leave a gap); sending something brings the newest back. The message jumped to is highlighted for 2.5 s once on screen
 - Pinned messages: the bar under the title shows the newest; a tap goes to it and moves the bar on to the next older one ("Pinned message 2 of 3"), and with several, a button lists them all. Pin and unpin from the message menu where `canBePinned` allows, for everyone, without notifying
+- Scheduled messages: a long press on send offers in an hour, this evening (20:00, while over an hour away), tomorrow (09:00) or a picked date and time (`MessageSchedulingStateSendAtDate`); text only. TDLib sends scheduled messages as updates too: `ChatSession` keeps them out of the history, in their own list (`getChatScheduledMessages`, asked for again after updates about them). A bar above the input lists them: send now or change the time (`editMessageSchedulingState`), edit in the input bar, delete
 - Drafts are saved to Telegram on leaving the chat, so other apps see them, and come back from there
 
 ## Media

@@ -25,6 +25,7 @@ import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.core.td.updates
 import dev.otmgram.core.userMessage
 import dev.otmgram.data.AppSettings
+import dev.otmgram.data.ChatHistory
 import dev.otmgram.data.ChatRepository
 import dev.otmgram.data.DownloadsFolder
 import dev.otmgram.data.FileRepository
@@ -42,6 +43,7 @@ import dev.otmgram.di.ApplicationScope
 import dev.otmgram.di.onMain
 import dev.otmgram.ui.ChatRoute
 import dev.otmgram.ui.format.lastSeen
+import dev.otmgram.ui.format.sendsAt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -130,10 +132,10 @@ class ChatViewModel @Inject constructor(
         initialText = savedState.get<String>(DRAFT_KEY).orEmpty(),
         keep = { savedState[DRAFT_KEY] = it },
         saveToTelegram = { draft -> td.sendIgnoringResult(TdApi.SetChatDraftMessage(chatId, null, draft)) },
-        send = { mode, text ->
+        send = { mode, text, sendAt ->
             when (mode) {
-                Composer.New -> session.sendText(text)
-                is Composer.Reply -> session.sendText(text, replyToMessageId = mode.message.id)
+                Composer.New -> session.sendText(text, sendAt = sendAt)
+                is Composer.Reply -> session.sendText(text, replyToMessageId = mode.message.id, sendAt = sendAt)
                 is Composer.Edit -> if (mode.message.media != null) session.editCaption(mode.message.id, text) else session.editText(mode.message.id, text)
             }
         },
@@ -407,6 +409,71 @@ class ChatViewModel @Inject constructor(
         show(messageId)
     }
 
+    /** Messages scheduled in this chat, the soonest first. */
+    val scheduled: StateFlow<List<ScheduledMessage>> = session.scheduled.map { list ->
+        val items = ChatHistory(messages = list).toItems(isGroup = false, strings)
+        items.zip(list) { item, message -> ScheduledMessage(item, (message.schedulingState as? TdApi.MessageSchedulingStateSendAtDate)?.sendDate ?: 0) }
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    var scheduledOpen by mutableStateOf(false)
+        private set
+
+    init {
+        // The last one sent or deleted: nothing left to list.
+        viewModelScope.launch { scheduled.collect { if (it.isEmpty()) scheduledOpen = false } }
+    }
+
+    /** What a send time is being picked for; null when none is. */
+    var scheduling by mutableStateOf<ScheduleTarget?>(null)
+        private set
+
+    fun openScheduled() {
+        scheduledOpen = true
+    }
+
+    fun closeScheduled() {
+        scheduledOpen = false
+    }
+
+    /** A long press on send: when to send what's typed. */
+    fun askSendLater() {
+        scheduling = ScheduleTarget.Draft
+    }
+
+    fun askChangeTime(messageId: Long) {
+        scheduledOpen = false
+        scheduling = ScheduleTarget.Message(messageId)
+    }
+
+    fun cancelScheduling() {
+        scheduling = null
+    }
+
+    /** Sends what's typed at [sendAt], or moves a scheduled message there. */
+    fun scheduleAt(sendAt: Int) {
+        val target = scheduling ?: return
+        scheduling = null
+        if (sendAt <= System.currentTimeMillis() / 1000 + MIN_SCHEDULE_AHEAD_S) {
+            notice = strings.get(R.string.scheduled_in_past)
+            return
+        }
+        when (target) {
+            ScheduleTarget.Draft -> composer.send(sendAt)
+            is ScheduleTarget.Message -> action { session.reschedule(target.messageId, sendAt) }
+        }
+        notice = strings.get(R.string.scheduled_for, sendsAt(sendAt, strings))
+    }
+
+    fun sendScheduledNow(messageId: Long) = action { session.sendScheduledNow(messageId) }
+
+    fun deleteScheduled(messageId: Long) = action { session.delete(listOf(messageId), forEveryone = true) }
+
+    /** Edits a scheduled message's text in the input bar. */
+    fun editScheduled(message: MessageItem) {
+        scheduledOpen = false
+        composer.edit(message)
+    }
+
     /** Pinned messages, for the bar above the messages and its list. */
     val pinned = PinnedMessages(
         viewModelScope,
@@ -549,6 +616,9 @@ private const val DRAFT_KEY = "draft"
 
 /** Opening at the first unread loads history back to it, but not further than this. */
 private const val FIRST_UNREAD_MAX_PAGES = 10
+
+/** A scheduled message must be at least this far ahead; Telegram refuses one in the past. */
+private const val MIN_SCHEDULE_AHEAD_S = 30
 
 /** How far back a chat's last place is loaded along with the newest messages, in pages. */
 private const val POSITION_MAX_PAGES = 4

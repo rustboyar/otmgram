@@ -21,8 +21,8 @@ class DraftComposer(
     private val keep: (String) -> Unit,
     /** Sets the chat's draft on Telegram; null removes it. Must not suspend: also used as the chat goes away. */
     private val saveToTelegram: (TdApi.DraftMessage?) -> Unit,
-    /** Sends [text], already trimmed, as [mode] says. */
-    private val send: suspend (mode: Composer, text: String) -> Unit,
+    /** Sends [text], already trimmed, as [mode] says; at [sendAt] (Unix time) if set. */
+    private val send: suspend (mode: Composer, text: String, sendAt: Int?) -> Unit,
     private val onError: (Exception) -> Unit,
 ) {
     /** What's typed; here, so searching, selecting or recording keeps it. */
@@ -74,12 +74,14 @@ class DraftComposer(
         saveToTelegram(draft)
     }
 
-    fun send() {
+    /** Sends what's typed; or schedules it, to be sent at [sendAt] (Unix time). Not for an edit. */
+    fun send(sendAt: Int? = null) {
         val text = text
         val mode = mode
         // A caption may be removed by saving it empty; text messages can't be empty.
         val removingCaption = mode is Composer.Edit && mode.message.media != null
         if (text.isBlank() && !removingCaption) return
+        if (sendAt != null && mode is Composer.Edit) return
         this.mode = Composer.New
         type(if (mode is Composer.Edit) draftBeforeEdit else "")
         val left = this.text
@@ -87,7 +89,7 @@ class DraftComposer(
         if (mode !is Composer.Edit) savedDraft = "" to null
         scope.launch {
             try {
-                send(mode, text.trim())
+                send(mode, text.trim(), sendAt)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

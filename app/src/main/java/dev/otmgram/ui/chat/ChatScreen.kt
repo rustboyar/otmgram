@@ -377,6 +377,10 @@ fun ChatScreen(
             if (viewModel.location.locating || liveShare?.located == false) LocatingBubble(Modifier.padding(bottom = 10.dp))
 
             val current = recording
+            val scheduled by viewModel.scheduled.collectAsStateWithLifecycle()
+            if (scheduled.isNotEmpty() && !selecting && !searching && current == null) {
+                ScheduledBar(scheduled.size, viewModel::openScheduled)
+            }
             when {
                 selecting -> SelectionActions(onForward = viewModel::forwardSelected, onDelete = viewModel::askDeleteSelected)
                 searching -> FindStepper(results, search.index, search.query.orEmpty(), onStep = search::step)
@@ -388,7 +392,11 @@ fun ChatScreen(
                     chatTitle = title,
                     stickersOpen = viewModel.stickers.isOpen,
                     onCancel = viewModel.composer::cancel,
-                    onSend = viewModel.composer::send,
+                    onSend = { viewModel.composer.send() },
+                    onSendLater = {
+                        keyboard?.hide()
+                        viewModel.askSendLater()
+                    },
                     onStickers = {
                         if (viewModel.stickers.isOpen) {
                             viewModel.stickers.close()
@@ -511,6 +519,23 @@ fun ChatScreen(
             onPin = { viewModel.togglePin(menu) },
             onDelete = { viewModel.askDelete(menu) },
             onDismiss = viewModel::closeMenu,
+        )
+    }
+    viewModel.scheduling?.let { target ->
+        SendLaterSheet(
+            title = stringResource(if (target == ScheduleTarget.Draft) R.string.send_later else R.string.scheduled_change_time),
+            onPick = viewModel::scheduleAt,
+            onDismiss = viewModel::cancelScheduling,
+        )
+    }
+    if (viewModel.scheduledOpen) {
+        ScheduledSheet(
+            viewModel.scheduled.collectAsStateWithLifecycle().value,
+            onSendNow = viewModel::sendScheduledNow,
+            onChangeTime = viewModel::askChangeTime,
+            onEdit = viewModel::editScheduled,
+            onDelete = viewModel::deleteScheduled,
+            onDismiss = viewModel::closeScheduled,
         )
     }
     if (viewModel.pinned.listOpen) {

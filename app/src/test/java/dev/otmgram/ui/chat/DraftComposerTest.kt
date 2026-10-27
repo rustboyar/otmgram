@@ -24,7 +24,7 @@ class DraftComposerTest {
         initialText = initial,
         keep = { kept += it },
         saveToTelegram = { savedToTelegram += it },
-        send = { mode, text ->
+        send = { mode, text, _ ->
             if (refuse) error("MESSAGE_EDIT_TIME_EXPIRED")
             sent += mode to text
         },
