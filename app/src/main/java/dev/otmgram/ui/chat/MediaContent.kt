@@ -2,6 +2,8 @@
 
 package dev.otmgram.ui.chat
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -13,12 +15,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +56,7 @@ import dev.otmgram.ui.media.rememberOnDemandFile
 import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmType
+import kotlinx.coroutines.delay
 
 /** Stickers and video messages are shown without a bubble around them. */
 val MessageMedia.isBare: Boolean
@@ -188,9 +194,19 @@ private fun VideoNote(media: MessageMedia.VideoNote, onSound: () -> Unit, onLong
     val description = media.label()
     var withSound by remember { mutableStateOf(false) }
     var progress by remember { mutableFloatStateOf(0f) }
+    // Grows while playing with sound, to be watched; back to its place in the chat after.
+    val side by animateDpAsState(if (withSound) VIDEO_NOTE_PLAYING_SIZE else VIDEO_NOTE_SIZE, tween(VIDEO_NOTE_GROW_MS), label = "videoNoteSize")
+    // Grown, all of it on screen.
+    val inView = remember { BringIntoViewRequester() }
+    LaunchedEffect(withSound) {
+        if (!withSound) return@LaunchedEffect
+        delay(VIDEO_NOTE_GROW_MS.toLong())
+        inView.bringIntoView()
+    }
     Box(
         modifier = Modifier
-            .size(VIDEO_NOTE_SIZE)
+            .bringIntoViewRequester(inView)
+            .size(side)
             .drawWithContent {
                 drawContent()
                 // While playing with sound, a ring shows how much has played.
@@ -258,4 +274,6 @@ internal fun aspect(width: Int, height: Int): Float =
 
 internal val MEDIA_WIDTH = 260.dp
 private val VIDEO_NOTE_SIZE = 190.dp
+private val VIDEO_NOTE_PLAYING_SIZE = 280.dp
+private const val VIDEO_NOTE_GROW_MS = 250
 private val STICKER_SIZE = 140.dp
