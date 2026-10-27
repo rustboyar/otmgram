@@ -54,7 +54,15 @@ data class MessageItem(
     val link: LinkCard? = null,
     /** Shared by the messages of an album, sent together; 0 for none. */
     val albumId: Long = 0,
+    /** Who sent an incoming group message, whether or not its name shows; null otherwise. */
+    val sender: MessageSender? = null,
+    /** The newest of consecutive messages from [sender]: its avatar shows beside it. */
+    val showAvatar: Boolean = false,
 )
+
+/** The sender of a group message: a person, or a chat posting as itself. */
+@Immutable
+data class MessageSender(val id: Long, val name: String, val photoFileId: Int?, val minithumbnail: ByteArray?)
 
 /** What the input bar does with the next send. */
 sealed interface Composer {

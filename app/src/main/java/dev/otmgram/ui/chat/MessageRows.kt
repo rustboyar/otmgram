@@ -26,6 +26,8 @@ internal sealed interface ListRow {
         /** [main] as the bubble shows it: the sender of the first, and still sending while any is. */
         val shown: MessageItem = main.copy(
             senderName = messages.first().senderName,
+            // Its avatar goes with the newest, at the bottom of the bubble.
+            showAvatar = messages.last().showAvatar,
             forwardedFrom = messages.first().forwardedFrom,
             replyTo = messages.firstNotNullOfOrNull { it.replyTo },
             isEdited = messages.any { it.isEdited },

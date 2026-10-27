@@ -5,6 +5,7 @@ import dev.otmgram.core.Strings
 import dev.otmgram.data.ChatHistory
 import dev.otmgram.data.isService
 import dev.otmgram.data.summary
+import dev.otmgram.ui.format.localDay
 import org.drinkless.tdlib.TdApi
 
 /** Text messages, and media that can carry a caption. */
@@ -20,8 +21,14 @@ internal fun ChatHistory.toItems(isGroup: Boolean, strings: Strings): List<Messa
     return messages.mapIndexed { index, message ->
         val media = message.toMedia()
         val older = messages.getOrNull(index + 1)
-        val showSender = isGroup && !message.isOutgoing && !message.isService &&
-            (older == null || older.isOutgoing || older.isService || older.senderKey() != message.senderKey())
+        val newer = messages.getOrNull(index - 1)
+        val fromOthers = isGroup && !message.isOutgoing && !message.isService
+
+        // A run of messages from one sender ends at a day's line too.
+        fun TdApi.Message?.sameSender() =
+            this != null && !isOutgoing && !isService && senderKey() == message.senderKey() && localDay(date) == localDay(message.date)
+        val showSender = fromOthers && !older.sameSender()
+        val key = message.senderKey()
         MessageItem(
             id = message.id,
             isOutgoing = message.isOutgoing,
@@ -45,6 +52,12 @@ internal fun ChatHistory.toItems(isGroup: Boolean, strings: Strings): List<Messa
             spans = if (media != null || message.content is TdApi.MessageText) message.content.formattedText()?.spans().orEmpty() else emptyList(),
             link = if (media == null) (message.content as? TdApi.MessageText)?.linkCard() else null,
             albumId = message.mediaAlbumId,
+            sender = if (fromOthers) {
+                senderPhotos[key].let { photo -> MessageSender(key, senderNames[key].orEmpty(), photo?.fileId, photo?.minithumbnail) }
+            } else {
+                null
+            },
+            showAvatar = fromOthers && !newer.sameSender(),
             date = message.date,
             isEdited = message.editDate > 0,
             status = if (!message.isOutgoing) null else when {

@@ -1,6 +1,7 @@
 package dev.otmgram.ui.chat
 
 import dev.otmgram.data.ChatHistory
+import dev.otmgram.testing.NOON_2026_10_23
 import dev.otmgram.testing.TestStrings
 import dev.otmgram.testing.message
 import dev.otmgram.testing.text
@@ -46,9 +47,24 @@ class MessageItemsTest {
     }
 
     @Test
+    fun `in groups the sender's avatar shows by the newest of their messages in a row, each day`() {
+        // Newest first: Anna, Anna, Lea, you, Lea, and Anna the day before.
+        val items = history(
+            message(6, from = 2),
+            message(5, from = 2),
+            message(4, from = 3),
+            message(3, from = 1, outgoing = true),
+            message(2, from = 3),
+            message(1, from = 2, date = NOON_2026_10_23 - 24 * 3600),
+        ).toItems(isGroup = true, TestStrings)
+        assertEquals(listOf(true, false, true, false, true, true), items.map { it.showAvatar })
+        assertEquals(listOf("Anna", "Anna", "Lea", null, "Lea", "Anna"), items.map { it.sender?.name })
+    }
+
+    @Test
     fun `private chats show no sender names`() {
         val items = history(message(2, from = 2), message(1, from = 3)).toItems(isGroup = false, TestStrings)
-        assertTrue(items.all { it.senderName == null })
+        assertTrue(items.all { it.senderName == null && it.sender == null && !it.showAvatar })
     }
 
     @Test

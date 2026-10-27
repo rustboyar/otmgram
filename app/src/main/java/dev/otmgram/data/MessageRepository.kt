@@ -34,6 +34,9 @@ class MessageRepository @Inject constructor(
     fun openChat(chatId: Long, scope: CoroutineScope): ChatSession = ChatSession(td, chatId, scope)
 }
 
+/** A sender's small photo, as TDLib has it. */
+data class SenderPhoto(val fileId: Int, val minithumbnail: ByteArray?)
+
 /**
  * Loaded history of a chat, newest message first: one unbroken stretch of it, usually up to
  * the newest message, or around a message jumped to ([ChatSession.jumpTo]).
@@ -42,6 +45,8 @@ data class ChatHistory(
     val messages: List<TdApi.Message> = emptyList(),
     /** Display names of message senders and forward origins, by user or chat id. */
     val senderNames: Map<Long, String> = emptyMap(),
+    /** Small photos of message senders, by user or chat id; absent for those without one. */
+    val senderPhotos: Map<Long, SenderPhoto> = emptyMap(),
     /** Messages replied to by loaded messages, by id. */
     val repliedMessages: Map<Long, TdApi.Message> = emptyMap(),
     /** Outgoing messages up to this id have been read by the other side. */
@@ -70,6 +75,7 @@ class ChatSession internal constructor(
 ) {
     private val messages = TreeMap<Long, TdApi.Message>(reverseOrder())
     private val senderNames = mutableMapOf<Long, String>()
+    private val senderPhotos = mutableMapOf<Long, SenderPhoto>()
     private val repliedMessages = mutableMapOf<Long, TdApi.Message>()
     private var lastReadOutboxMessageId = 0L
     private var reachedStart = false
@@ -425,21 +431,25 @@ class ChatSession internal constructor(
             return
         }
         senderNames[userId] = user.fullName()
+        user.profilePhoto?.let { senderPhotos[userId] = SenderPhoto(it.small.id, it.minithumbnail?.data) }
     }
 
     private suspend fun resolveChatName(chatId: Long) {
         if (chatId in senderNames) return
-        senderNames[chatId] = try {
-            td.send(TdApi.GetChat(chatId)).title
+        val chat = try {
+            td.send(TdApi.GetChat(chatId))
         } catch (e: TdException) {
             return
         }
+        senderNames[chatId] = chat.title
+        chat.photo?.let { senderPhotos[chatId] = SenderPhoto(it.small.id, it.minithumbnail?.data) }
     }
 
     private fun publish() {
         _history.value = ChatHistory(
             messages = messages.values.toList(),
             senderNames = senderNames.toMap(),
+            senderPhotos = senderPhotos.toMap(),
             repliedMessages = repliedMessages.toMap(),
             lastReadOutboxMessageId = lastReadOutboxMessageId,
             reachedStart = reachedStart,

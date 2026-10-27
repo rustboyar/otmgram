@@ -7,7 +7,11 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 
 ### Added
 - A chat opens where you left it, when you come back to it from the chat list
+- In groups, each sender's picture shows beside their messages
 - Mute and unmute a chat with a long press, below Pin; as in Telegram, it applies to all your apps
+
+### Fixed
+- Replying in a group to someone's second or later message in a row said "Reply to" the group instead of them
 
 ## 0.3.0 - 2026-10-27
 

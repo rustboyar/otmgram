@@ -41,7 +41,7 @@ class ChatSelection(
         val byId = messages().associateBy { it.id }
         return selected.sorted().mapNotNull { byId[it] }
             .filter { it.text.isNotEmpty() && !it.isMediaPlaceholder }
-            .joinToString("\n\n") { message -> listOfNotNull(message.senderName?.let { "$it:" }, message.text).joinToString(" ") }
+            .joinToString("\n\n") { message -> listOfNotNull((message.sender?.name ?: message.senderName)?.takeIf { it.isNotEmpty() }?.let { "$it:" }, message.text).joinToString(" ") }
     }
 
     /**

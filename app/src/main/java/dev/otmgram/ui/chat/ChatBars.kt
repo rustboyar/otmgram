@@ -163,7 +163,7 @@ internal fun InputBar(
             Composer.New -> null
             is Composer.Reply -> Triple(
                 OtmIcons.Reply,
-                stringResource(R.string.reply_to, composer.message.senderName ?: if (composer.message.isOutgoing) stringResource(R.string.reply_to_yourself) else chatTitle),
+                stringResource(R.string.reply_to, composer.message.sender?.name?.takeIf { it.isNotEmpty() } ?: if (composer.message.isOutgoing) stringResource(R.string.reply_to_yourself) else chatTitle),
                 composer.message.text.ifEmpty { composer.message.media?.label().orEmpty() },
             )
             is Composer.Edit -> Triple(OtmIcons.Edit, stringResource(R.string.edit_message), composer.message.text)

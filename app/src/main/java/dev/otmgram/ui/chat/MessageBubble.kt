@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -70,6 +71,7 @@ import dev.otmgram.ui.embed.MediaLink
 import dev.otmgram.ui.format.formatTime
 import dev.otmgram.ui.highlight
 import dev.otmgram.ui.media.openLink
+import dev.otmgram.ui.theme.ChatAvatar
 import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmDialog
 import dev.otmgram.ui.theme.OtmIcons
@@ -124,6 +126,21 @@ fun MessageBubble(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (selecting) SelectionMark(selected, Modifier.padding(end = 10.dp))
+            // In groups, the sender's picture by the last of their messages in a row; room for it by the others.
+            message.sender?.let { sender ->
+                if (message.showAvatar) {
+                    ChatAvatar(
+                        sender.id,
+                        sender.name,
+                        sender.photoFileId,
+                        sender.minithumbnail,
+                        Modifier.align(Alignment.Bottom).padding(end = 8.dp).testTag("senderAvatar"),
+                        size = SENDER_AVATAR,
+                    )
+                } else {
+                    Spacer(Modifier.width(SENDER_AVATAR + 8.dp))
+                }
+            }
             Box(Modifier.weight(1f), contentAlignment = if (outgoing) Alignment.CenterEnd else Alignment.CenterStart) {
                 Bubble(
                     message,
@@ -470,5 +487,6 @@ private fun messageText(
 
 private val LINK_STYLE = TextLinkStyles(SpanStyle(color = Otm.SlateDeep, textDecoration = TextDecoration.Underline))
 
+private val SENDER_AVATAR = 34.dp
 private const val FLASH_IN_MS = 150
 private const val FLASH_OUT_MS = 900
