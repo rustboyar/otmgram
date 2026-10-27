@@ -1,5 +1,6 @@
 package dev.otmgram.ui.chat
 
+import androidx.compose.runtime.Immutable
 import dev.otmgram.core.media.Waveform
 import dev.otmgram.data.Sticker
 import dev.otmgram.data.StickerKind
@@ -123,6 +124,35 @@ fun TdApi.MessageContent.toMedia(): MessageMedia? = when (this) {
 }
 
 fun Sticker.toMedia() = MessageMedia.Sticker(fileId, kind, width, height, thumbnailFileId)
+
+/** A small picture beside a reply's quote, of the photo or video replied to; round for a round video. */
+@Immutable
+data class QuoteThumbnail(val fileId: Int?, val minithumbnail: ByteArray?, val round: Boolean = false)
+
+/** The picture a reply to this content shows: a photo's small size, a video's thumbnail; null for others. */
+fun TdApi.MessageContent.quoteThumbnail(): QuoteThumbnail? = when (this) {
+    is TdApi.MessagePhoto -> {
+        val size = photo.sizes.filter { minOf(it.width, it.height) >= QUOTE_PHOTO_MIN }.minByOrNull { it.width }
+            ?: photo.sizes.maxByOrNull { it.width }
+        QuoteThumbnail(size?.photo?.id, photo.minithumbnail?.data)
+    }
+    is TdApi.MessageVideo -> QuoteThumbnail(video.thumbnail?.file?.id, video.minithumbnail?.data)
+    is TdApi.MessageAnimation -> QuoteThumbnail(animation.thumbnail?.file?.id, animation.minithumbnail?.data)
+    is TdApi.MessageVideoNote -> QuoteThumbnail(videoNote.thumbnail?.file?.id, videoNote.minithumbnail?.data, round = true)
+    else -> null
+}
+
+/** The same for media shown already, e.g. the message being replied to in the input bar. */
+fun MessageMedia.quoteThumbnail(): QuoteThumbnail? = when (this) {
+    is MessageMedia.Photo -> QuoteThumbnail(fileId, minithumbnail)
+    is MessageMedia.Video -> QuoteThumbnail(thumbnailFileId, minithumbnail)
+    is MessageMedia.Animation -> QuoteThumbnail(thumbnailFileId, minithumbnail)
+    is MessageMedia.VideoNote -> QuoteThumbnail(thumbnailFileId, minithumbnail, round = true)
+    else -> null
+}
+
+/** A photo size at least this many px on its short side, for a reply's thumbnail: sharp, and small to download. */
+private const val QUOTE_PHOTO_MIN = 90
 
 /** The message's text or caption with its formatting, if it has one. */
 fun TdApi.MessageContent.formattedText(): TdApi.FormattedText? = when (this) {

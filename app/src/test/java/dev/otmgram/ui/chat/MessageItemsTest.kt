@@ -105,6 +105,29 @@ class MessageItemsTest {
     }
 
     @Test
+    fun `a reply to a photo shows a small size of it, to a round video its thumbnail, round`() {
+        fun size(type: String, side: Int, fileId: Int) = TdApi.PhotoSize(type, TdApi.File().apply { id = fileId }, side, side, IntArray(0))
+        val photo = TdApi.MessagePhoto().apply {
+            photo = TdApi.Photo(false, null, arrayOf(size("s", 90, 11), size("m", 320, 12), size("x", 800, 13)))
+            caption = TdApi.FormattedText("", emptyArray())
+        }
+        val round = TdApi.MessageVideoNote().apply {
+            videoNote = TdApi.VideoNote().apply {
+                video = TdApi.File().apply { id = 20 }
+                thumbnail = TdApi.Thumbnail(TdApi.ThumbnailFormatJpeg(), 240, 240, TdApi.File().apply { id = 21 })
+            }
+        }
+        val items = history(
+            message(4, replyTo = 2),
+            message(3, replyTo = 1),
+            message(2, content = round, from = 3),
+            message(1, content = photo, from = 3),
+        ).toItems(isGroup = true, TestStrings)
+        assertEquals(QuoteThumbnail(11, null), items[1].replyTo?.thumbnail)
+        assertEquals(QuoteThumbnail(21, null, round = true), items[0].replyTo?.thumbnail)
+    }
+
+    @Test
     fun `reactions keep their counts and which ones are yours`() {
         val reactions = listOf(
             TdApi.MessageReaction(TdApi.ReactionTypeEmoji("🔥"), 3, true, null, emptyArray()),

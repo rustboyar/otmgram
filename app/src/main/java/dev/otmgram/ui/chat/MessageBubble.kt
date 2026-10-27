@@ -70,6 +70,7 @@ import dev.otmgram.core.media.AudioState
 import dev.otmgram.ui.embed.MediaLink
 import dev.otmgram.ui.format.formatTime
 import dev.otmgram.ui.highlight
+import dev.otmgram.ui.media.TdImage
 import dev.otmgram.ui.media.openLink
 import dev.otmgram.ui.theme.ChatAvatar
 import dev.otmgram.ui.theme.Otm
@@ -430,7 +431,19 @@ fun ReplyQuote(reply: ReplyPreview, modifier: Modifier = Modifier, onClick: (() 
     val clicks = if (onClick != null) Modifier.combinedClickable(onClickLabel = label, role = Role.Button, onLongClick = onLongClick, onClick = onClick) else Modifier
     Row(modifier.height(IntrinsicSize.Min).then(clicks)) {
         Box(Modifier.width(2.dp).fillMaxHeight().background(Otm.Ridge))
-        Column(Modifier.padding(start = 10.dp)) {
+        reply.thumbnail?.let { thumbnail ->
+            TdImage(
+                thumbnail.fileId,
+                thumbnail.minithumbnail,
+                Modifier
+                    .padding(start = 8.dp)
+                    .size(QUOTE_THUMBNAIL)
+                    .clip(if (thumbnail.round) CircleShape else RoundedCornerShape(6.dp))
+                    .align(Alignment.CenterVertically)
+                    .testTag("quoteThumbnail"),
+            )
+        }
+        Column(Modifier.padding(start = if (reply.thumbnail != null) 8.dp else 10.dp)) {
             reply.senderName?.let {
                 Text(it, style = OtmType.Secondary.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = Otm.Slate, maxLines = 1)
             }
@@ -496,5 +509,6 @@ private fun messageText(
 private val LINK_STYLE = TextLinkStyles(SpanStyle(color = Otm.SlateDeep, textDecoration = TextDecoration.Underline))
 
 private val SENDER_AVATAR = 34.dp
+private val QUOTE_THUMBNAIL = 36.dp
 private const val FLASH_IN_MS = 150
 private const val FLASH_OUT_MS = 900

@@ -173,7 +173,8 @@ internal fun InputBar(
         banner?.let { (icon, label, quote) ->
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 androidx.compose.material3.Icon(icon, null, tint = Otm.Slate, modifier = Modifier.size(22.dp))
-                ReplyQuote(ReplyPreview(label, quote), Modifier.weight(1f).padding(start = 10.dp))
+                val thumbnail = (composer as? Composer.Reply)?.message?.media?.quoteThumbnail()
+                ReplyQuote(ReplyPreview(label, quote, thumbnail = thumbnail), Modifier.weight(1f).padding(start = 10.dp))
                 IconBtn(
                     OtmIcons.Close, stringResource(R.string.cancel),
                     onCancel,

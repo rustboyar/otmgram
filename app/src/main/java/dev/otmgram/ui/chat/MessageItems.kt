@@ -41,8 +41,8 @@ internal fun ChatHistory.toItems(isGroup: Boolean, strings: Strings): List<Messa
                 // A reply to a message of another chat can't be jumped to from here.
                 val here = replyTo.messageId.takeIf { replyTo.chatId == message.chatId }
                 when {
-                    replied != null -> ReplyPreview(senderNames[replied.senderKey()], replied.summary(strings), here)
-                    replyTo.content != null -> ReplyPreview(replyTo.origin?.let(::originName), replyTo.content.summary(strings), here)
+                    replied != null -> ReplyPreview(senderNames[replied.senderKey()], replied.summary(strings), here, replied.content.quoteThumbnail())
+                    replyTo.content != null -> ReplyPreview(replyTo.origin?.let(::originName), replyTo.content.summary(strings), here, replyTo.content.quoteThumbnail())
                     else -> ReplyPreview(null, strings.get(R.string.reply_deleted))
                 }
             },
