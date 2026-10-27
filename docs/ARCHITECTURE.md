@@ -60,7 +60,7 @@ they are. For building and testing, see [DEVELOPMENT.md](DEVELOPMENT.md).
 - Photos full screen with zoom; swiping through an album
 - Videos: thumbnail in the bubble, played full screen with ExoPlayer once downloaded (no streaming); hardware decoders first, software ones when those fail (as the emulator's do)
 - Voice messages: waveform with progress, one shared player (no seeking)
-- Round videos: play muted in place, clipped to a circle; a tap turns the sound on
+- Round videos: play muted in place, clipped to a circle; a tap turns the sound on and grows it (190 → 280 dp), scrolled into view
 - GIFs loop muted in place
 - Stickers: WEBP, TGS (Lottie, merge paths on); WEBM shows its still thumbnail (Android's decoders don't support its transparency)
 - Downloads: photos, round videos, stickers, avatars and video thumbnails once their message is on screen; videos, voice messages and GIFs on tap (voice then plays, a GIF then loops; a tap stops the download); files on tap. A size limit in Settings (`optimizeStorage`, at start and after each check)
@@ -74,7 +74,7 @@ they are. For building and testing, see [DEVELOPMENT.md](DEVELOPMENT.md).
 - Files: any type, several at once, with a caption; sent as they are
 - Uploads show progress and can be cancelled. Copies of sent files are removed after 3 days
 - Voice: recorded as OGG/Opus (MediaRecorder) with its level sampled for the waveform; under 0.7 s is dropped
-- Round videos: their own screen, front camera (mirrored) or back with CameraX, cropped to 480×480 by Media3 Transformer, at most 60 s
+- Round videos: their own screen, front camera (mirrored) or back with CameraX, switchable while recording (one `VideoCapture` for the screen and a persistent recording, rebound to the other camera), cropped to 480×480 by Media3 Transformer, at most 60 s
 - Sticker picker: recent stickers and installed sets
 
 ## Location

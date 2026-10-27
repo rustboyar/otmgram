@@ -5,11 +5,13 @@ import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.OptIn
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.MirrorMode
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.lifecycle.awaitInstance
+import androidx.camera.video.ExperimentalPersistentRecording
 import androidx.camera.video.FallbackStrategy
 import androidx.camera.video.FileOutputOptions
 import androidx.camera.video.Quality
@@ -132,6 +134,7 @@ fun VideoNoteScreen(onDone: () -> Unit, modifier: Modifier = Modifier, viewModel
     }
 }
 
+@OptIn(ExperimentalPersistentRecording::class)
 @SuppressLint("MissingPermission") // Only shown once camera and microphone are granted.
 @Composable
 private fun Recorder(
@@ -151,6 +154,13 @@ private fun Recorder(
         }
     }
     var front by remember { mutableStateOf(true) }
+    // One for the whole screen: a recording goes on when it's bound to the other camera.
+    val capture = remember {
+        val recorder = Recorder.Builder()
+            .setQualitySelector(QualitySelector.from(Quality.SD, FallbackStrategy.higherQualityOrLowerThan(Quality.SD)))
+            .build()
+        VideoCapture.Builder(recorder).setMirrorMode(MirrorMode.MIRROR_MODE_ON_FRONT_ONLY).build()
+    }
     var videoCapture by remember { mutableStateOf<VideoCapture<Recorder>?>(null) }
     var recording by remember { mutableStateOf<Recording?>(null) }
     var take by remember { mutableStateOf<Take?>(null) }
@@ -159,10 +169,6 @@ private fun Recorder(
     LaunchedEffect(front) {
         val provider = ProcessCameraProvider.awaitInstance(context)
         val preview = Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
-        val recorder = Recorder.Builder()
-            .setQualitySelector(QualitySelector.from(Quality.SD, FallbackStrategy.higherQualityOrLowerThan(Quality.SD)))
-            .build()
-        val capture = VideoCapture.Builder(recorder).setMirrorMode(MirrorMode.MIRROR_MODE_ON_FRONT_ONLY).build()
         val camera = if (front) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
         provider.unbindAll()
         provider.bindToLifecycle(lifecycleOwner, camera, preview, capture)
@@ -203,7 +209,6 @@ private fun Recorder(
                 OtmIcons.SwitchCamera, stringResource(R.string.switch_camera),
                 { front = !front },
                 tint = Otm.NightText,
-                enabled = active == null,
                 tag = "switchCamera",
             )
         }
@@ -251,11 +256,13 @@ private fun Recorder(
                             active.stop()
                             return@clickable
                         }
-                        val capture = videoCapture ?: return@clickable
+                        val bound = videoCapture ?: return@clickable
                         val file = newFile()
                         val thisTake = Take(file).also { take = it }
                         val output = FileOutputOptions.Builder(file).setDurationLimitMillis(MAX_SECONDS * 1000L).build()
-                        recording = capture.output.prepareRecording(context, output)
+                        recording = bound.output.prepareRecording(context, output)
+                            // Goes on while the camera is switched.
+                            .asPersistentRecording()
                             .withAudioEnabled()
                             .start(ContextCompat.getMainExecutor(context)) { event ->
                                 when (event) {
