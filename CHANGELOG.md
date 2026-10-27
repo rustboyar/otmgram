@@ -5,6 +5,8 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 
 ## Unreleased
 
+## 0.4.1 - 2026-10-27
+
 ### Changed
 - Search on the chat list finds messages in all the folder's chats, rather than chats by name; a result opens its chat at the message
 - A reply to a photo, video, GIF or round video shows a small picture of it, and so does the bar while you write one
