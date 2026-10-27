@@ -87,6 +87,13 @@ class ChatRepository @Inject constructor(
         td.send(TdApi.ToggleChatIsPinned(TdApi.ChatListFolder(folderId), chatId, pinned))
     }
 
+    /** Whether the chat is muted, by its own setting or the default for its kind. */
+    suspend fun isMuted(chatId: Long): Boolean {
+        val chat = td.send(TdApi.GetChat(chatId))
+        val scope = if (chat.isGroup) TdApi.NotificationSettingsScopeGroupChats() else TdApi.NotificationSettingsScopePrivateChats()
+        return chat.isMuted(td.send(TdApi.GetScopeNotificationSettings(scope)))
+    }
+
     /** Mutes the chat for good, or unmutes it, whatever the default for its kind; as in Telegram, for all your apps. */
     suspend fun setMuted(chatId: Long, muted: Boolean) {
         val settings = td.send(TdApi.GetChat(chatId)).notificationSettings.apply {

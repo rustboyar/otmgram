@@ -26,6 +26,10 @@ data class MapRoute(val chatId: Long, val messageId: Long)
 @Serializable
 data class VideoNoteRoute(val chatId: Long)
 
+/** A person's profile ([userId]) or a group's ([chatId]): one of the two is set. */
+@Serializable
+data class ProfileRoute(val userId: Long = 0, val chatId: Long = 0)
+
 /** A YouTube, Instagram or TikTok link, played in the app. */
 @Serializable
 data class EmbedRoute(val url: String)

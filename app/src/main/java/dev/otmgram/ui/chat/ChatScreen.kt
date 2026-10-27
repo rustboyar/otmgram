@@ -68,6 +68,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.otmgram.R
+import dev.otmgram.ui.ProfileRoute
 import dev.otmgram.ui.format.dayLabel
 import dev.otmgram.ui.openAppSettings
 import dev.otmgram.ui.theme.ChatAvatar
@@ -88,6 +89,7 @@ fun ChatScreen(
     onRecordVideoNote: (chatId: Long) -> Unit,
     onOpenMap: (chatId: Long, messageId: Long) -> Unit,
     onOpenEmbed: (url: String) -> Unit,
+    onOpenProfile: (ProfileRoute) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
@@ -257,6 +259,7 @@ fun ChatScreen(
                     leading = header?.let { h ->
                         { ChatAvatar(viewModel.chatId, h.title, h.photoFileId, h.minithumbnail, size = 38.dp, savedMessages = h.isSavedMessages) }
                     },
+                    onTitleClick = header?.profile?.let { profile -> { onOpenProfile(profile) } },
                     actions = { IconBtn(OtmIcons.Search, stringResource(R.string.search_chat), search::open, tag = "search") },
                 )
             }
@@ -315,6 +318,7 @@ fun ChatScreen(
                                     },
                                     onPlayVoice = { fileId, path -> viewModel.playVoice(message, fileId, path) },
                                     onVideoNoteSound = { viewModel.markContentOpened(message) },
+                                    onOpenSender = { onOpenProfile(ProfileRoute(userId = it)) },
                                     onOpenReply = viewModel::jumpTo,
                                     onOpenLink = { onOpenEmbed(it.url) },
                                     highlight = if (searching && message.id in resultIds) {
@@ -340,6 +344,7 @@ fun ChatScreen(
                                     onOpenMedia = {},
                                     onPlayVoice = { _, _ -> },
                                     onVideoNoteSound = {},
+                                    onOpenSender = { onOpenProfile(ProfileRoute(userId = it)) },
                                     onOpenReply = viewModel::jumpTo,
                                     highlight = if (searching && ids.any { it in resultIds }) {
                                         Highlight(search.query.orEmpty(), current = currentMatch in ids)

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- A person's or a group's profile -->
+    <string name="profile_title">Info</string>
+    <string name="profile_phone">Phone</string>
+    <string name="profile_username">Username</string>
+    <string name="profile_bio">Bio</string>
+    <string name="profile_birthday">Birthday</string>
+    <string name="profile_description">Description</string>
+    <string name="profile_members">Members</string>
+    <string name="profile_open_chat">Open chat</string>
+    <string name="profile_photos">Photos</string>
+    <string name="profile_photo_position">%1$d of %2$d</string>
+    <string name="role_owner">owner</string>
+    <string name="role_admin">admin</string>
+    <string name="deleted_account">Deleted account</string>
+    <string name="copied">Copied</string>
+</resources>

@@ -1,6 +1,7 @@
 package dev.otmgram.ui.theme
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontWeight
@@ -54,14 +56,24 @@ fun ScreenBar(
     backIcon: ImageVector = OtmIcons.Back,
     backTag: String = "back",
     leading: @Composable (() -> Unit)? = null,
+    /** A tap on the title (and [leading]): e.g. a chat's profile. */
+    onTitleClick: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     ScreenBarFrame(modifier) {
         if (onBack != null) IconBtn(backIcon, stringResource(R.string.back), onBack, tag = backTag)
-        leading?.invoke()
-        Column(Modifier.weight(1f).padding(start = if (leading != null) 6.dp else 4.dp)) {
-            Text(title, style = OtmType.BarTitle, color = Otm.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            subtitle?.let { Text(it, style = OtmType.Secondary, color = Otm.InkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(12.dp))
+                .then(if (onTitleClick != null) Modifier.clickable(role = Role.Button, onClick = onTitleClick).testTag("barTitle") else Modifier),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            leading?.invoke()
+            Column(Modifier.weight(1f).padding(start = if (leading != null) 12.dp else 4.dp, end = 4.dp)) {
+                Text(title, style = OtmType.BarTitle, color = Otm.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                subtitle?.let { Text(it, style = OtmType.Secondary, color = Otm.InkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            }
         }
         actions()
     }

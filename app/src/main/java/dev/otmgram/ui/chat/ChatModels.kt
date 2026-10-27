@@ -1,6 +1,7 @@
 package dev.otmgram.ui.chat
 
 import androidx.compose.runtime.Immutable
+import dev.otmgram.ui.ProfileRoute
 
 data class ChatHeader(
     val title: String,
@@ -10,6 +11,8 @@ data class ChatHeader(
     val photoFileId: Int?,
     val minithumbnail: ByteArray?,
     val isSavedMessages: Boolean,
+    /** The person's or group's profile, opened from the title; null for Saved Messages. */
+    val profile: ProfileRoute? = null,
 )
 
 /** Where the unread messages began when the chat was opened. */
@@ -105,4 +108,6 @@ data class ForwardTarget(
     val photoFileId: Int?,
     val minithumbnail: ByteArray?,
     val isSavedMessages: Boolean,
+    /** The person's or group's profile, opened from the title; null for Saved Messages. */
+    val profile: ProfileRoute? = null,
 )

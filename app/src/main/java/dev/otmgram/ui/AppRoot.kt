@@ -51,6 +51,7 @@ import dev.otmgram.ui.folder.ChangeFolderScreen
 import dev.otmgram.ui.folder.FolderPickerScreen
 import dev.otmgram.ui.map.MapScreen
 import dev.otmgram.ui.media.MediaViewerScreen
+import dev.otmgram.ui.profile.ProfileScreen
 import dev.otmgram.ui.settings.SettingsScreen
 import dev.otmgram.ui.theme.LoadingScreen
 import dev.otmgram.ui.theme.Otm
@@ -120,6 +121,14 @@ private fun MainNavHost(openChatId: Long?, viewModel: RootViewModel = hiltViewMo
                 onRecordVideoNote = { chatId -> navController.navigate(VideoNoteRoute(chatId)) },
                 onOpenMap = { chatId, messageId -> navController.navigate(MapRoute(chatId, messageId)) },
                 onOpenEmbed = { url -> navController.navigate(EmbedRoute(url)) },
+                onOpenProfile = { navController.navigate(it) },
+            )
+        }
+        screen<ProfileRoute>(navController) {
+            ProfileScreen(
+                onBack = navController::popBackStack,
+                onOpenProfile = { userId -> navController.navigate(ProfileRoute(userId = userId)) },
+                onOpenChat = { chatId -> navController.navigate(ChatRoute(chatId)) },
             )
         }
         screen<EmbedRoute>(navController) { entry ->

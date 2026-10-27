@@ -107,6 +107,8 @@ fun MessageBubble(
     album: List<MessageItem> = emptyList(),
     onOpenAlbumItem: (messageId: Long) -> Unit = {},
     onCancelAlbumItem: (messageId: Long) -> Unit = {},
+    /** A tap on a group sender's picture, with their user id. */
+    onOpenSender: (userId: Long) -> Unit = {},
 ) {
     val outgoing = message.isOutgoing
     val failed = message.status == MessageStatus.Failed
@@ -134,7 +136,13 @@ fun MessageBubble(
                         sender.name,
                         sender.photoFileId,
                         sender.minithumbnail,
-                        Modifier.align(Alignment.Bottom).padding(end = 8.dp).testTag("senderAvatar"),
+                        Modifier
+                            .align(Alignment.Bottom)
+                            .padding(end = 8.dp)
+                            .clip(CircleShape)
+                            // People only: a chat posting as itself has no profile here.
+                            .clickable(enabled = sender.id > 0 && !selecting, role = Role.Button, onClickLabel = sender.name) { onOpenSender(sender.id) }
+                            .testTag("senderAvatar"),
                         size = SENDER_AVATAR,
                     )
                 } else {

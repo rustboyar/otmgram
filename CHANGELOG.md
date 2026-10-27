@@ -11,6 +11,7 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 - A round video grows while it plays with sound
 - Switch between the front and back camera while recording a round video
 - Scheduled messages: long-press send to send later (in an hour, this evening, tomorrow morning or a date and time you pick); a bar above the input lists them, to send now, change the time, edit or delete
+- Profiles: tap a chat's title, or a sender's picture in a group, for their photo (tap it to page through all of them), status, phone, username, bio and birthday, mute or unmute, and their chat if it's in the folder; a group's shows its description and members
 - Mute and unmute a chat with a long press, below Pin; as in Telegram, it applies to all your apps
 
 ### Fixed

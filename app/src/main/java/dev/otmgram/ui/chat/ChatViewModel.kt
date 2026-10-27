@@ -42,6 +42,7 @@ import dev.otmgram.data.summary
 import dev.otmgram.di.ApplicationScope
 import dev.otmgram.di.onMain
 import dev.otmgram.ui.ChatRoute
+import dev.otmgram.ui.ProfileRoute
 import dev.otmgram.ui.format.lastSeen
 import dev.otmgram.ui.format.sendsAt
 import kotlinx.coroutines.CoroutineScope
@@ -207,6 +208,11 @@ class ChatViewModel @Inject constructor(
                     photoFileId = chat.photo?.small?.id,
                     minithumbnail = chat.photo?.minithumbnail?.data,
                     isSavedMessages = saved,
+                    profile = if (saved) null else when (val type = chat.type) {
+                        is TdApi.ChatTypePrivate -> ProfileRoute(userId = type.userId)
+                        is TdApi.ChatTypeBasicGroup, is TdApi.ChatTypeSupergroup -> ProfileRoute(chatId = chat.id)
+                        else -> null
+                    },
                 )
                 composer.restore(chat.draftMessage) { id -> messages.value.find { it.id == id } }
                 if (chat.unreadCount > 0) unreadMark = UnreadMark(chat.lastReadInboxMessageId, chat.unreadCount)
