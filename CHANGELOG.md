@@ -6,6 +6,7 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 ## Unreleased
 
 ### Added
+- A chat opens where you left it, when you come back to it from the chat list
 - Mute and unmute a chat with a long press, below Pin; as in Telegram, it applies to all your apps
 
 ## 0.3.0 - 2026-10-27

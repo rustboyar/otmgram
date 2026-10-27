@@ -76,6 +76,7 @@ class ChatViewModel @Inject constructor(
     private val downloads: DownloadsFolder,
     private val td: TelegramClient,
     private val audioPlayer: AudioPlayer,
+    private val positions: ChatPositions,
     appSettings: AppSettings,
     private val strings: Strings,
     @ApplicationScope appScope: CoroutineScope,
@@ -146,6 +147,10 @@ class ChatViewModel @Inject constructor(
     var openAt by mutableStateOf<Long?>(null)
         private set
 
+    /** Where the chat was left last time, to open it there instead; null once there or if none. */
+    var openPosition by mutableStateOf<ChatPosition?>(null)
+        private set
+
     /** False until the chat shows where it opens; nothing is marked read before. */
     var positioned by mutableStateOf(false)
         private set
@@ -202,8 +207,15 @@ class ChatViewModel @Inject constructor(
                     isSavedMessages = saved,
                 )
                 composer.restore(chat.draftMessage) { id -> messages.value.find { it.id == id } }
-                if (chat.unreadCount > 0) {
-                    unreadMark = UnreadMark(chat.lastReadInboxMessageId, chat.unreadCount)
+                if (chat.unreadCount > 0) unreadMark = UnreadMark(chat.lastReadInboxMessageId, chat.unreadCount)
+                // Where it was left, if that message is still there: loaded with the newest
+                // ones if it's close to them, else on its own, as after a jump.
+                val left = positions[chatId]?.takeIf { left ->
+                    session.loadUntil(left.messageId, maxPages = POSITION_MAX_PAGES) || session.jumpTo(left.messageId)
+                }
+                if (left != null) {
+                    openPosition = left
+                } else if (chat.unreadCount > 0) {
                     // Open at the first unread message: opening at the newest would mark them all
                     // read, seen or not (Telegram marks everything up to the newest one viewed).
                     session.loadUntil(chat.lastReadInboxMessageId, maxPages = FIRST_UNREAD_MAX_PAGES)
@@ -211,7 +223,7 @@ class ChatViewModel @Inject constructor(
                 }
             } finally {
                 // Nothing to open at (or it failed): mark what's on screen as usual.
-                if (openAt == null) positioned = true
+                if (openAt == null && openPosition == null) positioned = true
             }
         }
     }
@@ -232,11 +244,17 @@ class ChatViewModel @Inject constructor(
     /** Back to the newest messages after jumping to an older one. */
     fun returnToNewest() = action { session.returnToNewest() }
 
-    /** The chat is shown at [openAt], with [visibleIds] on screen. */
+    /** The chat is shown at [openAt] or [openPosition], with [visibleIds] on screen. */
     fun opened(visibleIds: List<Long>) {
         openAt = null
+        openPosition = null
         positioned = true
         onMessagesVisible(visibleIds)
+    }
+
+    /** Scrolled to [position]; null at the newest messages, where a chat opens anyway. */
+    fun leaveAt(position: ChatPosition?) {
+        if (positioned) positions[chatId] = position
     }
 
     /** Called with the ids of messages currently on screen. */
@@ -531,6 +549,9 @@ private const val DRAFT_KEY = "draft"
 
 /** Opening at the first unread loads history back to it, but not further than this. */
 private const val FIRST_UNREAD_MAX_PAGES = 10
+
+/** How far back a chat's last place is loaded along with the newest messages, in pages. */
+private const val POSITION_MAX_PAGES = 4
 
 /** How long a message jumped to stays marked. */
 private const val FLASH_MS = 2_500L

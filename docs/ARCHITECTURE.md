@@ -47,6 +47,7 @@ they are. For building and testing, see [DEVELOPMENT.md](DEVELOPMENT.md).
 ## Chats
 
 - Paged history; reply, forward (to the folder's chats only), edit (text, or the caption of photos, videos, GIFs and voice messages), delete (for me or for everyone), reactions, copy, select several
+- A chat opens where it was left, while the app runs (`ChatPositions`: the message at the bottom of the screen and its offset; loaded with the newest pages if it's within 4, else around it, as a jump). Left at the newest, or for the first time, it opens at the first unread message, else at the newest
 - Messages are marked as read as they show on screen (`viewMessages`). Groups show sender names and avatars
 - Find in chat (`searchChatMessages`), stepping through highlighted matches
 - Jumping to a message that isn't loaded (a search result, a pinned or replied-to one) loads the messages around it in its place, in one request, as Telegram does; scrolling loads more either way, and ↓ goes back to the newest. Meanwhile new messages aren't added (they'd leave a gap); sending something brings the newest back. The message jumped to is highlighted for 2.5 s once on screen

@@ -163,6 +163,23 @@ fun ChatScreen(
             viewModel.opened(listState.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? Long })
         }
     }
+    // Open where the chat was left.
+    viewModel.openPosition?.let { position ->
+        LaunchedEffect(position, rows) {
+            val index = rows.indexOfFirst { it.has(position.messageId) }
+            if (index < 0) return@LaunchedEffect
+            listState.scrollToItem(index, position.offset)
+            viewModel.opened(listState.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? Long })
+        }
+    }
+    // Remember where it's left: the message (or album, keyed by its newest) at the bottom of the screen.
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val bottom = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key is Long }
+            val atBottom = listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0
+            if (bottom == null || (atBottom && atNewest)) null else ChatPosition(bottom.key as Long, -bottom.offset)
+        }.distinctUntilChanged().collect(viewModel::leaveAt)
+    }
     viewModel.scrollTarget?.let { target ->
         LaunchedEffect(target, rows) {
             val index = rows.indexOfFirst { it.has(target) }
