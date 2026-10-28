@@ -5,6 +5,9 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 
 ## Unreleased
 
+### Changed
+- The send preview's film strip fills in faster: the looks are developed side by side, now that tungsten allows it
+
 ## 0.6.0 - 2026-10-28
 
 ### Added
