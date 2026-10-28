@@ -1,7 +1,17 @@
 package dev.otmgram.ui.chat
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -31,8 +41,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -44,7 +56,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -117,22 +131,43 @@ fun MessageBubble(
 ) {
     val outgoing = message.isOutgoing
     val failed = message.status == MessageStatus.Failed
-    // Comes on at once and fades slowly; to its own colour, as fading to transparent black greys it.
+    // Jumped to: a band across the row and a ring round the bubble come on at once, the bubble
+    // gives a little bounce, then both fade slowly. To their own colours, as fading to
+    // transparent black greys them.
     val flash by animateColorAsState(
-        Otm.MarkNow.copy(alpha = if (flashed) 0.55f else 0f),
+        Otm.Mark.copy(alpha = if (flashed) 0.85f else 0f),
         tween(if (flashed) FLASH_IN_MS else FLASH_OUT_MS),
         label = "flash",
     )
+    val ring by animateColorAsState(
+        Otm.Slate.copy(alpha = if (flashed) 1f else 0f),
+        tween(if (flashed) FLASH_IN_MS else FLASH_OUT_MS),
+        label = "ring",
+    )
+    val selectedBand by animateColorAsState(Otm.Haze.copy(alpha = if (selected) 0.7f else 0f), tween(SELECT_MS), label = "selected")
+    val bounce = remember { Animatable(1f) }
+    LaunchedEffect(flashed) {
+        if (!flashed) return@LaunchedEffect
+        bounce.animateTo(BOUNCE_SCALE, tween(FLASH_IN_MS, easing = FastOutSlowInEasing))
+        bounce.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMediumLow))
+    }
     Column(modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(if (selected) Otm.Haze.copy(alpha = 0.7f) else flash)
+                .background(if (selected || selectedBand.alpha > 0f) selectedBand else flash)
                 .then(if (selecting) Modifier.toggleable(value = selected, onValueChange = { onToggleSelected() }, role = Role.Checkbox) else Modifier)
                 .padding(horizontal = 12.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (selecting) SelectionMark(selected, Modifier.padding(end = 10.dp))
+            // Slides in, moving the bubbles aside, rather than appearing at once.
+            AnimatedVisibility(
+                selecting,
+                enter = expandHorizontally(tween(SELECT_MS), expandFrom = Alignment.Start) + fadeIn(tween(SELECT_MS)),
+                exit = shrinkHorizontally(tween(SELECT_MS), shrinkTowards = Alignment.Start) + fadeOut(tween(SELECT_MS)),
+            ) {
+                SelectionMark(selected, Modifier.padding(end = 10.dp))
+            }
             // In groups, the sender's picture by the last of their messages in a row; room for it by the others.
             message.sender?.let { sender ->
                 if (message.showAvatar) {
@@ -157,6 +192,8 @@ fun MessageBubble(
             Box(Modifier.weight(1f), contentAlignment = if (outgoing) Alignment.CenterEnd else Alignment.CenterStart) {
                 Bubble(
                     message,
+                    ring = ring,
+                    scale = { bounce.value },
                     audio,
                     highlight,
                     onClick = if (selecting) onToggleSelected else onClick,
@@ -193,6 +230,10 @@ fun MessageBubble(
 @Composable
 private fun Bubble(
     message: MessageItem,
+    /** Round the bubble while it's marked, else transparent. */
+    ring: Color,
+    /** Read while drawing, so the bounce doesn't recompose. */
+    scale: () -> Float,
     audio: AudioState?,
     highlight: Highlight?,
     onClick: () -> Unit,
@@ -230,11 +271,21 @@ private fun Bubble(
     val selectLabel = stringResource(R.string.action_select)
     Column(
         modifier = Modifier
+            .graphicsLayer {
+                val value = scale()
+                scaleX = value
+                scaleY = value
+                // From its side of the screen, as it hangs there.
+                transformOrigin = TransformOrigin(if (outgoing) 1f else 0f, 0.5f)
+            }
             .widthIn(max = 290.dp)
+            // A reaction added, a caption edited: the bubble grows to it rather than jumping.
+            .animateContentSize(spring(stiffness = Spring.StiffnessMediumLow))
             .then(if (bare) Modifier else Modifier.shadow(1.dp, shape, ambientColor = Otm.Ink.copy(alpha = 0.3f), spotColor = Otm.Ink.copy(alpha = 0.3f)))
             .clip(shape)
             .background(background)
             .then(if (failed) Modifier.border(1.dp, Otm.ErrorLine, shape) else Modifier)
+            .then(if (ring.alpha > 0f) Modifier.border(2.dp, ring, shape) else Modifier)
             // A tap opens the menu, a long press selects; while selecting, either toggles.
             .combinedClickable(
                 onClick = onClick,
@@ -543,4 +594,6 @@ private val QUOTE_THUMBNAIL = 36.dp
 private val REACTOR_FACE = 20.dp
 private val REACTOR_OVERLAP = 5.dp
 private const val FLASH_IN_MS = 150
-private const val FLASH_OUT_MS = 900
+private const val FLASH_OUT_MS = 1_100
+private const val BOUNCE_SCALE = 1.05f
+private const val SELECT_MS = 180

@@ -48,6 +48,15 @@ internal sealed interface ListRow {
     }
 }
 
+/** The day this row is on, as a Unix time; null for the unread line. */
+internal val ListRow.date: Int?
+    get() = when (this) {
+        is ListRow.Message -> message.date
+        is ListRow.Album -> messages.first().date
+        is ListRow.Day -> date
+        is ListRow.Unread -> null
+    }
+
 /** Whether this row shows the message [id]. */
 internal fun ListRow.has(id: Long): Boolean = when (this) {
     is ListRow.Message -> message.id == id

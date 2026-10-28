@@ -10,6 +10,19 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +39,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -48,6 +62,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -63,6 +78,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -80,8 +96,10 @@ import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmType
 import dev.otmgram.ui.theme.ScreenBar
 import dev.otmgram.ui.theme.paper
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -190,7 +208,7 @@ fun ChatScreen(
             val index = rows.indexOfFirst { it.has(target) }
             if (index >= 0) {
                 // Center-ish: leave room above the match.
-                listState.scrollToItem(index, scrollOffset = -listState.layoutInfo.viewportSize.height / 3)
+                listState.glideTo(index, offset = -listState.layoutInfo.viewportSize.height / 3)
                 viewModel.scrolled()
             }
         }
@@ -244,27 +262,34 @@ fun ChatScreen(
 
     Box(modifier.fillMaxSize().paper()) {
         Column(Modifier.fillMaxSize().imePadding()) {
-            when {
-                selecting -> SelectionBar(
-                    count = selection.size,
-                    onCancel = viewModel.selection::clear,
-                    onCopy = {
-                        val text = viewModel.selection.text()
-                        scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(null, text))) }
-                        viewModel.selection.clear()
-                    },
-                )
-                searching -> FindBar(search.query.orEmpty(), search::type, search::close)
-                else -> ScreenBar(
-                    title = title,
-                    subtitle = header?.subtitle,
-                    onBack = onBack,
-                    leading = header?.let { h ->
-                        { ChatAvatar(viewModel.chatId, h.title, h.photoFileId, h.minithumbnail, size = 38.dp, savedMessages = h.isSavedMessages) }
-                    },
-                    onTitleClick = header?.profile?.let { profile -> { onOpenProfile(profile) } },
-                    actions = { IconBtn(OtmIcons.Search, stringResource(R.string.search_chat), search::open, tag = "search") },
-                )
+            val barMode = when {
+                selecting -> BarMode.Selecting
+                searching -> BarMode.Searching
+                else -> BarMode.Chat
+            }
+            AnimatedContent(barMode, transitionSpec = { fadeIn(tween(QUICK_MS)) togetherWith fadeOut(tween(QUICK_MS)) }, label = "topBar") { mode ->
+                when (mode) {
+                    BarMode.Selecting -> SelectionBar(
+                        count = selection.size,
+                        onCancel = viewModel.selection::clear,
+                        onCopy = {
+                            val text = viewModel.selection.text()
+                            scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(null, text))) }
+                            viewModel.selection.clear()
+                        },
+                    )
+                    BarMode.Searching -> FindBar(search.query.orEmpty(), search::type, search::close)
+                    BarMode.Chat -> ScreenBar(
+                        title = title,
+                        subtitle = header?.subtitle,
+                        onBack = onBack,
+                        leading = header?.let { h ->
+                            { ChatAvatar(viewModel.chatId, h.title, h.photoFileId, h.minithumbnail, size = 38.dp, savedMessages = h.isSavedMessages) }
+                        },
+                        onTitleClick = header?.profile?.let { profile -> { onOpenProfile(profile) } },
+                        actions = { IconBtn(OtmIcons.Search, stringResource(R.string.search_chat), search::open, tag = "search") },
+                    )
+                }
             }
             val pinned = viewModel.pinned
             if (pinned.messages.isNotEmpty() && !selecting && !searching) {
@@ -292,97 +317,141 @@ fun ChatScreen(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 10.dp),
                 ) {
                     items(rows, key = { it.key }, contentType = ListRow::contentType) { row ->
-                        when (row) {
-                            is ListRow.Day -> Divider(dayLabel(row.date))
-                            is ListRow.Unread -> Divider(
-                                pluralStringResource(R.plurals.new_since_you_left, row.count, row.count),
-                                color = Otm.Slate,
-                                line = Otm.RidgeLight,
-                            )
-                            is ListRow.Message -> if (row.message.isService) {
-                                ServiceNote(row.message.text)
-                            } else {
-                                val message = row.message
-                                // Read only by voice messages, so playback (updated every 100 ms) recomposes
-                                // only the playing one, not the whole chat.
-                                val voice = message.media as? MessageMedia.VoiceNote
-                                val audio = voice?.let { viewModel.audio.collectAsStateWithLifecycle().value?.takeIf { it.fileId == voice.fileId } }
-                                MessageBubble(
-                                    message,
-                                    audio = audio,
-                                    onClick = { viewModel.openMenu(message) },
-                                    onLongClick = {
-                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        viewModel.startSelecting(listOf(message))
-                                    },
-                                    onReactionClick = { viewModel.toggleReaction(message, it) },
-                                    onOpenMedia = {
-                                        if (message.media is MessageMedia.Location) {
-                                            onOpenMap(viewModel.chatId, message.id)
+                        // New messages fade in and push the others up; removed ones fade out.
+                        Box(Modifier.animateItem(fadeInSpec = tween(ROW_FADE_IN_MS), placementSpec = ROW_PLACEMENT, fadeOutSpec = tween(ROW_FADE_OUT_MS))) {
+                            when (row) {
+                                is ListRow.Day -> Divider(dayLabel(row.date))
+                                is ListRow.Unread -> Divider(
+                                    pluralStringResource(R.plurals.new_since_you_left, row.count, row.count),
+                                    color = Otm.Slate,
+                                    line = Otm.RidgeLight,
+                                )
+                                is ListRow.Message -> if (row.message.isService) {
+                                    ServiceNote(row.message.text)
+                                } else {
+                                    val message = row.message
+                                    // Read only by voice messages, so playback (updated every 100 ms) recomposes
+                                    // only the playing one, not the whole chat.
+                                    val voice = message.media as? MessageMedia.VoiceNote
+                                    val audio = voice?.let { viewModel.audio.collectAsStateWithLifecycle().value?.takeIf { it.fileId == voice.fileId } }
+                                    MessageBubble(
+                                        message,
+                                        audio = audio,
+                                        onClick = { viewModel.openMenu(message) },
+                                        onLongClick = {
+                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            viewModel.startSelecting(listOf(message))
+                                        },
+                                        onReactionClick = { viewModel.toggleReaction(message, it) },
+                                        onOpenMedia = {
+                                            if (message.media is MessageMedia.Location) {
+                                                onOpenMap(viewModel.chatId, message.id)
+                                            } else {
+                                                onOpenMedia(viewModel.chatId, message.id)
+                                            }
+                                        },
+                                        onPlayVoice = { fileId, path -> viewModel.playVoice(message, fileId, path) },
+                                        onVideoNoteSound = { viewModel.markContentOpened(message) },
+                                        onOpenSender = { onOpenProfile(ProfileRoute(userId = it)) },
+                                        onOpenReply = viewModel::jumpTo,
+                                        onOpenLink = { onOpenEmbed(it.url) },
+                                        highlight = if (searching && message.id in resultIds) {
+                                            Highlight(search.query.orEmpty(), current = message.id == currentMatch)
                                         } else {
-                                            onOpenMedia(viewModel.chatId, message.id)
-                                        }
-                                    },
-                                    onPlayVoice = { fileId, path -> viewModel.playVoice(message, fileId, path) },
-                                    onVideoNoteSound = { viewModel.markContentOpened(message) },
-                                    onOpenSender = { onOpenProfile(ProfileRoute(userId = it)) },
-                                    onOpenReply = viewModel::jumpTo,
-                                    onOpenLink = { onOpenEmbed(it.url) },
-                                    highlight = if (searching && message.id in resultIds) {
-                                        Highlight(search.query.orEmpty(), current = message.id == currentMatch)
-                                    } else {
-                                        null
-                                    },
-                                    selecting = selecting,
-                                    selected = message.id in selection,
-                                    flashed = message.id == viewModel.flashed,
-                                    onToggleSelected = { viewModel.selection.toggle(message) },
-                                    onRetry = { viewModel.retry(message) },
-                                    onDiscard = { viewModel.discard(message) },
-                                )
-                            }
-                            is ListRow.Album -> {
-                                val ids = row.messages.map { it.id }
-                                MessageBubble(
-                                    row.shown,
-                                    audio = null,
-                                    onClick = { viewModel.openMenu(row.main, row.messages) },
-                                    onLongClick = {
-                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        viewModel.startSelecting(row.messages)
-                                    },
-                                    onReactionClick = { viewModel.toggleReaction(row.main, it) },
-                                    onOpenMedia = {},
-                                    onPlayVoice = { _, _ -> },
-                                    onVideoNoteSound = {},
-                                    onOpenSender = { onOpenProfile(ProfileRoute(userId = it)) },
-                                    onOpenReply = viewModel::jumpTo,
-                                    highlight = if (searching && ids.any { it in resultIds }) {
-                                        Highlight(search.query.orEmpty(), current = currentMatch in ids)
-                                    } else {
-                                        null
-                                    },
-                                    selecting = selecting,
-                                    selected = ids.all { it in selection },
-                                    flashed = viewModel.flashed in ids,
-                                    onToggleSelected = { viewModel.selection.toggle(row.messages) },
-                                    album = row.messages,
-                                    onOpenAlbumItem = { onOpenMedia(viewModel.chatId, it) },
-                                    onCancelAlbumItem = { id -> row.messages.find { it.id == id }?.let(viewModel::discard) },
-                                )
+                                            null
+                                        },
+                                        selecting = selecting,
+                                        selected = message.id in selection,
+                                        flashed = message.id == viewModel.flashed,
+                                        onToggleSelected = { viewModel.selection.toggle(message) },
+                                        onRetry = { viewModel.retry(message) },
+                                        onDiscard = { viewModel.discard(message) },
+                                    )
+                                }
+                                is ListRow.Album -> {
+                                    val ids = row.messages.map { it.id }
+                                    MessageBubble(
+                                        row.shown,
+                                        audio = null,
+                                        onClick = { viewModel.openMenu(row.main, row.messages) },
+                                        onLongClick = {
+                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            viewModel.startSelecting(row.messages)
+                                        },
+                                        onReactionClick = { viewModel.toggleReaction(row.main, it) },
+                                        onOpenMedia = {},
+                                        onPlayVoice = { _, _ -> },
+                                        onVideoNoteSound = {},
+                                        onOpenSender = { onOpenProfile(ProfileRoute(userId = it)) },
+                                        onOpenReply = viewModel::jumpTo,
+                                        highlight = if (searching && ids.any { it in resultIds }) {
+                                            Highlight(search.query.orEmpty(), current = currentMatch in ids)
+                                        } else {
+                                            null
+                                        },
+                                        selecting = selecting,
+                                        selected = ids.all { it in selection },
+                                        flashed = viewModel.flashed in ids,
+                                        onToggleSelected = { viewModel.selection.toggle(row.messages) },
+                                        album = row.messages,
+                                        onOpenAlbumItem = { onOpenMedia(viewModel.chatId, it) },
+                                        onCancelAlbumItem = { id -> row.messages.find { it.id == id }?.let(viewModel::discard) },
+                                    )
+                                }
                             }
                         }
                     }
                 }
+                // The day of the messages at the top, floating there while scrolling and a moment after.
+                val scrolling = listState.isScrollInProgress
+                var showDay by remember { mutableStateOf(false) }
+                LaunchedEffect(scrolling) {
+                    if (scrolling) {
+                        showDay = true
+                    } else {
+                        delay(DAY_LINGER_MS)
+                        showDay = false
+                    }
+                }
+                val topDate by remember(rows) {
+                    derivedStateOf {
+                        // reverseLayout: the top row is the last one laid out.
+                        listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index?.let { rows.getOrNull(it)?.date }
+                    }
+                }
+                var shownDate by remember { mutableStateOf(0) }
+                topDate?.let { shownDate = it }
+                androidx.compose.animation.AnimatedVisibility(
+                    showDay && shownDate != 0,
+                    Modifier.align(Alignment.TopCenter).padding(top = 8.dp),
+                    enter = fadeIn(tween(QUICK_MS)) + slideInVertically(tween(QUICK_MS)) { -it / 2 },
+                    exit = fadeOut(tween(DAY_FADE_MS)),
+                ) {
+                    Text(
+                        dayLabel(shownDate),
+                        style = OtmType.Secondary.copy(fontWeight = FontWeight.SemiBold),
+                        color = Otm.InkBody,
+                        modifier = Modifier
+                            .shadow(2.dp, RoundedCornerShape(14.dp), ambientColor = Otm.Ink.copy(alpha = 0.3f), spotColor = Otm.Ink.copy(alpha = 0.3f))
+                            .background(Otm.Card.copy(alpha = 0.95f), RoundedCornerShape(14.dp))
+                            .padding(horizontal = 12.dp, vertical = 5.dp)
+                            .testTag("scrollDay"),
+                    )
+                }
                 // Back to the newest message, once scrolled away from it.
                 val scrolledAway by remember { derivedStateOf { listState.firstVisibleItemIndex > JUMP_BUTTON_AFTER } }
-                if (scrolledAway || !atNewest) {
+                // Not ColumnScope's: this sits in the list's box.
+                androidx.compose.animation.AnimatedVisibility(
+                    scrolledAway || !atNewest,
+                    Modifier.align(Alignment.BottomEnd).padding(12.dp),
+                    enter = fadeIn(tween(QUICK_MS)) + scaleIn(tween(QUICK_MS), initialScale = 0.6f),
+                    exit = fadeOut(tween(QUICK_MS)) + scaleOut(tween(QUICK_MS), targetScale = 0.6f),
+                ) {
                     IconBtn(
                         OtmIcons.ChevronDown,
                         stringResource(R.string.jump_to_newest),
                         // After a jump the newest aren't loaded: they replace what's shown.
-                        { if (atNewest) scope.launch { listState.animateScrollToItem(0) } else viewModel.returnToNewest() },
-                        Modifier.align(Alignment.BottomEnd).padding(12.dp),
+                        { if (atNewest) scope.launch { listState.glideTo(0) } else viewModel.returnToNewest() },
                         tint = Otm.SlateDeep,
                         background = Otm.Card,
                         tag = "jumpToNewest",
@@ -398,7 +467,12 @@ fun ChatScreen(
                 ScheduledBar(scheduled.size, viewModel::openScheduled)
             }
             when {
-                selecting -> SelectionActions(onForward = viewModel::forwardSelected, onDelete = viewModel::askDeleteSelected)
+                selecting -> {
+                    val entered = remember { MutableTransitionState(false) }.apply { targetState = true }
+                    AnimatedVisibility(entered, enter = slideInVertically(tween(QUICK_MS)) { it / 2 } + fadeIn(tween(QUICK_MS))) {
+                        SelectionActions(onForward = viewModel::forwardSelected, onDelete = viewModel::askDeleteSelected)
+                    }
+                }
                 searching -> FindStepper(results, search.index, search.query.orEmpty(), onStep = search::step)
                 current != null -> RecordingBar(current, onCancel = viewModel::cancelVoice, onSend = viewModel::sendVoice)
                 else -> InputBar(
@@ -597,6 +671,31 @@ private const val LOAD_MORE_THRESHOLD = 10
 
 /** The "newest messages" button shows once scrolled this many rows up. */
 private const val JUMP_BUTTON_AFTER = 3
+
+/** The top bar's three faces, faded between. */
+private enum class BarMode { Chat, Searching, Selecting }
+
+// Motion: quick enough not to wait for, slow enough to follow. Small things change in
+// QUICK_MS; rows move with a soft spring; scrolling glides only the last stretch.
+private const val QUICK_MS = 160
+private const val DAY_LINGER_MS = 900L
+private const val DAY_FADE_MS = 300
+private const val ROW_FADE_IN_MS = 220
+private const val ROW_FADE_OUT_MS = 140
+private val ROW_PLACEMENT = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow, visibilityThreshold = IntOffset.VisibilityThreshold)
+
+/** Rows a glide covers at most; from further away, the list jumps that close first. */
+private const val GLIDE_ROWS = 12
+
+/**
+ * Scrolls to row [index] smoothly: from far away it jumps to [GLIDE_ROWS] short of it first,
+ * so the glide stays short and quick whatever the distance.
+ */
+internal suspend fun LazyListState.glideTo(index: Int, offset: Int = 0) {
+    val first = firstVisibleItemIndex
+    if (abs(index - first) > GLIDE_ROWS) scrollToItem(if (index > first) index - GLIDE_ROWS else index + GLIDE_ROWS)
+    animateScrollToItem(index, offset)
+}
 
 /** Room above the "new since you left" line when opening there. */
 private val OPEN_AT_TOP_MARGIN = 24.dp

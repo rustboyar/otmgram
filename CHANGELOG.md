@@ -7,9 +7,11 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 
 ### Added
 - Who reacted: up to three show by face on the reaction, and the message's menu lists everyone who reacted, with their reaction
+- While scrolling a chat, the day of the messages at the top floats above them
 
 ### Changed
 - A tap on a message opens its menu, and a long press selects it
+- Smoother chat: jumping to a message or to the newest glides there; the message jumped to gets a ring and a little bounce; new messages fade in and push the others up; selecting slides the messages aside; the menu grows in from the message, and opens sooner
 
 ## 0.4.1 - 2026-10-27
 

@@ -49,6 +49,8 @@ import dev.otmgram.ui.format.lastSeen
 import dev.otmgram.ui.format.sendsAt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -303,11 +305,18 @@ class ChatViewModel @Inject constructor(
             return
         }
         action {
-            val properties = session.properties(message.id)
-            val reactions = try {
-                session.availableReactions(message.id)
-            } catch (e: TdException) {
-                emptyList() // Reactions disabled in this chat.
+            // Asked all at once: one after another, the menu took a noticeable moment.
+            val (properties, reactions, pinned) = coroutineScope {
+                val properties = async { session.properties(message.id) }
+                val reactions = async {
+                    try {
+                        session.availableReactions(message.id)
+                    } catch (e: TdException) {
+                        emptyList() // Reactions disabled in this chat.
+                    }
+                }
+                val pinned = async { session.isPinned(message.id) }
+                Triple(properties.await(), reactions.await(), pinned.await())
             }
             menu = MessageMenu(
                 message = message,
@@ -321,7 +330,7 @@ class ChatViewModel @Inject constructor(
                 canSave = message.media is MessageMedia.Document,
                 canCopy = message.text.isNotEmpty() && !message.isMediaPlaceholder,
                 canPin = properties.canBePinned,
-                isPinned = properties.canBePinned && session.isPinned(message.id),
+                isPinned = properties.canBePinned && pinned,
             )
             if (message.reactions.isNotEmpty()) loadReactors(message.id)
         }
