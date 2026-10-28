@@ -301,6 +301,13 @@ class MediaViewerViewModel @Inject constructor(
             media.caption.text,
             media.video.fileName.ifEmpty { "video-${message.id}.mp4" } to media.video.mimeType.ifEmpty { "video/mp4" },
         )
+        // From a profile's shared voice: played full screen, as a square.
+        is TdApi.MessageVideoNote -> ViewerPage(
+            message.id,
+            ViewerContent.Video(media.videoNote.video.id, media.videoNote.thumbnail?.file?.id, media.videoNote.minithumbnail?.data),
+            "",
+            "round-${message.id}.mp4" to "video/mp4",
+        )
         else -> null
     }
 

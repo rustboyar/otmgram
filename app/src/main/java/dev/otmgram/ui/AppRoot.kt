@@ -130,6 +130,9 @@ private fun MainNavHost(openChatId: Long?, viewModel: RootViewModel = hiltViewMo
                 onBack = navController::popBackStack,
                 onOpenProfile = { userId -> navController.navigate(ProfileRoute(userId = userId)) },
                 onOpenChat = { chatId -> navController.navigate(ChatRoute(chatId)) },
+                onOpenMessage = { chatId, messageId -> navController.navigate(ChatRoute(chatId, messageId)) },
+                onOpenMedia = { chatId, messageId -> navController.navigate(MediaRoute(chatId, messageId)) },
+                onOpenEmbed = { url -> navController.navigate(EmbedRoute(url)) },
             )
         }
         screen<EmbedRoute>(navController) { entry ->

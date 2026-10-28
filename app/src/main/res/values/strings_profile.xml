@@ -18,4 +18,12 @@
     <string name="profile_share">Share</string>
     <string name="profile_share_to">Share contact to</string>
     <string name="profile_shared">Shared with %1$s</string>
+    <!-- Tabs of what the chat has shared -->
+    <string name="shared_media">Media</string>
+    <string name="shared_files">Files</string>
+    <string name="shared_links">Links</string>
+    <string name="shared_voice">Voice</string>
+    <string name="shared_tab">%1$s %2$d</string>
+    <string name="shared_round">Round video</string>
+    <string name="shared_show_in_chat">Show in chat</string>
 </resources>

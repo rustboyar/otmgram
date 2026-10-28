@@ -13,6 +13,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.otmgram.R
 import dev.otmgram.core.Strings
 import dev.otmgram.core.launchLogged
+import dev.otmgram.core.media.AudioPlayer
+import dev.otmgram.core.media.AudioState
 import dev.otmgram.core.td.TdException
 import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.core.userMessage
@@ -22,7 +24,10 @@ import dev.otmgram.data.MessageRepository
 import dev.otmgram.data.fullName
 import dev.otmgram.ui.ProfileRoute
 import dev.otmgram.ui.chat.ForwardTarget
+import dev.otmgram.ui.chat.VoiceActions
 import dev.otmgram.ui.format.lastSeen
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import org.drinkless.tdlib.TdApi
@@ -51,6 +56,8 @@ data class Profile(
     val canOpenChat: Boolean,
     /** A person who can be shared: as a contact if their number is known, else by their link. */
     val canShare: Boolean = false,
+    /** The chat is in the folder: what it shared can be shown in it. */
+    val canShowMessages: Boolean = false,
 )
 
 /** "Phone", "+49 151 …"; tapped, copied. */
@@ -68,6 +75,13 @@ data class Member(
     val minithumbnail: ByteArray?,
 )
 
+/** The profile's tabs, below its details: a group's members, or one kind of what was shared. */
+sealed interface ProfileTab {
+    data object Members : ProfileTab
+
+    data class Shared(val kind: SharedKind) : ProfileTab
+}
+
 /** One of the profile's photos, for the viewer. */
 @Immutable
 data class ProfilePhoto(val id: Long, val fileId: Int, val minithumbnail: ByteArray?)
@@ -80,6 +94,7 @@ class ProfileViewModel @Inject constructor(
     private val chats: ChatRepository,
     private val folders: FolderRepository,
     private val messages: MessageRepository,
+    private val audioPlayer: AudioPlayer,
     private val strings: Strings,
 ) : ViewModel() {
 
@@ -102,13 +117,66 @@ class ProfileViewModel @Inject constructor(
     var shareTargets by mutableStateOf<List<ForwardTarget>?>(null)
         private set
 
+    /** What the chat with them, or the group, has shared; null without a chat. */
+    var shared by mutableStateOf<SharedMedia?>(null)
+        private set
+
+    var tab by mutableStateOf<ProfileTab?>(null)
+        private set
+
+    /** The voice message playing, here or anywhere in the app. */
+    val audio: StateFlow<AudioState?> = audioPlayer.state
+
+    /** Loading a page of shared things; one at a time. */
+    private var sharedJob: Job? = null
+
     /** The person shown, to share. */
     private var user: TdApi.User? = null
 
     init {
         viewModelScope.launchLogged(TAG, onError = { notice = it.userMessage(strings) }) {
             if (route.userId != 0L) loadUser(route.userId) else loadGroup(route.chatId)
+            if (members.isNotEmpty()) tab = ProfileTab.Members
+            val chatId = profile?.chatId ?: return@launchLogged
+            val media = SharedMedia(td, chatId)
+            media.loadCounts()
+            shared = media
+            // A person's profile opens on the first kind they've shared.
+            if (tab == null) media.counts.keys.firstOrNull()?.let { selectTab(ProfileTab.Shared(it)) }
         }
+    }
+
+    fun selectTab(tab: ProfileTab) {
+        this.tab = tab
+        val media = shared ?: return
+        sharedJob?.cancel()
+        if (tab is ProfileTab.Shared) sharedJob = viewModelScope.launchLogged(TAG, onError = { notice = it.userMessage(strings) }) { media.select(tab.kind) }
+    }
+
+    /** The next page of the tab shown, as its end comes into view. */
+    fun loadMoreShared() {
+        val media = shared ?: return
+        if (sharedJob?.isActive == true || media.complete) return
+        sharedJob = viewModelScope.launchLogged(TAG, onError = { notice = it.userMessage(strings) }) { media.loadMore() }
+    }
+
+    /** What a shared voice message's controls do; playing it marks it listened, as in the chat. */
+    fun voiceActions(messageId: Long) = VoiceActions(
+        toggle = { fileId, path ->
+            audioPlayer.toggle(fileId, path)
+            markOpened(messageId)
+        },
+        seek = { fileId, path, fraction ->
+            audioPlayer.seek(fileId, path, fraction)
+            markOpened(messageId)
+        },
+        nextSpeed = audioPlayer::nextSpeed,
+    )
+
+    /** Marks a voice message or round video listened or watched. */
+    fun markOpened(messageId: Long) {
+        val chatId = profile?.chatId ?: return
+        td.sendIgnoringResult(TdApi.OpenMessageContent(chatId, messageId))
     }
 
     private suspend fun loadUser(userId: Long) {
@@ -142,6 +210,7 @@ class ProfileViewModel @Inject constructor(
             chatId = chat?.id,
             isMuted = chat?.let { chats.isMuted(it.id) } ?: false,
             canOpenChat = chat != null && folders.isInFolder(chat.id),
+            canShowMessages = chat != null && folders.isInFolder(chat.id),
             canShare = !isBot && (user.phoneNumber.isNotEmpty() || user.usernames?.activeUsernames?.isNotEmpty() == true),
         )
     }
@@ -175,6 +244,7 @@ class ProfileViewModel @Inject constructor(
             chatId = chat.id,
             isMuted = chats.isMuted(chat.id),
             canOpenChat = false,
+            canShowMessages = folders.isInFolder(chat.id),
         )
         members = memberList.mapNotNull { member(it) }.sortedBy { if (it.role == null) 1 else 0 }
     }

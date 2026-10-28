@@ -67,7 +67,8 @@ internal fun TdApi.MessageText.linkCard(): LinkCard? {
     )
 }
 
-private fun TdApi.LinkPreviewType.picture(): TdApi.Photo? = when (this) {
+/** The picture of a link preview, if it has one. */
+internal fun TdApi.LinkPreviewType.picture(): TdApi.Photo? = when (this) {
     is TdApi.LinkPreviewTypeEmbeddedVideoPlayer -> thumbnail
     is TdApi.LinkPreviewTypeVideo -> cover
     is TdApi.LinkPreviewTypePhoto -> photo

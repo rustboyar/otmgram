@@ -25,8 +25,11 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,6 +43,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.otmgram.R
 import dev.otmgram.ui.chat.ForwardSheet
 import dev.otmgram.ui.media.TdImage
@@ -66,6 +70,9 @@ fun ProfileScreen(
     onBack: () -> Unit,
     onOpenProfile: (userId: Long) -> Unit,
     onOpenChat: (chatId: Long) -> Unit,
+    onOpenMessage: (chatId: Long, messageId: Long) -> Unit,
+    onOpenMedia: (chatId: Long, messageId: Long) -> Unit,
+    onOpenEmbed: (url: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
@@ -74,6 +81,8 @@ fun ProfileScreen(
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
     val copied = stringResource(R.string.copied)
+    val audio = viewModel.audio.collectAsStateWithLifecycle()
+    var longPressed by remember { mutableStateOf<Long?>(null) }
     viewModel.notice?.let { notice ->
         LaunchedEffect(notice) {
             snackbar.showSnackbar(notice)
@@ -86,8 +95,8 @@ fun ProfileScreen(
             if (profile == null) return@Column
             LazyColumn(
                 Modifier.fillMaxSize().testTag("profile"),
+                // Spaced by each item: the grid of shared photos sits closer together.
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 item(key = "head") {
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -109,7 +118,7 @@ fun ProfileScreen(
                 }
                 if (profile.chatId != null) {
                     item(key = "actions") {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally)) {
+                        Row(Modifier.fillMaxWidth().padding(top = GAP), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally)) {
                             if (profile.canOpenChat) {
                                 SoftButton(stringResource(R.string.profile_open_chat), { onOpenChat(profile.chatId) }, Modifier.testTag("openChat"), icon = OtmIcons.Send)
                             }
@@ -127,7 +136,7 @@ fun ProfileScreen(
                 }
                 if (profile.details.isNotEmpty()) {
                     item(key = "details") {
-                        Card(padding = PaddingValues(vertical = 6.dp)) {
+                        Card(Modifier.padding(top = GAP), padding = PaddingValues(vertical = 6.dp)) {
                             profile.details.forEach { detail ->
                                 Column(
                                     Modifier
@@ -147,16 +156,49 @@ fun ProfileScreen(
                         }
                     }
                 }
-                if (viewModel.members.isNotEmpty()) {
-                    item(key = "membersLabel") { SectionLabel(stringResource(R.string.profile_members), Modifier.padding(start = 4.dp, top = 6.dp)) }
-                    items(viewModel.members, key = { it.userId }) { member ->
-                        MemberRow(member) { onOpenProfile(member.userId) }
+                val shared = viewModel.shared
+                val hasShared = shared != null && shared.counts.isNotEmpty()
+                if (hasShared) {
+                    item(key = "tabs") {
+                        ProfileTabs(viewModel.members.isNotEmpty(), shared.counts, viewModel.tab, viewModel::selectTab, Modifier.padding(top = GAP + 6.dp, bottom = 6.dp))
                     }
+                } else if (viewModel.members.isNotEmpty()) {
+                    item(key = "membersLabel") { SectionLabel(stringResource(R.string.profile_members), Modifier.padding(start = 4.dp, top = GAP + 6.dp)) }
+                }
+                if (viewModel.tab == ProfileTab.Members || !hasShared) {
+                    items(viewModel.members, key = { it.userId }) { member ->
+                        MemberRow(member, Modifier.padding(top = GAP)) { onOpenProfile(member.userId) }
+                    }
+                } else if (profile.chatId != null) {
+                    val chatId = profile.chatId
+                    sharedItems(
+                        shared,
+                        SharedActions(
+                            audio = { audio.value },
+                            voiceActions = viewModel::voiceActions,
+                            onOpenMedia = { messageId ->
+                                viewModel.markOpened(messageId)
+                                onOpenMedia(chatId, messageId)
+                            },
+                            onOpenEmbed = onOpenEmbed,
+                            onLoadMore = viewModel::loadMoreShared,
+                            onLongPress = if (profile.canShowMessages) ({ longPressed = it }) else null,
+                        ),
+                    )
                 }
             }
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp)) {
             Snackbar(it, containerColor = Otm.Ink, contentColor = Otm.Paper, shape = RoundedCornerShape(14.dp))
+        }
+        longPressed?.let { messageId ->
+            SharedItemActions(
+                onShowInChat = {
+                    longPressed = null
+                    profile?.chatId?.let { onOpenMessage(it, messageId) }
+                },
+                onDismiss = { longPressed = null },
+            )
         }
         viewModel.photos?.let { photos -> Photos(photos, viewModel::closePhotos) }
         viewModel.shareTargets?.let { targets ->
@@ -166,9 +208,9 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun MemberRow(member: Member, onClick: () -> Unit) {
+private fun MemberRow(member: Member, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .clickable(role = Role.Button, onClick = onClick)
@@ -211,3 +253,6 @@ private fun Photos(photos: List<ProfilePhoto>, onClose: () -> Unit) {
 }
 
 private val PHOTO_SIZE = 112.dp
+
+/** Between the profile's parts. */
+private val GAP = 14.dp
