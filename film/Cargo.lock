@@ -5,7 +5,7 @@ version = 4
 [[package]]
 name = "cinestill"
 version = "0.1.0"
-source = "git+https://github.com/ian-te/tungsten?rev=5d1e1da7d3743d3276912bfc666647b78099c557#5d1e1da7d3743d3276912bfc666647b78099c557"
+source = "git+https://github.com/ian-te/tungsten?rev=29314820936253014b394aec91991a570e72f7b8#29314820936253014b394aec91991a570e72f7b8"
 dependencies = [
  "jpeg-encoder",
 ]

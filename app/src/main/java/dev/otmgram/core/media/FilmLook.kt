@@ -5,6 +5,9 @@ import android.graphics.Color
 import android.graphics.ImageDecoder
 import androidx.core.graphics.applyCanvas
 import androidx.core.graphics.createBitmap
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.write
 import kotlin.math.roundToInt
 
 /**
@@ -45,19 +48,18 @@ object FilmLook {
     }
 
     /**
-     * The glow's source, from [photo] at full size (ARGB_8888); [close] it when done. One
-     * develops with it at a time: it caches its glow without locking, so two at once crashed.
-     * Closed, it develops nothing, so a preview still developing when it's closed is safe.
+     * The glow's source, from [photo] at full size (ARGB_8888); [close] it when done. Several
+     * can develop with it at once (tungsten shares it between threads). Closed, it develops
+     * nothing: a preview still developing when it's closed waits, then nothing more starts.
      */
     class Mask internal constructor(private val handle: Long) : AutoCloseable {
+        private val lock = ReentrantReadWriteLock()
         private var closed = false
 
-        @Synchronized
-        internal fun develop(bitmap: Bitmap, stock: Stock): Boolean = closed || nativeDevelop(handle, bitmap, stock.ordinal)
+        internal fun develop(bitmap: Bitmap, stock: Stock): Boolean = lock.read { closed || nativeDevelop(handle, bitmap, stock.ordinal) }
 
-        @Synchronized
-        override fun close() {
-            if (closed) return
+        override fun close() = lock.write {
+            if (closed) return@write
             closed = true
             nativeFreeMask(handle)
         }

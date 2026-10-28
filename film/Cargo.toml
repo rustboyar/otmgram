@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 # tungsten's core, pinned; its command line (and the image crate) left out.
-cinestill = { git = "https://github.com/ian-te/tungsten", rev = "5d1e1da7d3743d3276912bfc666647b78099c557", default-features = false }
+cinestill = { git = "https://github.com/ian-te/tungsten", rev = "29314820936253014b394aec91991a570e72f7b8", default-features = false }
 
 [profile.release]
 opt-level = 3
