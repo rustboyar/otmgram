@@ -41,7 +41,7 @@ class MessageBubbleTest {
     ) = compose.setContent {
         OtmgramTheme {
             MessageBubble(
-                message, audio = null, onClick = onMenu, onLongClick = onSelect, onReactionClick = {}, onOpenMedia = {}, onPlayVoice = VoiceActions.None,
+                message, audio = { null }, onClick = onMenu, onLongClick = onSelect, onReactionClick = {}, onOpenMedia = {}, onPlayVoice = VoiceActions.None,
                 onVideoNoteSound = {}, selecting = selecting, selected = selected, onToggleSelected = onToggle,
                 onRetry = onRetry, onDiscard = onDiscard,
             )

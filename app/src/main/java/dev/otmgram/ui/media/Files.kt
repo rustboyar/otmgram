@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -159,6 +160,8 @@ fun LoopingVideo(
     // Muted: loop silently. With sound: play once from the start, then report the end.
     DisposableEffect(player, muted) {
         player.volume = if (muted) 0f else 1f
+        // Muted, the sound isn't decoded at all.
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, muted).build()
         // A silent loop leaves other apps' sound alone.
         player.mediaAudio(focus = !muted)
         player.repeatMode = if (muted) Player.REPEAT_MODE_ALL else Player.REPEAT_MODE_OFF
@@ -189,7 +192,8 @@ fun LoopingVideo(
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
     }
-    if (onProgress != null) {
+    // Only while it plays with sound: a muted loop shows no progress.
+    if (onProgress != null && !muted) {
         LaunchedEffect(player) {
             while (true) {
                 val duration = player.duration

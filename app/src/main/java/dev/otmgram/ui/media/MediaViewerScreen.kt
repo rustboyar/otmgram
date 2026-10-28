@@ -166,7 +166,13 @@ private fun ZoomablePhoto(photo: ViewerContent.Photo) {
         modifier = Modifier
             .fillMaxSize()
             .transformable(state, canPan = { scale > 1f })
-            .graphicsLayer(scaleX = scale, scaleY = scale, translationX = offset.x, translationY = offset.y)
+            // Read while drawing: pinching and panning then redraw, without recomposing.
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                translationX = offset.x
+                translationY = offset.y
+            }
             .testTag("viewerPhoto"),
     )
 }

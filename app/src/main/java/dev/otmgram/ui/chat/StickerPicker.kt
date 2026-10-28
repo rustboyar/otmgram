@@ -94,7 +94,7 @@ fun StickerPicker(
                     val cover = tab.cover
                     when {
                         tab.setId == null -> Icon(OtmIcons.Clock, tab.title, tint = Otm.SlateDeep, modifier = Modifier.size(22.dp))
-                        cover != null -> StickerView(cover.toMedia(), Modifier.size(30.dp))
+                        cover != null -> StickerView(cover.toMedia(), Modifier.size(30.dp), animate = false)
                         else -> Text(tab.title.take(2), style = OtmType.Secondary, color = Otm.SlateDeep, maxLines = 1, overflow = TextOverflow.Clip)
                     }
                 }
@@ -130,7 +130,8 @@ fun StickerPicker(
                             .testTag("pick-${sticker.fileId}"),
                         contentAlignment = Alignment.Center,
                     ) {
-                        StickerView(sticker.toMedia(), Modifier.size(STICKER_CELL))
+                        // Still: a screenful of animations at once stutters. The long press plays it.
+                        StickerView(sticker.toMedia(), Modifier.size(STICKER_CELL), animate = false)
                     }
                 }
             }

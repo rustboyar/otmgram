@@ -57,6 +57,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -86,8 +87,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.otmgram.R
+import dev.otmgram.core.media.AudioState
 import dev.otmgram.ui.ProfileRoute
 import dev.otmgram.ui.format.dayLabel
+import dev.otmgram.ui.format.localDay
 import dev.otmgram.ui.openAppSettings
 import dev.otmgram.ui.theme.ChatAvatar
 import dev.otmgram.ui.theme.IconBtn
@@ -114,7 +117,6 @@ fun ChatScreen(
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
     val header by viewModel.header.collectAsStateWithLifecycle()
-    val messages by viewModel.messages.collectAsStateWithLifecycle()
     val recording by viewModel.recording.collectAsStateWithLifecycle()
     val liveShare by viewModel.location.live.collectAsStateWithLifecycle()
     var attaching by rememberSaveable { mutableStateOf(false) }
@@ -122,8 +124,9 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     val haptics = LocalHapticFeedback.current
     val snackbar = remember { SnackbarHostState() }
-    val unreadMark = viewModel.unreadMark
-    val rows = remember(messages, unreadMark) { buildRows(messages, unreadMark) }
+    val rows by viewModel.rows.collectAsStateWithLifecycle()
+    // Not read here: only the playing voice message's controls read it, so playback redraws them alone.
+    val audioState = viewModel.audio.collectAsStateWithLifecycle()
     val selection = viewModel.selection.selected
     val selecting = viewModel.selection.isActive
     val search = viewModel.search
@@ -158,7 +161,8 @@ fun ChatScreen(
     // Follow new messages if the previous newest one was at the bottom (several can arrive
     // at once, e.g. an album), and always after sending. Saved, so coming back from the
     // viewer or a rotation keeps the place instead of jumping to the bottom.
-    val newest = messages.firstOrNull()
+    // From the rows, not the messages: the rows follow a moment later, and their indexes are looked up.
+    val newest = rows.firstNotNullOfOrNull { it.newest }
     val atNewest by viewModel.atNewest.collectAsStateWithLifecycle()
     var previousNewestId by rememberSaveable { mutableStateOf<Long?>(null) }
     LaunchedEffect(newest?.id) {
@@ -333,7 +337,7 @@ fun ChatScreen(
                                     // Read only by voice messages, so playback (updated every 100 ms) recomposes
                                     // only the playing one, not the whole chat.
                                     val voice = message.media as? MessageMedia.VoiceNote
-                                    val audio = voice?.let { viewModel.audio.collectAsStateWithLifecycle().value?.takeIf { it.fileId == voice.fileId } }
+                                    val audio: () -> AudioState? = if (voice == null) NO_AUDIO else ({ audioState.value })
                                     MessageBubble(
                                         message,
                                         audio = audio,
@@ -372,7 +376,7 @@ fun ChatScreen(
                                     val ids = row.messages.map { it.id }
                                     MessageBubble(
                                         row.shown,
-                                        audio = null,
+                                        audio = NO_AUDIO,
                                         onClick = { viewModel.openMenu(row.main, row.messages) },
                                         onLongClick = {
                                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -402,42 +406,7 @@ fun ChatScreen(
                         }
                     }
                 }
-                // The day of the messages at the top, floating there while scrolling and a moment after.
-                val scrolling = listState.isScrollInProgress
-                var showDay by remember { mutableStateOf(false) }
-                LaunchedEffect(scrolling) {
-                    if (scrolling) {
-                        showDay = true
-                    } else {
-                        delay(DAY_LINGER_MS)
-                        showDay = false
-                    }
-                }
-                val topDate by remember(rows) {
-                    derivedStateOf {
-                        // reverseLayout: the top row is the last one laid out.
-                        listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index?.let { rows.getOrNull(it)?.date }
-                    }
-                }
-                var shownDate by remember { mutableStateOf(0) }
-                topDate?.let { shownDate = it }
-                androidx.compose.animation.AnimatedVisibility(
-                    showDay && shownDate != 0,
-                    Modifier.align(Alignment.TopCenter).padding(top = 8.dp),
-                    enter = fadeIn(tween(QUICK_MS)) + slideInVertically(tween(QUICK_MS)) { -it / 2 },
-                    exit = fadeOut(tween(DAY_FADE_MS)),
-                ) {
-                    Text(
-                        dayLabel(shownDate),
-                        style = OtmType.Secondary.copy(fontWeight = FontWeight.SemiBold),
-                        color = Otm.InkBody,
-                        modifier = Modifier
-                            .shadow(2.dp, RoundedCornerShape(14.dp), ambientColor = Otm.Ink.copy(alpha = 0.3f), spotColor = Otm.Ink.copy(alpha = 0.3f))
-                            .background(Otm.Card.copy(alpha = 0.95f), RoundedCornerShape(14.dp))
-                            .padding(horizontal = 12.dp, vertical = 5.dp)
-                            .testTag("scrollDay"),
-                    )
-                }
+                ScrollDay(listState, rows, Modifier.align(Alignment.TopCenter).padding(top = 8.dp))
                 // Back to the newest message, once scrolled away from it.
                 val scrolledAway by remember { derivedStateOf { listState.firstVisibleItemIndex > JUMP_BUTTON_AFTER } }
                 // Not ColumnScope's: this sits in the list's box.
@@ -673,6 +642,56 @@ private const val LOAD_MORE_THRESHOLD = 10
 
 /** The "newest messages" button shows once scrolled this many rows up. */
 private const val JUMP_BUTTON_AFTER = 3
+
+private val NO_AUDIO: () -> AudioState? = { null }
+
+/**
+ * The day of the messages at the top, floating there while scrolling and a moment after. Its
+ * own composable, reading the scroll here: read in the chat screen, every row scrolled past
+ * redrew all of it.
+ */
+@Composable
+private fun ScrollDay(listState: LazyListState, rows: List<ListRow>, modifier: Modifier = Modifier) {
+    val scrolling = listState.isScrollInProgress
+    var showDay by remember { mutableStateOf(false) }
+    LaunchedEffect(scrolling) {
+        if (scrolling) {
+            showDay = true
+        } else {
+            delay(DAY_LINGER_MS)
+            showDay = false
+        }
+    }
+    val currentRows by rememberUpdatedState(rows)
+    // The day, so it changes only at a day's line; reverseLayout: the top row is the last laid out.
+    val topDay by remember {
+        derivedStateOf {
+            listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index?.let { currentRows.getOrNull(it)?.date }
+                ?.let { date -> localDay(date) to date }
+        }
+    }
+    // Kept while it fades out, when nothing may be laid out.
+    var shown by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(topDay?.first) { topDay?.let { shown = it.second } }
+    val date = shown
+    AnimatedVisibility(
+        showDay && date != null,
+        modifier,
+        enter = fadeIn(tween(QUICK_MS)) + slideInVertically(tween(QUICK_MS)) { -it / 2 },
+        exit = fadeOut(tween(DAY_FADE_MS)),
+    ) {
+        Text(
+            dayLabel(date ?: 0),
+            style = OtmType.Secondary.copy(fontWeight = FontWeight.SemiBold),
+            color = Otm.InkBody,
+            modifier = Modifier
+                .shadow(2.dp, RoundedCornerShape(14.dp), ambientColor = Otm.Ink.copy(alpha = 0.3f), spotColor = Otm.Ink.copy(alpha = 0.3f))
+                .background(Otm.Card.copy(alpha = 0.95f), RoundedCornerShape(14.dp))
+                .padding(horizontal = 12.dp, vertical = 5.dp)
+                .testTag("scrollDay"),
+        )
+    }
+}
 
 /** The top bar's three faces, faded between. */
 private enum class BarMode { Chat, Searching, Selecting }

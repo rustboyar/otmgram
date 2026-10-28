@@ -1,5 +1,6 @@
 package dev.otmgram.ui.chat
 
+import androidx.compose.runtime.Immutable
 import dev.otmgram.ui.format.localDay
 
 /** Rows of the message list, newest first: messages and the dividers above them. */
@@ -14,7 +15,8 @@ internal sealed interface ListRow {
         override val contentType: Any get() = if (message.isService) "service" else message.media?.let { it::class } ?: "text"
     }
 
-    /** Photos and videos sent together, oldest first, in one bubble. */
+    /** Photos and videos sent together, oldest first, in one bubble. Never changed once made, so unchanged albums skip redrawing. */
+    @Immutable
     data class Album(val messages: List<MessageItem>) : ListRow {
         // The newest: seeing it marks the others read too.
         override val key get() = messages.last().id
@@ -55,6 +57,14 @@ internal val ListRow.date: Int?
         is ListRow.Album -> messages.first().date
         is ListRow.Day -> date
         is ListRow.Unread -> null
+    }
+
+/** The newest message this row shows; null for the lines between. */
+internal val ListRow.newest: MessageItem?
+    get() = when (this) {
+        is ListRow.Message -> message
+        is ListRow.Album -> messages.last()
+        else -> null
     }
 
 /** Whether this row shows the message [id]. */

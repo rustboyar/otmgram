@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -104,9 +105,11 @@ class ChatViewModel @Inject constructor(
     private val _header = MutableStateFlow<ChatHeader?>(null)
     val header: StateFlow<ChatHeader?> = _header.asStateFlow()
 
+    private val itemCache = ItemCache()
+
     /** Messages, newest first. */
     val messages: StateFlow<List<MessageItem>> = combine(session.history, _header) { history, header ->
-        history.toItems(isGroup = header?.isGroup == true, strings)
+        history.toItems(isGroup = header?.isGroup == true, strings, itemCache)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Whether the messages shown reach the newest; not after jumping to an older one. */
@@ -145,6 +148,11 @@ class ChatViewModel @Inject constructor(
     /** Unread messages when the chat was opened, for the "new since you left" line. */
     var unreadMark by mutableStateOf<UnreadMark?>(null)
         private set
+
+    /** The list's rows, newest first: messages, albums and the lines between; made off the main thread. */
+    internal val rows: StateFlow<List<ListRow>> = combine(messages, snapshotFlow { unreadMark }) { items, mark -> buildRows(items, mark) }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** The input bar: what's typed, and whether it's a new message, a reply or an edit. */
     val composer = DraftComposer(

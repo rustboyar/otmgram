@@ -64,7 +64,7 @@ class VoiceActions(
 @Composable
 internal fun VoiceNote(
     media: MessageMedia.VoiceNote,
-    audio: AudioState?,
+    audio: () -> AudioState?,
     outgoing: Boolean,
     actions: VoiceActions,
     onLongClick: () -> Unit,
@@ -80,7 +80,7 @@ internal fun VoiceNote(
             onPlay(media.fileId, path)
         }
     }
-    val current = audio?.takeIf { it.fileId == media.fileId }
+    val current = audio()?.takeIf { it.fileId == media.fileId }
     val progress = if (current != null && current.durationMs > 0) current.positionMs.toFloat() / current.durationMs else 0f
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Box(

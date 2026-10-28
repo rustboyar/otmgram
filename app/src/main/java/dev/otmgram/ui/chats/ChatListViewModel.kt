@@ -1,6 +1,7 @@
 package dev.otmgram.ui.chats
 
 import androidx.annotation.StringRes
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -46,6 +47,8 @@ import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import javax.inject.Inject
 
+// Never changed once made: unchanged rows then skip redrawing when the list updates.
+@Immutable
 data class ChatItem(
     val id: Long,
     val title: String,

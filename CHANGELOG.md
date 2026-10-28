@@ -5,6 +5,11 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 
 ## Unreleased
 
+### Changed
+- Smoother long chats: a new message, reaction or edit no longer reworks every loaded message, and a playing voice message, the floating date or zooming a photo redraw only what changes
+- Round videos and GIFs playing muted no longer decode their sound, and stickers in the picker stay still until you long-press one: less battery, less stutter
+- Photos and round videos scrolled past before they finished downloading stop downloading
+
 ## 0.6.2 - 2026-10-28
 
 ### Changed

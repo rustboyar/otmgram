@@ -1,5 +1,6 @@
 package dev.otmgram.data
 
+import androidx.collection.LruCache
 import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TdException
 import dev.otmgram.core.td.TelegramClient
@@ -53,8 +54,25 @@ class FileRepository @Inject constructor(
     /** Who waits for which file; one collector routes file updates to them. */
     private val listeners = ConcurrentHashMap<Int, MutableSet<(TdApi.File) -> Unit>>()
 
-    /** Files seen fully downloaded, see [lastKnown]. */
-    private val downloaded = ConcurrentHashMap<Int, FileState>()
+    /**
+     * Files seen fully downloaded, see [lastKnown]: the most recent ones, as the process
+     * lives for days and sees every avatar and sticker.
+     */
+    private val downloaded = object {
+        private val map = LruCache<Int, FileState>(KNOWN_FILES)
+
+        operator fun get(id: Int): FileState? = map.get(id)
+
+        operator fun set(id: Int, state: FileState) {
+            map.put(id, state)
+        }
+
+        fun remove(id: Int) {
+            map.remove(id)
+        }
+
+        fun clear() = map.evictAll()
+    }
 
     init {
         // One pass over all updates, off the main thread, instead of one per visible file.
@@ -80,7 +98,7 @@ class FileRepository @Inject constructor(
      * stops. Higher [priority] (1..32) downloads first.
      */
     fun download(fileId: Int, priority: Int = PRIORITY_VISIBLE): Flow<FileState> =
-        state(fileId) { td.send(TdApi.DownloadFile(fileId, priority, 0, 0, false)) }
+        state(fileId, cancelUnfinished = true) { td.send(TdApi.DownloadFile(fileId, priority, 0, 0, false)) }
 
     /** Emits the state of [fileId] without downloading it, e.g. files downloaded on demand. */
     fun observe(fileId: Int): Flow<FileState> = state(fileId) { td.send(TdApi.GetFile(fileId)) }
@@ -99,7 +117,12 @@ class FileRepository @Inject constructor(
     suspend fun downloadNow(fileId: Int): String =
         td.send(TdApi.DownloadFile(fileId, PRIORITY_VIEWER, 0, 0, true)).local.path
 
-    private fun state(fileId: Int, initial: suspend () -> TdApi.File): Flow<FileState> = channelFlow {
+    /**
+     * [cancelUnfinished]: when the last one watching stops (scrolled away), a download still
+     * waiting its turn is called off, so a fling through a chat doesn't queue every photo it
+     * passed ahead of those on screen. One already under way goes on.
+     */
+    private fun state(fileId: Int, cancelUnfinished: Boolean = false, initial: suspend () -> TdApi.File): Flow<FileState> = channelFlow {
         var completed = false
         val emit: suspend (TdApi.File) -> Unit = { file ->
             // The request's result may arrive after newer updates; never go back from completed.
@@ -124,12 +147,14 @@ class FileRepository @Inject constructor(
             AppLog.w(TAG, "File $fileId: ${e.error.message}")
         }
         awaitClose {
-            listeners.computeIfPresent(fileId) { _, set -> set.apply { remove(listener) }.takeIf { it.isNotEmpty() } }
+            val left = listeners.computeIfPresent(fileId) { _, set -> set.apply { remove(listener) }.takeIf { it.isNotEmpty() } }
+            if (cancelUnfinished && !completed && left == null) td.sendIgnoringResult(TdApi.CancelDownloadFile(fileId, true))
         }
     }
 
     companion object {
         private const val TAG = "FileRepository"
+        private const val KNOWN_FILES = 1000
         const val PRIORITY_VISIBLE = 16
         const val PRIORITY_VIEWER = 32
     }

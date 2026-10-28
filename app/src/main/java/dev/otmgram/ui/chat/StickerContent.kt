@@ -26,12 +26,12 @@ import java.io.IOException
 import java.util.zip.GZIPInputStream
 
 @Composable
-fun StickerView(media: MessageMedia.Sticker, modifier: Modifier = Modifier) {
+fun StickerView(media: MessageMedia.Sticker, modifier: Modifier = Modifier, animate: Boolean = true) {
     when (media.kind) {
         StickerKind.Image -> TdImage(media.fileId, null, modifier, contentScale = ContentScale.Fit)
         StickerKind.Lottie -> {
             val path = rememberDownloadedPath(media.fileId)
-            Box(modifier) { path?.let { LottieSticker(it, Modifier.fillMaxSize()) } }
+            Box(modifier) { path?.let { LottieSticker(it, animate, Modifier.fillMaxSize()) } }
         }
         // Android's decoders don't support transparent video: show the still thumbnail.
         StickerKind.Video -> TdImage(media.thumbnailFileId, null, modifier, contentScale = ContentScale.Fit)
@@ -40,7 +40,7 @@ fun StickerView(media: MessageMedia.Sticker, modifier: Modifier = Modifier) {
 
 /** TGS stickers are gzipped Lottie animations; a broken or oversized one stays blank. */
 @Composable
-private fun LottieSticker(path: String, modifier: Modifier = Modifier) {
+private fun LottieSticker(path: String, animate: Boolean, modifier: Modifier = Modifier) {
     val json by produceState<String?>(null, path) {
         value = withContext(Dispatchers.IO) { readTgs(File(path)) }
     }
@@ -49,7 +49,11 @@ private fun LottieSticker(path: String, modifier: Modifier = Modifier) {
         json?.let { loaded ->
             val composition by rememberLottieComposition(LottieCompositionSpec.JsonString(loaded))
             // Telegram stickers use merge paths, which Lottie disables by default.
-            LottieAnimation(composition, iterations = LottieConstants.IterateForever, enableMergePaths = true, modifier = Modifier.fillMaxSize())
+            if (animate) {
+                LottieAnimation(composition, iterations = LottieConstants.IterateForever, enableMergePaths = true, modifier = Modifier.fillMaxSize())
+            } else {
+                LottieAnimation(composition, progress = { 0f }, enableMergePaths = true, modifier = Modifier.fillMaxSize())
+            }
         }
     }
 }

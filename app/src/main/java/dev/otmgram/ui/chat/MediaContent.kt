@@ -74,7 +74,8 @@ val MessageMedia.isFramed: Boolean
 @Composable
 fun MediaContent(
     media: MessageMedia,
-    audio: AudioState?,
+    /** The voice message playing, read only by a voice message's own controls, which change 10 times a second. */
+    audio: () -> AudioState?,
     outgoing: Boolean,
     onOpen: () -> Unit,
     /** The message menu: media handles taps, so it must pass long presses on. */

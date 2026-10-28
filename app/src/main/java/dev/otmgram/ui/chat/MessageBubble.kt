@@ -102,7 +102,8 @@ data class Highlight(val query: String, val current: Boolean)
 @Composable
 fun MessageBubble(
     message: MessageItem,
-    audio: AudioState?,
+    /** The voice message playing, read only by a voice message's own controls, which change 10 times a second. */
+    audio: () -> AudioState?,
     /** A tap: the message's menu. */
     onClick: () -> Unit,
     /** A long press: starts selecting, with this message. */
@@ -234,7 +235,8 @@ private fun Bubble(
     ring: Color,
     /** Read while drawing, so the bounce doesn't recompose. */
     scale: () -> Float,
-    audio: AudioState?,
+    /** The voice message playing, read only by a voice message's own controls, which change 10 times a second. */
+    audio: () -> AudioState?,
     highlight: Highlight?,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
@@ -336,7 +338,8 @@ private fun Bubble(
             val context = LocalContext.current
             var revealed by rememberSaveable(message.id) { mutableStateOf(emptySet<Int>()) }
             var confirmLink by rememberSaveable { mutableStateOf<String?>(null) }
-            Text(
+            // Built again only when what it shows changes, not on every redraw of the bubble.
+            val text = remember(message.text, message.spans, selecting, highlight, revealed) {
                 messageText(
                     message.text,
                     // While selecting, taps select: no links.
@@ -345,7 +348,10 @@ private fun Bubble(
                     revealed,
                     onReveal = { revealed = revealed + it },
                     onLink = { link -> if (link.hidden) confirmLink = link.url else openLink(context, link.url) },
-                ),
+                )
+            }
+            Text(
+                text,
                 style = OtmType.Body,
                 color = Otm.Ink,
                 fontStyle = if (message.isMediaPlaceholder) FontStyle.Italic else FontStyle.Normal,
