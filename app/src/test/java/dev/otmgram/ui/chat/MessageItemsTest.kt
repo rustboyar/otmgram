@@ -140,6 +140,18 @@ class MessageItemsTest {
     }
 
     @Test
+    fun `few who reacted show by face, more as a count`() {
+        fun users(vararg ids: Long) = ids.map { TdApi.MessageSenderUser(it) }.toTypedArray<TdApi.MessageSender>()
+        val reactions = listOf(
+            TdApi.MessageReaction(TdApi.ReactionTypeEmoji("👍"), 2, false, null, users(2, 3)),
+            TdApi.MessageReaction(TdApi.ReactionTypeEmoji("🔥"), 5, false, null, users(2, 3, 4)),
+        )
+        val chips = history(message(1, reactions = reactions)).toItems(isGroup = true, TestStrings).single().reactions
+        assertEquals(listOf("Anna", "Lea"), chips[0].reactors.map { it.name })
+        assertTrue(chips[1].reactors.isEmpty())
+    }
+
+    @Test
     fun `media without a view is a placeholder with its description`() {
         val poll = message(1, content = TdApi.MessagePoll())
         val item = history(poll).toItems(isGroup = false, TestStrings).single()

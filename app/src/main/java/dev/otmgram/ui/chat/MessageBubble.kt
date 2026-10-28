@@ -65,6 +65,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import dev.otmgram.R
 import dev.otmgram.core.media.AudioState
 import dev.otmgram.ui.embed.MediaLink
@@ -88,6 +89,9 @@ data class Highlight(val query: String, val current: Boolean)
 fun MessageBubble(
     message: MessageItem,
     audio: AudioState?,
+    /** A tap: the message's menu. */
+    onClick: () -> Unit,
+    /** A long press: starts selecting, with this message. */
     onLongClick: () -> Unit,
     onReactionClick: (ReactionChip) -> Unit,
     onOpenMedia: () -> Unit,
@@ -155,9 +159,9 @@ fun MessageBubble(
                     message,
                     audio,
                     highlight,
-                    onClick = if (selecting) onToggleSelected else ({}),
+                    onClick = if (selecting) onToggleSelected else onClick,
                     selecting = selecting,
-                    onLongClick = onLongClick,
+                    onLongClick = if (selecting) onToggleSelected else onLongClick,
                     onReactionClick = onReactionClick,
                     onOpenMedia = if (selecting) onToggleSelected else onOpenMedia,
                     onPlayVoice = onPlayVoice,
@@ -223,6 +227,7 @@ private fun Bubble(
     }
     val textPadding = if (framed) Modifier.padding(horizontal = 7.dp) else Modifier
     val actionsLabel = stringResource(R.string.message_actions)
+    val selectLabel = stringResource(R.string.action_select)
     Column(
         modifier = Modifier
             .widthIn(max = 290.dp)
@@ -230,12 +235,13 @@ private fun Bubble(
             .clip(shape)
             .background(background)
             .then(if (failed) Modifier.border(1.dp, Otm.ErrorLine, shape) else Modifier)
-            // A tap does nothing outside selection; for screen readers it opens the menu instead
-            // of an action that does nothing. Before the clickable: of two click actions on a
-            // node, the first one's is kept. (invoke: in here, onLongClick() is the semantics
-            // property's setter.)
-            .then(if (selecting) Modifier else Modifier.semantics { onClick(actionsLabel) { onLongClick.invoke(); true } })
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = actionsLabel)
+            // A tap opens the menu, a long press selects; while selecting, either toggles.
+            .combinedClickable(
+                onClick = onClick,
+                onClickLabel = if (selecting) null else actionsLabel,
+                onLongClick = onLongClick,
+                onLongClickLabel = if (selecting) null else selectLabel,
+            )
             .testTag("message-${message.id}")
             .padding(
                 horizontal = when {
@@ -404,10 +410,8 @@ fun SelectionMark(selected: Boolean, modifier: Modifier = Modifier) {
 
 @Composable
 private fun Reaction(chip: ReactionChip, outgoing: Boolean, onClick: () -> Unit) {
-    Text(
-        "${chip.label} ${chip.count}",
-        style = OtmType.Secondary.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
-        color = if (chip.isChosen) Otm.SlateDeep else Otm.Ink,
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .clip(RoundedCornerShape(10.dp))
             .background(
@@ -420,8 +424,34 @@ private fun Reaction(chip: ReactionChip, outgoing: Boolean, onClick: () -> Unit)
             .then(if (chip.isChosen) Modifier.border(1.dp, Otm.RidgeLight, RoundedCornerShape(10.dp)) else Modifier)
             .clickable(enabled = chip.emoji != null, onClick = onClick, role = Role.Button)
             .testTag("reaction-${chip.label}")
-            .padding(horizontal = 8.dp, vertical = 2.dp),
-    )
+            .padding(start = 8.dp, end = if (chip.reactors.isEmpty()) 8.dp else 3.dp, top = 2.dp, bottom = 2.dp),
+    ) {
+        Text(chip.label, style = OtmType.Secondary)
+        if (chip.reactors.isEmpty()) {
+            Text(
+                " ${chip.count}",
+                style = OtmType.Secondary.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+                color = if (chip.isChosen) Otm.SlateDeep else Otm.Ink,
+            )
+        } else {
+            // The faces of who reacted, overlapping a little, the first on top.
+            Row(Modifier.padding(start = 4.dp), horizontalArrangement = Arrangement.spacedBy(-REACTOR_OVERLAP)) {
+                chip.reactors.forEachIndexed { index, sender ->
+                    ChatAvatar(
+                        sender.id,
+                        sender.name,
+                        sender.photoFileId,
+                        sender.minithumbnail,
+                        Modifier
+                            .zIndex((chip.reactors.size - index).toFloat())
+                            .border(1.5.dp, if (chip.isChosen) Otm.Haze else if (outgoing) Otm.ApricotQuote else Otm.Paper, CircleShape)
+                            .testTag("reactor-${sender.id}"),
+                        size = REACTOR_FACE,
+                    )
+                }
+            }
+        }
+    }
 }
 
 /** Quoted message with a bar on the left, in bubbles and above the input. */
@@ -510,5 +540,7 @@ private val LINK_STYLE = TextLinkStyles(SpanStyle(color = Otm.SlateDeep, textDec
 
 private val SENDER_AVATAR = 34.dp
 private val QUOTE_THUMBNAIL = 36.dp
+private val REACTOR_FACE = 20.dp
+private val REACTOR_OVERLAP = 5.dp
 private const val FLASH_IN_MS = 150
 private const val FLASH_OUT_MS = 900

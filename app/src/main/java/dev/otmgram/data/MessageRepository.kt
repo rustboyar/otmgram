@@ -320,6 +320,17 @@ class ChatSession internal constructor(
             .distinct()
     }
 
+    /**
+     * Who reacted to a message, with what: all of them where Telegram lists them (groups), else
+     * those the message knows of, the most recent.
+     */
+    suspend fun reactors(messageId: Long): List<Pair<TdApi.MessageSender, TdApi.ReactionType>> = try {
+        td.send(TdApi.GetMessageAddedReactions(chatId, messageId, null, "", REACTORS_LIMIT)).reactions.map { it.senderId to it.type }
+    } catch (e: TdException) {
+        td.send(TdApi.GetMessage(chatId, messageId)).interactionInfo?.reactions?.reactions.orEmpty()
+            .flatMap { reaction -> reaction.recentSenderIds.map { it to reaction.type } }
+    }
+
     suspend fun setReaction(messageId: Long, emoji: String, chosen: Boolean) {
         val type = TdApi.ReactionTypeEmoji(emoji)
         if (chosen) {
@@ -423,6 +434,8 @@ class ChatSession internal constructor(
             }
             is TdApi.UpdateMessageInteractionInfo -> {
                 messages[update.messageId]?.interactionInfo = update.interactionInfo
+                // Who reacted, by name and face.
+                resolveSoon()
             }
             is TdApi.UpdateDeleteMessages -> {
                 // Messages only evicted from TDLib's cache still exist.
@@ -464,6 +477,15 @@ class ChatSession internal constructor(
             when (val sender = message.senderId) {
                 is TdApi.MessageSenderUser -> resolveUserName(sender.userId)
                 is TdApi.MessageSenderChat -> resolveChatName(sender.chatId)
+            }
+            // Who reacted, shown by face.
+            message.interactionInfo?.reactions?.reactions?.forEach { reaction ->
+                reaction.recentSenderIds.forEach { sender ->
+                    when (sender) {
+                        is TdApi.MessageSenderUser -> resolveUserName(sender.userId)
+                        is TdApi.MessageSenderChat -> resolveChatName(sender.chatId)
+                    }
+                }
             }
             // Who an event is about: "Anna added Lea".
             when (val content = message.content) {
@@ -532,6 +554,7 @@ class ChatSession internal constructor(
         const val TAG = "ChatSession"
         const val PAGE_SIZE = 50
         const val SCHEDULED_RELOAD_MS = 300L
+        const val REACTORS_LIMIT = 50
 
         /** Newer messages loaded along with one jumped to; the rest of a page is older ones. */
         const val AROUND = 20

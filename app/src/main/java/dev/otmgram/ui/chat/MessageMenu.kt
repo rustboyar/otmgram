@@ -6,15 +6,18 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
@@ -43,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.otmgram.R
 import dev.otmgram.ui.format.formatTime
+import dev.otmgram.ui.theme.ChatAvatar
 import dev.otmgram.ui.theme.DialogTags
 import dev.otmgram.ui.theme.FullScreenDialog
 import dev.otmgram.ui.theme.Otm
@@ -52,7 +56,7 @@ import dev.otmgram.ui.theme.OtmType
 import dev.otmgram.ui.theme.TextAction
 
 /**
- * Long-press menu, floating over the dimmed chat: reactions on top, the message, and the
+ * A message's menu, opened by a tap, floating over the dimmed chat: reactions on top, the message, and the
  * actions below it, on the message's side.
  */
 @Composable
@@ -123,6 +127,7 @@ fun MessageMenuOverlay(
                         message.status?.let { StatusMark(it) }
                     }
                 }
+                if (menu.reactedBy.isNotEmpty()) ReactedBy(menu.reactedBy)
                 Column(
                     modifier = Modifier
                         .width(230.dp)
@@ -153,6 +158,33 @@ fun MessageMenuOverlay(
 }
 
 private val BUBBLE_SHAPE = RoundedCornerShape(18.dp)
+
+/** Who reacted, with what: a few rows, then scrolling. */
+@Composable
+private fun ReactedBy(reactors: List<Reactor>) {
+    LazyColumn(
+        modifier = Modifier
+            .width(230.dp)
+            .heightIn(max = 188.dp)
+            .shadow(6.dp, RoundedCornerShape(18.dp), ambientColor = Otm.Ink.copy(alpha = 0.3f), spotColor = Otm.Ink.copy(alpha = 0.3f))
+            .background(Otm.Card, RoundedCornerShape(18.dp))
+            .testTag("reactedBy"),
+        contentPadding = PaddingValues(vertical = 6.dp),
+    ) {
+        items(reactors) { reactor ->
+            Row(
+                Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                val sender = reactor.sender
+                ChatAvatar(sender.id, sender.name, sender.photoFileId, sender.minithumbnail, size = 28.dp)
+                Text(sender.name, style = OtmType.Body, color = Otm.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(reactor.emoji, fontSize = 18.sp)
+            }
+        }
+    }
+}
 
 @Composable
 private fun MenuAction(icon: ImageVector, label: String, tag: String, onClick: () -> Unit, danger: Boolean = false) {

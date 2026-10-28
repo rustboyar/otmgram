@@ -5,6 +5,12 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 
 ## Unreleased
 
+### Added
+- Who reacted: up to three show by face on the reaction, and the message's menu lists everyone who reacted, with their reaction
+
+### Changed
+- A tap on a message opens its menu, and a long press selects it
+
 ## 0.4.1 - 2026-10-27
 
 ### Changed

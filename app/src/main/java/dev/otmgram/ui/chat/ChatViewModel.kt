@@ -33,11 +33,13 @@ import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.MessageRepository
 import dev.otmgram.data.OutgoingMedia
 import dev.otmgram.data.SendQuality
+import dev.otmgram.data.SenderPhoto
 import dev.otmgram.data.Sticker
 import dev.otmgram.data.StickerRepository
 import dev.otmgram.data.isGroup
 import dev.otmgram.data.isSavedMessages
 import dev.otmgram.data.isService
+import dev.otmgram.data.senderName
 import dev.otmgram.data.summary
 import dev.otmgram.di.ApplicationScope
 import dev.otmgram.di.onMain
@@ -321,7 +323,41 @@ class ChatViewModel @Inject constructor(
                 canPin = properties.canBePinned,
                 isPinned = properties.canBePinned && session.isPinned(message.id),
             )
+            if (message.reactions.isNotEmpty()) loadReactors(message.id)
         }
+    }
+
+    /** Who reacted, into the open menu: quietly nothing if they can't be listed. */
+    private suspend fun loadReactors(messageId: Long) {
+        val reactors = try {
+            session.reactors(messageId)
+        } catch (e: TdException) {
+            return
+        }
+        val names = session.history.value.senderNames
+        val photos = session.history.value.senderPhotos
+        val reactedBy = reactors.mapNotNull { (sender, type) ->
+            val emoji = (type as? TdApi.ReactionTypeEmoji)?.emoji ?: return@mapNotNull null
+            val key = sender.key()
+            val name = names[key] ?: try {
+                td.senderName(sender)
+            } catch (e: TdException) {
+                null
+            }
+            val photo = photos[key] ?: senderPhoto(sender)
+            Reactor(MessageSender(key, name.orEmpty(), photo?.fileId, photo?.minithumbnail), emoji)
+        }
+        menu = menu?.takeIf { it.message.id == messageId }?.copy(reactedBy = reactedBy)
+    }
+
+    private suspend fun senderPhoto(sender: TdApi.MessageSender): SenderPhoto? = try {
+        when (sender) {
+            is TdApi.MessageSenderUser -> td.send(TdApi.GetUser(sender.userId)).profilePhoto?.let { SenderPhoto(it.small.id, it.minithumbnail?.data) }
+            is TdApi.MessageSenderChat -> td.send(TdApi.GetChat(sender.chatId)).photo?.let { SenderPhoto(it.small.id, it.minithumbnail?.data) }
+            else -> null
+        }
+    } catch (e: TdException) {
+        null
     }
 
     fun playVoice(message: MessageItem, fileId: Int, path: String) {
@@ -561,6 +597,12 @@ class ChatViewModel @Inject constructor(
 
     /** Deletes a message that failed to send; it exists only on this device. */
     fun discard(message: MessageItem) = action { session.delete(listOf(message.id), forEveryone = false) }
+
+    /** A long press: starts selecting with [messages] (one, or an album's); while selecting, toggles them. */
+    fun startSelecting(messages: List<MessageItem>) {
+        if (messages.any { it.isService }) return
+        if (selection.isActive) selection.toggle(messages) else selection.start(messages.map { it.id })
+    }
 
     /** Starts selecting messages, with the menu's selected. */
     fun select(menu: MessageMenu) {

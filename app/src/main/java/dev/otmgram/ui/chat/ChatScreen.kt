@@ -50,10 +50,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -100,6 +102,7 @@ fun ChatScreen(
     var attaching by rememberSaveable { mutableStateOf(false) }
     var choosingLocation by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
+    val haptics = LocalHapticFeedback.current
     val snackbar = remember { SnackbarHostState() }
     val unreadMark = viewModel.unreadMark
     val rows = remember(messages, unreadMark) { buildRows(messages, unreadMark) }
@@ -307,7 +310,11 @@ fun ChatScreen(
                                 MessageBubble(
                                     message,
                                     audio = audio,
-                                    onLongClick = { viewModel.openMenu(message) },
+                                    onClick = { viewModel.openMenu(message) },
+                                    onLongClick = {
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        viewModel.startSelecting(listOf(message))
+                                    },
                                     onReactionClick = { viewModel.toggleReaction(message, it) },
                                     onOpenMedia = {
                                         if (message.media is MessageMedia.Location) {
@@ -339,7 +346,11 @@ fun ChatScreen(
                                 MessageBubble(
                                     row.shown,
                                     audio = null,
-                                    onLongClick = { viewModel.openMenu(row.main, row.messages) },
+                                    onClick = { viewModel.openMenu(row.main, row.messages) },
+                                    onLongClick = {
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        viewModel.startSelecting(row.messages)
+                                    },
                                     onReactionClick = { viewModel.toggleReaction(row.main, it) },
                                     onOpenMedia = {},
                                     onPlayVoice = { _, _ -> },

@@ -72,10 +72,19 @@ internal fun ChatHistory.toItems(isGroup: Boolean, strings: Strings): List<Messa
                 else -> MessageStatus.Sent
             },
             reactions = message.interactionInfo?.reactions?.reactions.orEmpty().map { reaction ->
+                // Faces instead of a number, as in Telegram: when all who reacted are known, and few.
+                val reactors = if (reaction.totalCount <= MAX_REACTOR_FACES && reaction.recentSenderIds.size == reaction.totalCount) {
+                    reaction.recentSenderIds.map { sender ->
+                        val key = sender.key()
+                        senderPhotos[key].let { MessageSender(key, senderNames[key].orEmpty(), it?.fileId, it?.minithumbnail) }
+                    }
+                } else {
+                    emptyList()
+                }
                 when (val type = reaction.type) {
-                    is TdApi.ReactionTypeEmoji -> ReactionChip(type.emoji, type.emoji, reaction.totalCount, reaction.isChosen)
+                    is TdApi.ReactionTypeEmoji -> ReactionChip(type.emoji, type.emoji, reaction.totalCount, reaction.isChosen, reactors)
                     is TdApi.ReactionTypePaid -> ReactionChip("⭐", null, reaction.totalCount, reaction.isChosen)
-                    else -> ReactionChip("✨", null, reaction.totalCount, reaction.isChosen)
+                    else -> ReactionChip("✨", null, reaction.totalCount, reaction.isChosen, reactors)
                 }
             },
         )
@@ -90,7 +99,13 @@ private fun ChatHistory.originName(origin: TdApi.MessageOrigin): String? = when 
     else -> null
 }
 
-internal fun TdApi.Message.senderKey(): Long = when (val sender = senderId) {
+/** At most this many who reacted show as faces; more, as a count. */
+private const val MAX_REACTOR_FACES = 3
+
+internal fun TdApi.Message.senderKey(): Long = senderId.key()
+
+/** The user or chat id of a sender, as names and photos are kept by. */
+internal fun TdApi.MessageSender.key(): Long = when (val sender = this) {
     is TdApi.MessageSenderUser -> sender.userId
     is TdApi.MessageSenderChat -> sender.chatId
     else -> 0

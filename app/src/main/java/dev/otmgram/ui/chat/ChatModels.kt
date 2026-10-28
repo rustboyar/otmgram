@@ -23,7 +23,17 @@ enum class MessageStatus { Sending, Sent, Read, Failed }
 data class ReplyPreview(val senderName: String?, val text: String, val messageId: Long? = null, val thumbnail: QuoteThumbnail? = null)
 
 /** A reaction under a message. [emoji] is null for kinds Otmgram can't add (custom emoji, paid). */
-data class ReactionChip(val label: String, val emoji: String?, val count: Int, val isChosen: Boolean)
+data class ReactionChip(
+    val label: String,
+    val emoji: String?,
+    val count: Int,
+    val isChosen: Boolean,
+    /** Who reacted, when they're all known and few: shown instead of the count. */
+    val reactors: List<MessageSender> = emptyList(),
+)
+
+/** Someone who reacted to a message, and with what. */
+data class Reactor(val sender: MessageSender, val emoji: String)
 
 data class SearchResult(val messageId: Long, val senderName: String?, val text: String, val date: Int)
 
@@ -74,7 +84,7 @@ sealed interface Composer {
     data class Edit(val message: MessageItem) : Composer
 }
 
-/** Long-press menu of a message, with the actions it allows. */
+/** The menu of a message, opened by a tap, with the actions it allows. */
 data class MessageMenu(
     val message: MessageItem,
     /** What forwarding, selecting and deleting act on: [message], or all of its album. */
@@ -91,6 +101,8 @@ data class MessageMenu(
     val canCopy: Boolean,
     val canPin: Boolean,
     val isPinned: Boolean,
+    /** Who reacted, with what; loaded after the menu opens. */
+    val reactedBy: List<Reactor> = emptyList(),
 )
 
 /** Messages waiting for a delete confirmation, with what the user may choose. */

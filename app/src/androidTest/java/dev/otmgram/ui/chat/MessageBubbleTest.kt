@@ -3,11 +3,13 @@ package dev.otmgram.ui.chat
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.otmgram.ui.theme.OtmgramTheme
 import org.junit.Assert.assertEquals
@@ -35,10 +37,11 @@ class MessageBubbleTest {
         onRetry: () -> Unit = {},
         onDiscard: () -> Unit = {},
         onMenu: () -> Unit = {},
+        onSelect: () -> Unit = {},
     ) = compose.setContent {
         OtmgramTheme {
             MessageBubble(
-                message, audio = null, onLongClick = onMenu, onReactionClick = {}, onOpenMedia = {}, onPlayVoice = { _, _ -> },
+                message, audio = null, onClick = onMenu, onLongClick = onSelect, onReactionClick = {}, onOpenMedia = {}, onPlayVoice = { _, _ -> },
                 onVideoNoteSound = {}, selecting = selecting, selected = selected, onToggleSelected = onToggle,
                 onRetry = onRetry, onDiscard = onDiscard,
             )
@@ -46,13 +49,17 @@ class MessageBubbleTest {
     }
 
     @Test
-    fun screenReadersOpenTheMenuWithADoubleTap() {
+    fun aTapOpensTheMenuAndALongPressSelects() {
         var menus = 0
-        show(item(), onMenu = { menus++ })
+        var selects = 0
+        show(item(), onMenu = { menus++ }, onSelect = { selects++ })
         val node = compose.onNodeWithTag("message-1")
         assertEquals("Message actions", node.fetchSemanticsNode().config[SemanticsActions.OnClick].label)
-        node.performSemanticsAction(SemanticsActions.OnClick)
+        assertEquals("Select", node.fetchSemanticsNode().config[SemanticsActions.OnLongClick].label)
+        node.performClick()
+        node.performTouchInput { longClick() }
         assertEquals(1, menus)
+        assertEquals(1, selects)
     }
 
     @Test
