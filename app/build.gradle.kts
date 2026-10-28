@@ -103,6 +103,9 @@ android {
     lint {
         // Not a ChromeOS app: x86_64 is only built for the emulator.
         disable += "ChromeOsAbiSupport"
+        // A newer release is news, not an error: one out today would fail the build. Updates
+        // wait until a release is a couple of weeks old.
+        informational += setOf("AndroidGradlePluginVersion", "GradleDependency", "NewerVersionAvailable")
         abortOnError = true
         warningsAsErrors = true
     }

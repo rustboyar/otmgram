@@ -9,6 +9,9 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 - Smoother long chats: a new message, reaction or edit no longer reworks every loaded message, and a playing voice message, the floating date or zooming a photo redraw only what changes
 - Round videos and GIFs playing muted no longer decode their sound, and stickers in the picker stay still until you long-press one: less battery, less stutter
 - Photos and round videos scrolled past before they finished downloading stop downloading
+- A photo with a film is ready sooner in SD: it's read once instead of twice, and picked photos' sizes are read without decoding them
+- Map previews let go of their memory when Android runs short, and no longer keep a closed screen in memory while loading
+- Notifications resume sooner after leaving the app
 
 ## 0.6.2 - 2026-10-28
 

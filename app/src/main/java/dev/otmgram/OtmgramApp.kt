@@ -10,6 +10,7 @@ import coil3.SingletonImageLoader
 import coil3.video.VideoFrameDecoder
 import dagger.hilt.android.HiltAndroidApp
 import dev.otmgram.core.location.LiveLocationSharing
+import dev.otmgram.core.location.MapSnapshots
 import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.td.TdClient
 import dev.otmgram.sync.CheckScheduler
@@ -53,6 +54,12 @@ class OtmgramApp : Application(), SingletonImageLoader.Factory, Configuration.Pr
         checkScheduler.start()
         liveLocation.endLeftovers()
         sessionCleanup.start()
+    }
+
+    /** In the background and short of memory: let go of what's cheap to make again. Coil trims itself. */
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= TRIM_MEMORY_BACKGROUND) MapSnapshots.trim()
     }
 
     /** Images for Coil, including frames of local videos (e.g. picked for sending). */

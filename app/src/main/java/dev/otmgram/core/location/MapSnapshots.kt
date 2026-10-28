@@ -67,13 +67,23 @@ object MapSnapshots {
             .withPixelRatio(density)
             .withCameraPosition(CameraPosition.Builder().target(LatLng(latitude, longitude)).zoom(ZOOM).build())
         ensureMapEngine(context)
-        val snapshotter = MapSnapshotter(context, options)
-        val bitmap = suspendCancellableCoroutine { continuation ->
-            snapshotter.start({ continuation.resume(it.bitmap) }, { continuation.resume(null) })
-            continuation.invokeOnCancellation { snapshotter.cancel() }
+        // The application's context: a snapshot still loading mustn't keep a closed screen.
+        val snapshotter = MapSnapshotter(context.applicationContext, options)
+        val bitmap = try {
+            suspendCancellableCoroutine { continuation ->
+                snapshotter.start({ continuation.resume(it.bitmap) }, { continuation.resume(null) })
+            }
+        } finally {
+            // Lets go of its callbacks and the native renderer, done or not.
+            snapshotter.cancel()
         }
         bitmap?.let { cache.put(key, it) }
         return bitmap
+    }
+
+    /** Drops the cached previews, e.g. when Android is short of memory; they're redrawn when shown again. */
+    fun trim() {
+        cache.evictAll()
     }
 
     private const val CACHE_BYTES = 12 * 1024 * 1024

@@ -15,7 +15,10 @@ import dev.otmgram.di.ApplicationScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -122,7 +125,9 @@ class NotificationCenter @Inject constructor(
     /** Records the folder's messages as seen: the app is open, so they're on screen or a tap away. */
     suspend fun markSeen(folderId: Int) {
         val chatIds = td.send(TdApi.GetChats(TdApi.ChatListFolder(folderId), MAX_FOLDER_CHATS)).chatIds
-        state.markSeen(chatIds.associateWith { td.send(TdApi.GetChat(it)).lastMessage?.id ?: 0 })
+        // All at once: notifications resume on leaving only when this is done.
+        val newest = coroutineScope { chatIds.map { id -> async { id to (td.send(TdApi.GetChat(id)).lastMessage?.id ?: 0) } }.awaitAll() }
+        state.markSeen(newest.toMap())
     }
 
     private fun enable() {

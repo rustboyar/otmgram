@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.ImageDecoder
+import android.graphics.Paint
+import android.graphics.Rect
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -228,7 +230,15 @@ class OutgoingMedia @Inject constructor(
      */
     private fun filmedPhoto(file: File, film: FilmLook.Stock, side: Int): File {
         val full = FilmLook.decode(ImageDecoder.createSource(file), FilmLook.MAX_SIDE)
-        val photo = if (side >= FilmLook.MAX_SIDE) full else FilmLook.decode(ImageDecoder.createSource(file), side)
+        // Smaller from the photo already decoded, rather than decoding the file again.
+        val scale = side.toFloat() / max(full.width, full.height)
+        val photo = if (scale >= 1f) {
+            full
+        } else {
+            createBitmap((full.width * scale).roundToInt().coerceAtLeast(1), (full.height * scale).roundToInt().coerceAtLeast(1)).applyCanvas {
+                drawBitmap(full, null, Rect(0, 0, width, height), Paint(Paint.FILTER_BITMAP_FLAG))
+            }
+        }
         FilmLook.mask(full).use { mask -> FilmLook.develop(mask, photo, film) }
         if (photo !== full) full.recycle()
         val output = files.newFile("jpg")
@@ -275,11 +285,18 @@ class OutgoingMedia @Inject constructor(
 
     private fun imageSize(source: ImageDecoder.Source): Pair<Int, Int> {
         var size = 0 to 0
-        ImageDecoder.decodeDrawable(source) { decoder, info, _ ->
-            size = info.size.width to info.size.height
-            decoder.setTargetSize(1, 1) // Only the header is needed.
+        try {
+            ImageDecoder.decodeDrawable(source) { _, info, _ ->
+                size = info.size.width to info.size.height
+                throw HeaderRead // Only the header is needed: stop before any pixels are decoded.
+            }
+        } catch (_: HeaderRead) {
         }
         return size
+    }
+
+    private object HeaderRead : RuntimeException() {
+        private fun readResolve(): Any = HeaderRead
     }
 
     private fun displayName(uri: Uri): String =
