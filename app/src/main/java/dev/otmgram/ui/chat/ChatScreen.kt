@@ -589,7 +589,9 @@ fun ChatScreen(
         val quality by viewModel.sendQuality.collectAsStateWithLifecycle()
         MediaPreviewScreen(
             outgoing.media, title, quality, outgoing.sizes,
-            onSend = outgoing::sendMedia, onDismiss = outgoing::cancelMedia,
+            onSend = viewModel::sendMedia, onDismiss = outgoing::cancelMedia,
+            films = viewModel.films,
+            lastFilm = viewModel.lastFilm.collectAsStateWithLifecycle().value,
         )
     }
     viewModel.menu?.let { menu ->

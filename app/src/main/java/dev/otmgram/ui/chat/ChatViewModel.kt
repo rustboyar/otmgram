@@ -18,6 +18,7 @@ import dev.otmgram.core.location.LocationSource
 import dev.otmgram.core.log.AppLog
 import dev.otmgram.core.media.AudioPlayer
 import dev.otmgram.core.media.AudioState
+import dev.otmgram.core.media.FilmLook
 import dev.otmgram.core.media.RecorderState
 import dev.otmgram.core.media.VoiceRecorder
 import dev.otmgram.core.td.TdException
@@ -29,6 +30,7 @@ import dev.otmgram.data.ChatHistory
 import dev.otmgram.data.ChatRepository
 import dev.otmgram.data.DownloadsFolder
 import dev.otmgram.data.FileRepository
+import dev.otmgram.data.FilmPreviews
 import dev.otmgram.data.FolderRepository
 import dev.otmgram.data.MessageRepository
 import dev.otmgram.data.OutgoingMedia
@@ -85,7 +87,9 @@ class ChatViewModel @Inject constructor(
     private val td: TelegramClient,
     private val audioPlayer: AudioPlayer,
     private val positions: ChatPositions,
-    appSettings: AppSettings,
+    private val appSettings: AppSettings,
+    /** Develops picked photos in films, for the send preview. */
+    val films: FilmPreviews,
     private val strings: Strings,
     @ApplicationScope appScope: CoroutineScope,
 ) : ViewModel() {
@@ -114,6 +118,15 @@ class ChatViewModel @Inject constructor(
 
     /** The quality the send preview starts with. */
     val sendQuality: StateFlow<SendQuality> = appSettings.sendQuality.stateIn(viewModelScope, SharingStarted.Eagerly, SendQuality.HD)
+
+    /** The film photos were last sent with, offered first. */
+    val lastFilm: StateFlow<FilmLook.Stock?> = appSettings.lastFilm.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** Sends the picked media; photos in [film], which is then offered first next time. */
+    fun sendMedia(caption: String, quality: SendQuality, film: FilmLook.Stock?) {
+        outgoing.sendMedia(caption, quality, film)
+        if (film != null) lasting.launch { appSettings.setLastFilm(film) }
+    }
 
     /** Voice message being played, anywhere in the app. */
     val audio: StateFlow<AudioState?> = audioPlayer.state

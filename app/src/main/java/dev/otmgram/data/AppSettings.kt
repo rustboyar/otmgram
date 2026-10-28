@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import dev.otmgram.R
+import dev.otmgram.core.media.FilmLook
 import dev.otmgram.di.SettingsStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -50,6 +51,7 @@ private val NOTIFICATION_MODE = stringPreferencesKey("notification_mode")
 private val CHECK_INTERVAL = stringPreferencesKey("check_interval")
 private val COMPRESS = booleanPreferencesKey("compress_by_default")
 private val SEND_QUALITY = stringPreferencesKey("send_quality")
+private val LAST_FILM = stringPreferencesKey("last_film")
 private val CACHE_LIMIT = stringPreferencesKey("cache_limit")
 private val MESSAGE_TEXT = booleanPreferencesKey("notification_message_text")
 private val NOTIFICATIONS_ASKED = booleanPreferencesKey("notification_permission_asked")
@@ -104,6 +106,13 @@ class AppSettings @Inject constructor(
 
     suspend fun setCheckInterval(interval: CheckInterval) {
         settings.edit { it[CHECK_INTERVAL] = interval.name }
+    }
+
+    /** The film last sent photos with, offered first after None; null if none yet. */
+    val lastFilm: Flow<FilmLook.Stock?> = settings.data.map { prefs -> FilmLook.Stock.entries.find { it.name == prefs[LAST_FILM] } }
+
+    suspend fun setLastFilm(film: FilmLook.Stock) {
+        settings.edit { it[LAST_FILM] = film.name }
     }
 
     suspend fun setSendQuality(quality: SendQuality) {

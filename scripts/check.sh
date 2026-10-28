@@ -8,6 +8,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
 
+# The film looks' native library: quick once built.
+scripts/build-film.sh
+
 # Compiling the UI tests too catches them breaking without a device.
 tasks=(spotlessCheck :app:lintDebug :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin)
 [ "${1:-}" = "--release" ] && tasks+=(:app:assembleRelease)

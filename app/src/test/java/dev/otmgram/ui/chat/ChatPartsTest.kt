@@ -210,7 +210,7 @@ class ChatPartsTest {
             backgroundScope,
             backgroundScope,
             estimate = { SizeEstimate(10, 3, 5) },
-            prepareMedia = { _, caption, _ -> captions += caption; TdApi.InputMessageText() },
+            prepareMedia = { _, caption, _, _ -> captions += caption; TdApi.InputMessageText() },
             prepareFile = { _, _ -> TdApi.InputMessageText() },
             send = { sent += it.size },
             onError = {},
@@ -231,7 +231,7 @@ class ChatPartsTest {
     fun `a failed compression is reported and stops preparing`() = runTest {
         val errors = mutableListOf<Exception>()
         val queue = OutgoingQueue<String>(
-            backgroundScope, backgroundScope, { SizeEstimate(0, 0, 0) }, { _, _, _ -> error("decoder failed") }, { _, _ -> TdApi.InputMessageText() }, {}, { errors += it },
+            backgroundScope, backgroundScope, { SizeEstimate(0, 0, 0) }, { _, _, _, _ -> error("decoder failed") }, { _, _ -> TdApi.InputMessageText() }, {}, { errors += it },
         )
         queue.pickMedia(listOf("a"))
         queue.sendMedia("", SendQuality.HD)

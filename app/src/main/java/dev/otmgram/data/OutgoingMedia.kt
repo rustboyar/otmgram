@@ -15,6 +15,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.transformer.ExportException
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.otmgram.core.log.AppLog
+import dev.otmgram.core.media.FilmLook
 import dev.otmgram.core.media.MediaTranscoder
 import dev.otmgram.core.media.OutgoingFiles
 import kotlinx.coroutines.Dispatchers
@@ -60,9 +61,10 @@ class OutgoingMedia @Inject constructor(
 ) {
     /**
      * A photo or video picked from the gallery, with an optional caption; null for other
-     * types. Large photos and videos are made smaller first, to [quality].
+     * types. Large photos and videos are made smaller first, to [quality]; a photo is
+     * developed in [film], if set.
      */
-    suspend fun fromGallery(uri: Uri, caption: String = "", quality: SendQuality = SendQuality.HD): TdApi.InputMessageContent? {
+    suspend fun fromGallery(uri: Uri, caption: String = "", quality: SendQuality = SendQuality.HD, film: FilmLook.Stock? = null): TdApi.InputMessageContent? {
         val target = quality.target
         val type = context.contentResolver.getType(uri).orEmpty()
         val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(type)
@@ -71,7 +73,11 @@ class OutgoingMedia @Inject constructor(
             type == "image/gif" -> withContext(Dispatchers.IO) { animation(copy(uri, files.newFile("gif")), caption) }
             type.startsWith("image/") -> withContext(Dispatchers.IO) {
                 val original = copy(uri, files.newFile(extension ?: "jpg"))
-                photo(if (target != null) compressedPhoto(original, type, target) else original, caption)
+                when {
+                    film != null -> photo(filmedPhoto(original, film, target?.photoSide ?: FilmLook.MAX_SIDE), caption)
+                    target != null -> photo(compressedPhoto(original, type, target), caption)
+                    else -> photo(original, caption)
+                }
             }
             type.startsWith("video/") -> {
                 val original = withContext(Dispatchers.IO) { copy(uri, files.newFile(extension ?: "mp4")) }
@@ -211,6 +217,23 @@ class OutgoingMedia @Inject constructor(
         val output = files.newFile("jpg")
         output.outputStream().use { opaque.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, it) }
         opaque.recycle()
+        file.delete()
+        return output
+    }
+
+    /**
+     * The photo developed in [film], at most [side] px, as JPEG. Its glow comes from it at
+     * [FilmLook.MAX_SIDE], as in the preview; Telegram keeps photos no larger anyway, so
+     * Original with a film is that size too.
+     */
+    private fun filmedPhoto(file: File, film: FilmLook.Stock, side: Int): File {
+        val full = FilmLook.decode(ImageDecoder.createSource(file), FilmLook.MAX_SIDE)
+        val photo = if (side >= FilmLook.MAX_SIDE) full else FilmLook.decode(ImageDecoder.createSource(file), side)
+        FilmLook.mask(full).use { mask -> FilmLook.develop(mask, photo, film) }
+        if (photo !== full) full.recycle()
+        val output = files.newFile("jpg")
+        output.outputStream().use { photo.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, it) }
+        photo.recycle()
         file.delete()
         return output
     }

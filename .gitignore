@@ -24,3 +24,6 @@ app/release/
 *.hprof
 *.log
 .claude/settings.local.json
+
+# Film looks (film/, built by hand for now)
+app/src/main/jniLibs/

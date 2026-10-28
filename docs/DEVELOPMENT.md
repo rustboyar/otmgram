@@ -8,7 +8,8 @@ Builds on Linux (the scripts use the NDK's `linux-x86_64` tools and GNU tools).
 
 Requirements: JDK 17+, Android SDK platform 37 and NDK `29.0.14206865`
 (`sdkmanager "platforms;android-37.0" "ndk;29.0.14206865"`), `cmake`, `ninja`, `gperf`,
-`perl`, `make`, `git`, `curl`, `sha256sum`. Building TDLib needs about 2 GB of disk
+`perl`, `make`, `git`, `curl`, `sha256sum`, and Rust (https://rustup.rs) with
+`rustup target add aarch64-linux-android x86_64-linux-android`. Building TDLib needs about 2 GB of disk
 (`.tdlib-build/`) and plenty of RAM: lower `JOBS` (default 8) if the build runs out.
 
 1. Build TDLib (takes a while; the outputs go to `tdlib/src/main` and aren't committed):
@@ -17,7 +18,13 @@ Requirements: JDK 17+, Android SDK platform 37 and NDK `29.0.14206865`
    ./scripts/build-tdlib.sh
    ```
 
-2. Get an `api_id` and `api_hash` for your build at https://my.telegram.org ("API
+2. Build the film looks (`film/`, Rust; seconds once built, and `scripts/check.sh` does it too):
+
+   ```sh
+   ./scripts/build-film.sh
+   ```
+
+3. Get an `api_id` and `api_hash` for your build at https://my.telegram.org ("API
    development tools"; Telegram's terms ask every app for its own) and put them in
    `local.properties`:
 
@@ -27,7 +34,7 @@ Requirements: JDK 17+, Android SDK platform 37 and NDK `29.0.14206865`
    telegram.apiHash=0123456789abcdef0123456789abcdef
    ```
 
-3. Build and install:
+4. Build and install:
 
    ```sh
    ./gradlew installDebug

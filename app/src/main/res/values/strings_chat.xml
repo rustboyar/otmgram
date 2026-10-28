@@ -65,6 +65,17 @@
     <string name="attach_location">Location</string>
     <string name="attach_voice">Voice</string>
     <string name="voice_seek">Play from here</string>
+    <string name="film_none">None</string>
+    <string name="film_800t">800T</string>
+    <string name="film_50d">50D</string>
+    <string name="film_portra">Portra</string>
+    <string name="film_ektar">Ektar</string>
+    <string name="film_superia">Superia</string>
+    <string name="film_trix">Tri-X</string>
+    <string name="film_hold">Hold to see without film</string>
+    <string name="film_without">Without film</string>
+    <string name="film_credit">Film looks by tungsten</string>
+    <string name="film_no_videos">No film for videos: they go as they are</string>
     <string name="voice_speed">Change speed</string>
     <string name="location_send_current">Send my current location</string>
     <string name="location_accuracy">Accurate to %1$d m</string>

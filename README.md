@@ -12,6 +12,8 @@ Telegram.
 - Chats and groups from the folder you pick, with search through all their messages; pin chats in the folder, mute and unmute them
 - Text, replies, forwards (within the folder), edits, deletions, reactions, pinned messages, find in chat
 - Photos, videos, GIFs, voice messages, round videos, stickers and files, to view and to send; photos and videos go in SD, HD or as they are
+- Film looks for the photos you send (800T, 50D, Portra, Ektar, Superia, Tri-X), from
+  [tungsten](https://github.com/ian-te/tungsten) by Ian Te
 - YouTube, Instagram and TikTok links play inside the app
 - Send your location or share it live, and see others' on a map
 - Notifications only for the folder's chats: instant, over a connection kept open in the
@@ -68,5 +70,6 @@ building a feature, open an issue to talk about it. Security problems: see
 ## License
 
 Otmgram is free software under the [GNU General Public License v3.0 or later](LICENSE).
-It bundles the Fraunces and Inter fonts, under the [SIL Open Font License](licenses/), and
+It bundles the Fraunces and Inter fonts, under the [SIL Open Font License](licenses/),
+[tungsten](https://github.com/ian-te/tungsten)'s film looks (MIT, [licenses/](licenses/)), and
 builds on [TDLib](https://github.com/tdlib/td) (Boost Software License).
