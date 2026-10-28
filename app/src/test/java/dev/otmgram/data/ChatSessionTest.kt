@@ -8,6 +8,7 @@ import dev.otmgram.testing.message
 import dev.otmgram.testing.messages
 import dev.otmgram.testing.user
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -89,6 +90,20 @@ class ChatSessionTest {
         val (later, now) = td.sent<TdApi.EditMessageSchedulingState>()
         assertEquals(2000, (later.schedulingState as TdApi.MessageSchedulingStateSendAtDate).sendDate)
         assertEquals(null, now.schedulingState)
+    }
+
+    @Test
+    fun `the chat is closed for Telegram while the app is in the background`() = runTest {
+        td.on<TdApi.CloseChat> { TdApi.Ok() }
+        val visible = MutableStateFlow(true)
+        ChatSession(td, CHAT_ID, backgroundScope, visible)
+        runCurrent()
+        visible.value = false
+        runCurrent()
+        assertEquals(1, td.sent<TdApi.CloseChat>().size)
+        visible.value = true
+        runCurrent()
+        assertEquals(2, td.sent<TdApi.OpenChat>().size)
     }
 
     @Test

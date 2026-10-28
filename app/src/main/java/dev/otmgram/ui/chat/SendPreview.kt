@@ -75,6 +75,8 @@ import dev.otmgram.ui.theme.OtmType
 import dev.otmgram.ui.theme.PillField
 import dev.otmgram.ui.theme.paper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 
 /** Picked photos and videos, large, with a caption field and the quality to send them in. */
@@ -101,9 +103,19 @@ fun MediaPreviewScreen(
     // The one the films are shown on: the photo shown, or the first photo while a video is.
     val filmUri = shownUri?.takeIf { it in photos } ?: photos.firstOrNull()
     val preview by produceState<FilmPreview?>(null, filmUri) {
-        val loaded = filmUri?.let { films?.load(it) }
+        // Not cancelled midway: a load cancelled at the end would lose its glow (native
+        // memory) unclosed. Closed here instead, if this was left meanwhile.
+        val loaded = filmUri?.let { uri -> withContext(NonCancellable) { films?.load(uri) } }
+        if (!isActive) {
+            loaded?.close()
+            return@produceState
+        }
         value = loaded
-        awaitDispose { loaded?.close() }
+        // Off the screen before it's closed: the next photo takes a moment to load.
+        awaitDispose {
+            value = null
+            loaded?.close()
+        }
     }
     SendPreview(
         title = pluralStringResource(R.plurals.media_items, uris.size, uris.size),

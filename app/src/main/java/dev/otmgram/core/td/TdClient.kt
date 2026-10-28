@@ -144,8 +144,8 @@ class TdClient @Inject constructor(
     private val connectionUsers = AtomicInteger()
 
     override suspend fun <T> whileConnected(block: suspend () -> T): T {
-        connectionUsers.incrementAndGet()
-        reconnect()
+        // The first to need them reopens them; one kept open (Instant notifications) is alive.
+        if (connectionUsers.incrementAndGet() == 1) reconnect()
         try {
             return block()
         } finally {
@@ -239,7 +239,9 @@ class TdClient @Inject constructor(
 
                 override fun onStart(owner: LifecycleOwner) {
                     main.removeCallbacks(disconnectLater)
-                    if (disconnected || (stoppedAt != 0L && SystemClock.elapsedRealtime() - stoppedAt > AWAY_RECONNECT_MS)) reconnect()
+                    // Kept open meanwhile (Instant notifications), they're alive: no reconnect.
+                    val away = stoppedAt != 0L && SystemClock.elapsedRealtime() - stoppedAt > AWAY_RECONNECT_MS
+                    if (disconnected || (away && connectionUsers.get() == 0)) reconnect()
                     showOnline(true)
                 }
             })

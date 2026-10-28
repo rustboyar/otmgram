@@ -5,6 +5,14 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 
 ## Unreleased
 
+### Changed
+- Less battery and data with Instant notifications: an open chat and the chat list rest while the app is in the background, the connection kept open isn't needlessly reopened, and the minute's wake-up is skipped while the app is on screen or there's no network
+
+### Fixed
+- Switching between picked photos in the send preview and tapping a film right away could close the app
+- The film preview no longer leaves memory behind when it's closed while a photo is loading, and makes fewer copies of the photo
+- The minute's wake-up could go on after Instant notifications were turned off, if Android had closed the app before
+
 ## 0.6.1 - 2026-10-28
 
 ### Changed

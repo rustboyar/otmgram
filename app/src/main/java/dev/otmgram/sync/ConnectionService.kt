@@ -17,6 +17,8 @@ import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
 import dagger.hilt.android.AndroidEntryPoint
 import dev.otmgram.MainActivity
 import dev.otmgram.R
@@ -57,6 +59,7 @@ class ConnectionService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground()
+        running = true
         if (connected == null) {
             AppLog.i(TAG, "Staying connected")
             connected = scope.launch { td.whileConnected { awaitCancellation() } }
@@ -67,6 +70,7 @@ class ConnectionService : Service() {
     }
 
     override fun onDestroy() {
+        running = false
         Heartbeat.cancel(this)
         scope.cancel() // Ends whileConnected, which disconnects if the app is in the background.
         AppLog.i(TAG, "Stopped")
@@ -108,7 +112,17 @@ class ConnectionService : Service() {
         @Inject @ApplicationScope lateinit var scope: CoroutineScope
 
         override fun onReceive(context: Context, intent: Intent) {
+            // Left over from a service that's gone (the process was killed, then Instant was
+            // turned off or the account logged out): stop waking the phone.
+            if (!running) {
+                cancel(context)
+                return
+            }
             schedule(context)
+            // Awake anyway while the app is on screen, and TDLib pings by itself; and without a
+            // network there's nothing to reach: no request then, only the next alarm.
+            val onScreen = ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+            if (onScreen || td.connectionState.value is TdApi.ConnectionStateWaitingForNetwork) return
             // Awake until TDLib has sent it and heard back; an answer after that wakes the phone anyway.
             val wakeLock = context.getSystemService(PowerManager::class.java)
                 .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "otmgram:heartbeat")
@@ -188,6 +202,13 @@ class ConnectionService : Service() {
 
         fun stop(context: Context) {
             context.stopService(Intent(context, ConnectionService::class.java))
+            // Also when it isn't running in this process, so onDestroy won't cancel it.
+            Heartbeat.cancel(context)
         }
+
+        /** Running in this process: the heartbeat only keeps a connection the service holds. */
+        @Volatile
+        var running = false
+            private set
     }
 }

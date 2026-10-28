@@ -1,5 +1,6 @@
 package dev.otmgram.data
 
+import dev.otmgram.core.AppVisibility
 import dev.otmgram.core.launchLogged
 import dev.otmgram.core.media.VoiceRecording
 import dev.otmgram.core.td.TdException
@@ -9,9 +10,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -26,6 +30,7 @@ private const val SEARCH_PAGE = 50
 @Singleton
 class MessageRepository @Inject constructor(
     private val td: TelegramClient,
+    private val visibility: AppVisibility,
 ) {
     /** Sends a square video message of [length] px from a local file. */
     suspend fun sendVideoNote(chatId: Long, file: File, duration: Int, length: Int) {
@@ -52,7 +57,7 @@ class MessageRepository @Inject constructor(
     }
 
     /** Opens [chatId] for as long as [scope] lives; see [ChatSession]. */
-    fun openChat(chatId: Long, scope: CoroutineScope): ChatSession = ChatSession(td, chatId, scope)
+    fun openChat(chatId: Long, scope: CoroutineScope): ChatSession = ChatSession(td, chatId, scope, visibility.visible)
 }
 
 /** A sender's small photo, as TDLib has it. */
@@ -93,6 +98,8 @@ class ChatSession internal constructor(
     private val td: TelegramClient,
     val chatId: Long,
     private val scope: CoroutineScope,
+    /** Whether the app is on screen; the chat is open for Telegram only while it is. */
+    private val visible: Flow<Boolean> = flowOf(true),
 ) {
     private val messages = TreeMap<Long, TdApi.Message>(reverseOrder())
     private val senderNames = mutableMapOf<Long, String>()
@@ -125,6 +132,13 @@ class ChatSession internal constructor(
         }
         scope.coroutineContext[Job]?.invokeOnCompletion {
             td.sendIgnoringResult(TdApi.CloseChat(chatId))
+        }
+        // Closed for Telegram while the app is in the background, as nobody is looking: an
+        // open chat gets all its updates, which a busy group sends around the clock.
+        scope.launch {
+            visible.drop(1).collect { shown ->
+                td.sendIgnoringResult(if (shown) TdApi.OpenChat(chatId) else TdApi.CloseChat(chatId))
+            }
         }
     }
 

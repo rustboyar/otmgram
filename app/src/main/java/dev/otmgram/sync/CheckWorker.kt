@@ -61,6 +61,13 @@ class CheckWorker @AssistedInject constructor(
             return Result.success()
         }
         folders.selectedFolderId.first() ?: return Result.success().also { AppLog.i(TAG, "Skipped: no folder") }
+        // Instant: the connection kept open brings everything as it comes; only the storage
+        // limit is left to do.
+        if (ConnectionService.running && td.connectionState.value is TdApi.ConnectionStateReady) {
+            applyStorageLimit()
+            AppLog.i(TAG, "Check done: connected all along")
+            return Result.success()
+        }
         // Let TDLib catch up with what happened while it was offline. Reconnected first, as
         // "ready" may be left over from before the process was frozen; the reconnect shows
         // as another state, unless it's over before this looks. Disconnected after, unless
@@ -75,14 +82,18 @@ class CheckWorker @AssistedInject constructor(
             delay(PENDING_START_MS)
             withTimeoutOrNull(PENDING_TIMEOUT_MS) { notifications.havePending.first { !it } }
                 ?: AppLog.w(TAG, "Notifications still pending after ${PENDING_TIMEOUT_MS / 1000} s")
-            try {
-                storage.applyLimit()
-            } catch (e: TdException) {
-                AppLog.w(TAG, "Storage limit failed", e)
-            }
+            applyStorageLimit()
             AppLog.i(TAG, "Check done")
         }
         return Result.success()
+    }
+
+    private suspend fun applyStorageLimit() {
+        try {
+            storage.applyLimit()
+        } catch (e: TdException) {
+            AppLog.w(TAG, "Storage limit failed", e)
+        }
     }
 
     companion object {

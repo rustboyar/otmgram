@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.otmgram.R
+import dev.otmgram.core.AppVisibility
 import dev.otmgram.core.Strings
 import dev.otmgram.core.launchLogged
 import dev.otmgram.core.log.AppLog
@@ -33,6 +34,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -70,6 +72,7 @@ class ChatListViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
     private val td: TelegramClient,
     private val messageRepository: MessageRepository,
+    visibility: AppVisibility,
     private val settings: AppSettings,
     private val strings: Strings,
 ) : ViewModel() {
@@ -86,7 +89,10 @@ class ChatListViewModel @Inject constructor(
      * The folder's chats, or null while loading. Kept up to date while a chat is open too, so
      * coming back shows the list at once instead of reloading it all during the animation.
      */
-    val chats: StateFlow<List<ChatItem>?> = folders.selectedFolderId.filterNotNull().flatMapLatest(chatRepository::folderChats)
+    val chats: StateFlow<List<ChatItem>?> = visibility.visible
+        // Not while the app is in the background: nobody sees it, and every chat's update
+        // reloaded it. What was shown stays, and it reloads on coming back.
+        .flatMapLatest { shown -> if (shown) folders.selectedFolderId.filterNotNull().flatMapLatest(chatRepository::folderChats) else emptyFlow() }
         .map { all -> all.map { it.toItem(strings) } }
         .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
