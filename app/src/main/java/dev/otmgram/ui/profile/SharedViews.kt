@@ -54,6 +54,7 @@ import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmSheet
 import dev.otmgram.ui.theme.OtmType
+import dev.otmgram.ui.theme.paper
 
 /** The tabs: a group's members first, then each kind the chat has shared, with how many. */
 @Composable
@@ -66,8 +67,10 @@ internal fun ProfileTabs(hasMembers: Boolean, counts: Map<SharedKind, Int>, sele
                 val placeable = measurable.measure(constraints.copy(minWidth = constraints.maxWidth + 2 * bleed, maxWidth = constraints.maxWidth + 2 * bleed))
                 layout(constraints.maxWidth, placeable.height) { placeable.place(-bleed, 0) }
             }
+            // Opaque: pinned at the top, the items scroll under it.
+            .paper()
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = BLEED, vertical = 4.dp),
+            .padding(horizontal = BLEED, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (hasMembers) {

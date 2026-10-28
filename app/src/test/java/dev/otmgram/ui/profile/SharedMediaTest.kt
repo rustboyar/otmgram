@@ -77,6 +77,28 @@ class SharedMediaTest {
     }
 
     @Test
+    fun `back on a tab, what was loaded shows at once, and the next page follows on from it`() = runTest {
+        telegram.on<TdApi.SearchChatMessages> { request ->
+            when {
+                request.filter is TdApi.SearchMessagesFilterDocument -> TdApi.FoundChatMessages(0, emptyArray(), 0)
+                request.fromMessageId == 0L -> TdApi.FoundChatMessages(3, arrayOf(message(30, photo(320)), message(20, photo(320))), 20)
+                else -> TdApi.FoundChatMessages(3, arrayOf(message(10, photo(320))), 0)
+            }
+        }
+        val shared = SharedMedia(telegram, CHAT_ID)
+        shared.select(SharedKind.Media)
+        shared.select(SharedKind.Files)
+        shared.select(SharedKind.Media)
+        assertEquals(SharedKind.Media, shared.kind)
+        assertEquals(listOf(30L, 20L), shared.items.map { it.messageId })
+        assertEquals(2, telegram.sent<TdApi.SearchChatMessages>().size)
+
+        shared.loadMore()
+        assertEquals(listOf(30L, 20L, 10L), shared.items.map { it.messageId })
+        assertEquals(20L, telegram.sent<TdApi.SearchChatMessages>().last().fromMessageId)
+    }
+
+    @Test
     fun `voice messages say who sent them, asked once per sender`() = runTest {
         telegram.on<TdApi.SearchChatMessages> {
             TdApi.FoundChatMessages(2, arrayOf(message(2, voice(7), from = 5), message(1, voice(8), from = 5)), 0)

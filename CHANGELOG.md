@@ -5,6 +5,12 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 
 ## Unreleased
 
+### Changed
+- On a profile, the tabs stay at the top while you scroll, and each tab keeps its place: switching back shows it where you left it, without loading it again; a tab opened while scrolled down starts at its top
+
+### Fixed
+- A profile's Open chat, Share and Mute no longer break their row on narrower phones or with larger text: they're tiles of equal width, the icon above the label
+
 ## 0.7.0 - 2026-10-28
 
 ### Added

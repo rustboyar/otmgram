@@ -75,14 +75,15 @@ sealed interface SharedItem {
 }
 
 /**
- * A chat's shared media, files, links and voice, newest first, a page at a time. Only the
- * tabs with something in them show.
+ * A chat's shared media, files, links and voice, newest first, a page at a time; each kind
+ * kept as loaded. Only the tabs with something in them show.
  */
 class SharedMedia(private val td: TelegramClient, private val chatId: Long) {
     /** How many of each kind, for the tabs; kinds the chat has none of are left out. */
     var counts by mutableStateOf<Map<SharedKind, Int>>(emptyMap())
         private set
 
+    /** The kind shown; it changes with [items], once its first page is in. */
     var kind by mutableStateOf<SharedKind?>(null)
         private set
 
@@ -93,7 +94,10 @@ class SharedMedia(private val td: TelegramClient, private val chatId: Long) {
     var complete by mutableStateOf(false)
         private set
 
-    private var next = 0L
+    /** What's loaded of each kind: back on a tab, it's there at once. */
+    private val pages = mutableMapOf<SharedKind, Page>()
+
+    private class Page(val items: List<SharedItem>, val next: Long, val complete: Boolean)
 
     suspend fun loadCounts() {
         counts = coroutineScope {
@@ -101,28 +105,39 @@ class SharedMedia(private val td: TelegramClient, private val chatId: Long) {
         }.filter { it.second > 0 }.toMap()
     }
 
-    /** Shows [kind] from its newest; cancel a page still loading for the last one first. */
+    /**
+     * Shows [kind]: what's loaded of it already, else its first page once that's in, so the
+     * list doesn't empty in between. Cancel a page still loading first.
+     */
     suspend fun select(kind: SharedKind) {
-        this.kind = kind
-        items = emptyList()
-        complete = false
-        next = 0
-        loadMore()
+        val page = pages[kind] ?: load(kind, Page(emptyList(), 0, false))
+        show(kind, page)
     }
 
     /** The next page of [kind], when the list nears its end. */
     suspend fun loadMore() {
         val kind = kind ?: return
-        if (complete) return
-        val found = td.send(TdApi.SearchChatMessages(chatId, null, "", null, next, 0, PAGE, kind.filter()))
+        val page = pages[kind] ?: return
+        if (page.complete) return
+        show(kind, load(kind, page))
+    }
+
+    private suspend fun load(kind: SharedKind, after: Page): Page {
+        val found = td.send(TdApi.SearchChatMessages(chatId, null, "", null, after.next, 0, PAGE, kind.filter()))
         val names = mutableMapOf<Long, String?>()
-        val page = found.messages.mapNotNull { message ->
+        val added = found.messages.mapNotNull { message ->
             val sender = if (kind == SharedKind.Voice) names.getOrPut(message.senderId.id()) { name(message.senderId) } else null
             message.toShared(kind, sender)
         }
-        items = items + page.filter { item -> items.none { it.messageId == item.messageId } }
-        next = found.nextFromMessageId
-        complete = next == 0L || found.messages.isEmpty()
+        val known = after.items.mapTo(HashSet()) { it.messageId }
+        return Page(after.items + added.filter { it.messageId !in known }, found.nextFromMessageId, found.nextFromMessageId == 0L || found.messages.isEmpty())
+            .also { pages[kind] = it }
+    }
+
+    private fun show(kind: SharedKind, page: Page) {
+        this.kind = kind
+        items = page.items
+        complete = page.complete
     }
 
     /** Who sent a voice message; unknown leaves it out rather than the page. */

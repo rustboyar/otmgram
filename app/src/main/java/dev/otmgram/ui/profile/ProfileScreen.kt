@@ -9,16 +9,23 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -33,12 +40,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,7 +66,6 @@ import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmType
 import dev.otmgram.ui.theme.ScreenBar
 import dev.otmgram.ui.theme.SectionLabel
-import dev.otmgram.ui.theme.SoftButton
 import dev.otmgram.ui.theme.paper
 import kotlinx.coroutines.launch
 
@@ -83,6 +92,12 @@ fun ProfileScreen(
     val copied = stringResource(R.string.copied)
     val audio = viewModel.audio.collectAsStateWithLifecycle()
     var longPressed by remember { mutableStateOf<Long?>(null) }
+    val listState = rememberLazyListState()
+    // Where each tab was scrolled to, to come back to it there.
+    val positions = remember { mutableMapOf<ProfileTab, Pair<Int, Int>>() }
+    // The tabs were pinned at the top when another was chosen: it starts under them.
+    var startUnderTabs by remember { mutableStateOf(false) }
+    val topPadding = with(LocalDensity.current) { LIST_TOP.roundToPx() }
     viewModel.notice?.let { notice ->
         LaunchedEffect(notice) {
             snackbar.showSnackbar(notice)
@@ -93,10 +108,35 @@ fun ProfileScreen(
         Column(Modifier.fillMaxSize()) {
             ScreenBar(stringResource(R.string.profile_title), onBack)
             if (profile == null) return@Column
+            val shared = viewModel.shared
+            val hasShared = shared != null && shared.counts.isNotEmpty()
+            // The tab row's place in the list: after the head, the actions and the details.
+            val tabsIndex = 2 + (if (profile.chatId != null) 1 else 0) + (if (profile.details.isNotEmpty()) 1 else 0)
+            // A tab counts as shown once its items are in (a shared kind's first page loads first).
+            val shown = when (val tab = viewModel.tab) {
+                is ProfileTab.Shared -> tab.takeIf { shared?.kind == tab.kind }
+                else -> tab
+            }
+            LaunchedEffect(shown) {
+                val tab = shown ?: return@LaunchedEffect
+                val saved = positions[tab]
+                when {
+                    saved != null -> listState.scrollToItem(saved.first, saved.second)
+                    // Past the list's top padding too, which would show the end of the actions above.
+                    startUnderTabs -> listState.scrollToItem(tabsIndex, topPadding)
+                }
+            }
+            val selectTab: (ProfileTab) -> Unit = { next ->
+                viewModel.tab?.let { positions[it] = listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
+                // Read now: once the last tab's items leave, the list settles somewhere else.
+                startUnderTabs = listState.firstVisibleItemIndex >= tabsIndex
+                viewModel.selectTab(next)
+            }
             LazyColumn(
                 Modifier.fillMaxSize().testTag("profile"),
+                state = listState,
                 // Spaced by each item: the grid of shared photos sits closer together.
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 24.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = LIST_TOP, bottom = 24.dp),
             ) {
                 item(key = "head") {
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -118,18 +158,28 @@ fun ProfileScreen(
                 }
                 if (profile.chatId != null) {
                     item(key = "actions") {
-                        Row(Modifier.fillMaxWidth().padding(top = GAP), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally)) {
+                        val count = 1 + (if (profile.canOpenChat) 1 else 0) + (if (profile.canShare) 1 else 0)
+                        // Equal tiles, as wide as there's room for: three fit any phone, at any text size.
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = GAP)
+                                .wrapContentWidth()
+                                .widthIn(max = ACTION_MAX * count + ACTION_GAP * (count - 1)),
+                            horizontalArrangement = Arrangement.spacedBy(ACTION_GAP),
+                        ) {
                             if (profile.canOpenChat) {
-                                SoftButton(stringResource(R.string.profile_open_chat), { onOpenChat(profile.chatId) }, Modifier.testTag("openChat"), icon = OtmIcons.Send)
+                                ProfileAction(OtmIcons.Send, stringResource(R.string.profile_open_chat), "openChat", Modifier.weight(1f)) { onOpenChat(profile.chatId) }
                             }
                             if (profile.canShare) {
-                                SoftButton(stringResource(R.string.profile_share), viewModel::chooseShareTarget, Modifier.testTag("shareContact"), icon = OtmIcons.Forward)
+                                ProfileAction(OtmIcons.Forward, stringResource(R.string.profile_share), "shareContact", Modifier.weight(1f), viewModel::chooseShareTarget)
                             }
-                            SoftButton(
+                            ProfileAction(
+                                if (profile.isMuted) OtmIcons.Unmuted else OtmIcons.Muted,
                                 stringResource(if (profile.isMuted) R.string.chat_unmute else R.string.chat_mute),
+                                if (profile.isMuted) "unmuteProfile" else "muteProfile",
+                                Modifier.weight(1f),
                                 viewModel::toggleMuted,
-                                Modifier.testTag(if (profile.isMuted) "unmuteProfile" else "muteProfile"),
-                                icon = if (profile.isMuted) OtmIcons.Unmuted else OtmIcons.Muted,
                             )
                         }
                     }
@@ -156,11 +206,11 @@ fun ProfileScreen(
                         }
                     }
                 }
-                val shared = viewModel.shared
-                val hasShared = shared != null && shared.counts.isNotEmpty()
                 if (hasShared) {
-                    item(key = "tabs") {
-                        ProfileTabs(viewModel.members.isNotEmpty(), shared.counts, viewModel.tab, viewModel::selectTab, Modifier.padding(top = GAP + 6.dp, bottom = 6.dp))
+                    item(key = "tabsGap") { Spacer(Modifier.height(GAP)) }
+                    // Stays at the top while the tab's items scroll under it.
+                    stickyHeader(key = "tabs") {
+                        ProfileTabs(viewModel.members.isNotEmpty(), shared.counts, viewModel.tab, selectTab)
                     }
                 } else if (viewModel.members.isNotEmpty()) {
                     item(key = "membersLabel") { SectionLabel(stringResource(R.string.profile_members), Modifier.padding(start = 4.dp, top = GAP + 6.dp)) }
@@ -204,6 +254,24 @@ fun ProfileScreen(
         viewModel.shareTargets?.let { targets ->
             ForwardSheet(targets, onForward = viewModel::share, onDismiss = viewModel::cancelShare, title = stringResource(R.string.profile_share_to))
         }
+    }
+}
+
+/** One of the actions under the name: the icon above its label. */
+@Composable
+private fun ProfileAction(icon: ImageVector, label: String, tag: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Column(
+        modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(Otm.Haze)
+            .clickable(role = Role.Button, onClick = onClick)
+            .testTag(tag)
+            .padding(horizontal = 6.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(icon, null, tint = Otm.SlateDeep, modifier = Modifier.size(22.dp))
+        Text(label, style = OtmType.Secondary.copy(fontWeight = FontWeight.SemiBold), color = Otm.SlateDeep, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -256,3 +324,6 @@ private val PHOTO_SIZE = 112.dp
 
 /** Between the profile's parts. */
 private val GAP = 14.dp
+private val ACTION_MAX = 110.dp
+private val LIST_TOP = 20.dp
+private val ACTION_GAP = 10.dp
