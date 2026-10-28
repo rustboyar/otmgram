@@ -5,6 +5,8 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 
 ## Unreleased
 
+## 0.6.0 - 2026-10-28
+
 ### Added
 - Film looks for photos you send, from tungsten (github.com/ian-te/tungsten): pick None, 800T, 50D, Portra, Ektar, Superia or Tri-X from a strip of your photo in each look, and hold the photo to see it without; the last film you used comes first
 
