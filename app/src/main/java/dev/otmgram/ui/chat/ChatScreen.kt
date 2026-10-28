@@ -350,7 +350,7 @@ fun ChatScreen(
                                                 else -> onOpenMedia(viewModel.chatId, message.id)
                                             }
                                         },
-                                        onPlayVoice = { fileId, path -> viewModel.playVoice(message, fileId, path) },
+                                        onPlayVoice = remember(message.id) { viewModel.voiceActions(message) },
                                         onVideoNoteSound = { viewModel.markContentOpened(message) },
                                         onOpenSender = { onOpenProfile(ProfileRoute(userId = it)) },
                                         onOpenReply = viewModel::jumpTo,
@@ -380,7 +380,7 @@ fun ChatScreen(
                                         },
                                         onReactionClick = { viewModel.toggleReaction(row.main, it) },
                                         onOpenMedia = {},
-                                        onPlayVoice = { _, _ -> },
+                                        onPlayVoice = VoiceActions.None,
                                         onVideoNoteSound = {},
                                         onOpenSender = { onOpenProfile(ProfileRoute(userId = it)) },
                                         onOpenReply = viewModel::jumpTo,

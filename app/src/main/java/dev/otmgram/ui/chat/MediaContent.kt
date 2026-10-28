@@ -79,7 +79,7 @@ fun MediaContent(
     onOpen: () -> Unit,
     /** The message menu: media handles taps, so it must pass long presses on. */
     onLongClick: () -> Unit,
-    onPlayVoice: (fileId: Int, path: String) -> Unit,
+    onPlayVoice: VoiceActions,
     onVideoNoteSound: () -> Unit,
     modifier: Modifier = Modifier,
     /** Set while the message is being sent: stops the upload. */

@@ -27,7 +27,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /** What the [AudioPlayer] is playing; [fileId] identifies the voice message's file. */
-data class AudioState(val fileId: Int, val isPlaying: Boolean, val positionMs: Long, val durationMs: Long)
+data class AudioState(val fileId: Int, val isPlaying: Boolean, val positionMs: Long, val durationMs: Long, val speed: Float = 1f)
 
 /** Plays voice messages, one at a time. Must be used from the main thread. */
 @Singleton
@@ -66,18 +66,21 @@ class AudioPlayer @Inject constructor(
                 }
 
                 override fun onPlaybackStateChanged(state: Int) {
-                    if (state == Player.STATE_ENDED) stop() else publish()
+                    if (state == Player.STATE_ENDED) finish() else publish()
                 }
 
                 // Back to its play button, and said why, rather than doing nothing on taps.
                 override fun onPlayerError(error: PlaybackException) {
                     AppLog.w(TAG, "Playing a voice message failed: ${error.errorCodeName}")
                     _state.value?.let { _failures.tryEmit(it.fileId) }
-                    stop()
+                    finish()
                 }
             })
         }
     }
+
+    /** The speed voice messages play at, kept for the next ones, as in Telegram. */
+    private var speed = 1f
 
     /** Plays the file, or pauses/resumes it if it's the current one. */
     fun toggle(fileId: Int, path: String) {
@@ -86,13 +89,55 @@ class AudioPlayer @Inject constructor(
             if (player.isPlaying) player.pause() else player.play()
             return
         }
-        _state.value = AudioState(fileId, isPlaying = false, positionMs = 0, durationMs = 0)
+        start(fileId, path, fromFraction = 0f)
+    }
+
+    /**
+     * Moves to [fraction] (0..1) of the file: of the current one, playing on as it was; else
+     * starting it there.
+     */
+    fun seek(fileId: Int, path: String, fraction: Float) {
+        val current = _state.value
+        if (current?.fileId != fileId) {
+            start(fileId, path, fraction)
+            return
+        }
+        val duration = player.duration.takeIf { it > 0 } ?: return
+        player.seekTo((duration * fraction.coerceIn(0f, 1f)).toLong())
+        publish()
+    }
+
+    /** 1× → 1.5× → 2× → 1×. */
+    fun nextSpeed() {
+        speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.size]
+        player.setPlaybackSpeed(speed)
+        publish()
+    }
+
+    private fun start(fileId: Int, path: String, fromFraction: Float) {
+        _state.value = AudioState(fileId, isPlaying = false, positionMs = 0, durationMs = 0, speed = speed)
         player.setMediaItem(MediaItem.fromUri(Uri.fromFile(File(path))))
+        player.setPlaybackSpeed(speed)
         player.prepare()
+        if (fromFraction > 0f) {
+            // The length is known once it's prepared.
+            player.addListener(object : Player.Listener {
+                override fun onPlaybackStateChanged(state: Int) {
+                    if (state != Player.STATE_READY) return
+                    player.removeListener(this)
+                    player.seekTo((player.duration * fromFraction.coerceIn(0f, 1f)).toLong())
+                }
+            })
+        }
         player.play()
     }
 
-    private fun stop() {
+    /**
+     * Done with the current one: the next play of it starts over. (Not named stop: in the
+     * player's listener that meant the player's own stop, so it was never forgotten, and a
+     * second play of a message that had played to its end did nothing.)
+     */
+    private fun finish() {
         progressJob?.cancel()
         _state.value = null
     }
@@ -103,11 +148,13 @@ class AudioPlayer @Inject constructor(
             isPlaying = player.isPlaying,
             positionMs = player.currentPosition,
             durationMs = player.duration.coerceAtLeast(0),
+            speed = speed,
         )
     }
 
     private companion object {
         const val TAG = "AudioPlayer"
         const val PROGRESS_INTERVAL_MS = 100L
+        val SPEEDS = listOf(1f, 1.5f, 2f)
     }
 }

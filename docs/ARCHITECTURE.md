@@ -63,7 +63,7 @@ they are. For building and testing, see [DEVELOPMENT.md](DEVELOPMENT.md).
 - Albums (`mediaAlbumId`) show in one bubble: photos and videos in rows of up to three, each row as tall as its pictures' shapes allow, the caption below. The menu, reactions and time belong to the captioned message (or the first); forwarding, selecting and deleting take the whole album. An album with several captions, or one that failed to send, shows as separate messages
 - Photos full screen with zoom; swiping through an album
 - Videos: thumbnail in the bubble, played full screen with ExoPlayer once downloaded (no streaming); hardware decoders first, software ones when those fail (as the emulator's do)
-- Voice messages: waveform with progress, one shared player (no seeking)
+- Voice messages: waveform with progress, one shared player (`AudioPlayer`); a tap or drag on the waveform jumps there (starting it there if it wasn't playing), and 1× / 1.5× / 2× is kept for the next ones
 - Round videos: play muted in place, clipped to a circle; a tap turns the sound on and grows it (190 → 280 dp), scrolled into view
 - GIFs loop muted in place
 - Stickers: WEBP, TGS (Lottie, merge paths on); WEBM shows its still thumbnail (Android's decoders don't support its transparency)
@@ -138,4 +138,4 @@ they are. For building and testing, see [DEVELOPMENT.md](DEVELOPMENT.md).
 ## Ideas, not built
 
 - Forwarding from the media viewer, a "my location" button on the map
-- Streaming videos, seeking in voice messages
+- Streaming videos

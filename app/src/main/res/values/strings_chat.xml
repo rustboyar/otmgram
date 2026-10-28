@@ -65,6 +65,8 @@
     <string name="attach_location">Location</string>
     <string name="attach_voice">Voice</string>
     <string name="attach_contact">Contact</string>
+    <string name="voice_seek">Play from here</string>
+    <string name="voice_speed">Change speed</string>
     <string name="contacts_title">Share a contact</string>
     <string name="contacts_find">Find a contact</string>
     <string name="contacts_none">No contacts to share. Contacts are added in Telegram\'s own apps.</string>

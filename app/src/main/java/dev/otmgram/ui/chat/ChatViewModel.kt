@@ -370,10 +370,18 @@ class ChatViewModel @Inject constructor(
         null
     }
 
-    fun playVoice(message: MessageItem, fileId: Int, path: String) {
-        audioPlayer.toggle(fileId, path)
-        markContentOpened(message)
-    }
+    /** What [message]'s voice controls do; playing it marks it listened. */
+    fun voiceActions(message: MessageItem) = VoiceActions(
+        toggle = { fileId, path ->
+            audioPlayer.toggle(fileId, path)
+            markContentOpened(message)
+        },
+        seek = { fileId, path, fraction ->
+            audioPlayer.seek(fileId, path, fraction)
+            markContentOpened(message)
+        },
+        nextSpeed = audioPlayer::nextSpeed,
+    )
 
     /** Marks voice and video messages as listened/viewed. */
     fun markContentOpened(message: MessageItem) {

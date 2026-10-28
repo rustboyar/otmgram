@@ -5,6 +5,12 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 
 ## Unreleased
 
+### Added
+- Voice messages: tap or drag on the waveform to jump to that point, and play them at 1×, 1.5× or 2× (the speed is kept for the next ones)
+
+### Fixed
+- A voice message that had played to its end couldn't be played again
+
 ## 0.5.0 - 2026-10-28
 
 ### Added
