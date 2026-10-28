@@ -18,9 +18,13 @@ import dev.otmgram.core.td.TelegramClient
 import dev.otmgram.core.userMessage
 import dev.otmgram.data.ChatRepository
 import dev.otmgram.data.FolderRepository
+import dev.otmgram.data.MessageRepository
 import dev.otmgram.data.fullName
 import dev.otmgram.ui.ProfileRoute
+import dev.otmgram.ui.chat.ForwardTarget
 import dev.otmgram.ui.format.lastSeen
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import org.drinkless.tdlib.TdApi
 import java.time.LocalDate
 import java.time.MonthDay
@@ -45,6 +49,8 @@ data class Profile(
     val isMuted: Boolean,
     /** Their chat is in the folder, so it can be opened. */
     val canOpenChat: Boolean,
+    /** A person who can be shared: as a contact if their number is known, else by their link. */
+    val canShare: Boolean = false,
 )
 
 /** "Phone", "+49 151 …"; tapped, copied. */
@@ -73,6 +79,7 @@ class ProfileViewModel @Inject constructor(
     private val td: TelegramClient,
     private val chats: ChatRepository,
     private val folders: FolderRepository,
+    private val messages: MessageRepository,
     private val strings: Strings,
 ) : ViewModel() {
 
@@ -90,6 +97,13 @@ class ProfileViewModel @Inject constructor(
 
     var notice by mutableStateOf<String?>(null)
         private set
+
+    /** The folder's chats to share the person to, while choosing; null otherwise. */
+    var shareTargets by mutableStateOf<List<ForwardTarget>?>(null)
+        private set
+
+    /** The person shown, to share. */
+    private var user: TdApi.User? = null
 
     init {
         viewModelScope.launchLogged(TAG, onError = { notice = it.userMessage(strings) }) {
@@ -110,6 +124,7 @@ class ProfileViewModel @Inject constructor(
         } catch (e: TdException) {
             null
         }
+        this.user = user
         val isBot = user.type is TdApi.UserTypeBot
         profile = Profile(
             id = user.id,
@@ -127,6 +142,7 @@ class ProfileViewModel @Inject constructor(
             chatId = chat?.id,
             isMuted = chat?.let { chats.isMuted(it.id) } ?: false,
             canOpenChat = chat != null && folders.isInFolder(chat.id),
+            canShare = !isBot && (user.phoneNumber.isNotEmpty() || user.usernames?.activeUsernames?.isNotEmpty() == true),
         )
     }
 
@@ -213,6 +229,44 @@ class ProfileViewModel @Inject constructor(
                 photo.sizes.maxByOrNull { it.width }?.let { ProfilePhoto(photo.id, it.photo.id, photo.minithumbnail?.data) }
             }
             photos = listed.ifEmpty { listOfNotNull(shown.photoFileId?.let { ProfilePhoto(0, it, shown.minithumbnail) }) }.ifEmpty { null }
+        }
+    }
+
+    /** Share: the folder's chats to pick one to send the contact to. */
+    fun chooseShareTarget() {
+        viewModelScope.launchLogged(TAG, onError = { notice = it.userMessage(strings) }) {
+            val folderId = folders.selectedFolderId.filterNotNull().first()
+            shareTargets = chats.folderChats(folderId).first().map {
+                ForwardTarget(
+                    chatId = it.chat.id,
+                    title = if (it.isSavedMessages) strings.get(R.string.saved_messages) else it.chat.title,
+                    photoFileId = it.chat.photo?.small?.id,
+                    minithumbnail = it.chat.photo?.minithumbnail?.data,
+                    isSavedMessages = it.isSavedMessages,
+                )
+            }
+        }
+    }
+
+    fun cancelShare() {
+        shareTargets = null
+    }
+
+    /**
+     * Sends the person to [target]: as a contact card if their number is known (Telegram
+     * refuses a contact without one), else as their t.me link, as Telegram's apps do.
+     */
+    fun share(target: ForwardTarget) {
+        shareTargets = null
+        val user = user ?: return
+        viewModelScope.launchLogged(TAG, onError = { notice = it.userMessage(strings) }) {
+            val username = user.usernames?.activeUsernames?.firstOrNull()
+            when {
+                user.phoneNumber.isNotEmpty() -> messages.sendContact(target.chatId, user)
+                username != null -> messages.sendText(target.chatId, "https://t.me/$username")
+                else -> return@launchLogged
+            }
+            notice = strings.get(R.string.profile_shared, target.title)
         }
     }
 

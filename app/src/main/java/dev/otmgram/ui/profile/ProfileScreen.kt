@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import dev.otmgram.R
+import dev.otmgram.ui.chat.ForwardSheet
 import dev.otmgram.ui.media.TdImage
 import dev.otmgram.ui.theme.Card
 import dev.otmgram.ui.theme.ChatAvatar
@@ -112,6 +113,9 @@ fun ProfileScreen(
                             if (profile.canOpenChat) {
                                 SoftButton(stringResource(R.string.profile_open_chat), { onOpenChat(profile.chatId) }, Modifier.testTag("openChat"), icon = OtmIcons.Send)
                             }
+                            if (profile.canShare) {
+                                SoftButton(stringResource(R.string.profile_share), viewModel::chooseShareTarget, Modifier.testTag("shareContact"), icon = OtmIcons.Forward)
+                            }
                             SoftButton(
                                 stringResource(if (profile.isMuted) R.string.chat_unmute else R.string.chat_mute),
                                 viewModel::toggleMuted,
@@ -155,6 +159,9 @@ fun ProfileScreen(
             Snackbar(it, containerColor = Otm.Ink, contentColor = Otm.Paper, shape = RoundedCornerShape(14.dp))
         }
         viewModel.photos?.let { photos -> Photos(photos, viewModel::closePhotos) }
+        viewModel.shareTargets?.let { targets ->
+            ForwardSheet(targets, onForward = viewModel::share, onDismiss = viewModel::cancelShare, title = stringResource(R.string.profile_share_to))
+        }
     }
 }
 

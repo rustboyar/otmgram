@@ -477,37 +477,6 @@ class ChatViewModel @Inject constructor(
         show(messageId)
     }
 
-    /** The contacts to share one of, while choosing; empty list if none, null while loading. */
-    var contacts by mutableStateOf<List<ShareableContact>?>(null)
-        private set
-
-    var choosingContact by mutableStateOf(false)
-        private set
-
-    private var contactUsers = emptyMap<Long, TdApi.User>()
-
-    fun chooseContact() {
-        choosingContact = true
-        contacts = null
-        action(onFailure = { choosingContact = false }) {
-            val users = messageRepository.contacts()
-            contactUsers = users.associateBy { it.id }
-            contacts = users.map { user ->
-                ShareableContact(user.id, user.fullName(), "+${user.phoneNumber}", user.profilePhoto?.small?.id, user.profilePhoto?.minithumbnail?.data)
-            }
-        }
-    }
-
-    fun cancelContact() {
-        choosingContact = false
-    }
-
-    fun shareContact(contact: ShareableContact) {
-        choosingContact = false
-        val user = contactUsers[contact.userId] ?: return
-        lasting.launchLogged(TAG, onError = ::showError) { session.sendContact(user) }
-    }
-
     /** Messages scheduled in this chat, the soonest first. */
     val scheduled: StateFlow<List<ScheduledMessage>> = session.scheduled.map { list ->
         val items = ChatHistory(messages = list).toItems(isGroup = false, strings)

@@ -15,4 +15,7 @@
     <string name="role_admin">admin</string>
     <string name="deleted_account">Deleted account</string>
     <string name="copied">Copied</string>
+    <string name="profile_share">Share</string>
+    <string name="profile_share_to">Share contact to</string>
+    <string name="profile_shared">Shared with %1$s</string>
 </resources>

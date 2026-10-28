@@ -8,6 +8,9 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 ### Added
 - Voice messages: tap or drag on the waveform to jump to that point, and play them at 1×, 1.5× or 2× (the speed is kept for the next ones)
 
+### Changed
+- Contacts are shared from a person's profile (Share, then a chat of the folder) instead of from 📎; someone whose number you can't see is shared as their t.me link
+
 ### Fixed
 - A voice message that had played to its end couldn't be played again
 

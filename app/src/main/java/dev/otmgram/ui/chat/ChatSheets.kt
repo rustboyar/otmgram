@@ -57,14 +57,20 @@ import dev.otmgram.ui.theme.OtmType
 import dev.otmgram.ui.theme.PillField
 import kotlin.math.roundToInt
 
-/** Forwarding goes only to chats of the folder. */
+/** Forwarding (and sharing a contact) goes only to chats of the folder. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ForwardSheet(targets: List<ForwardTarget>, onForward: (ForwardTarget) -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+fun ForwardSheet(
+    targets: List<ForwardTarget>,
+    onForward: (ForwardTarget) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    title: String = stringResource(R.string.forward_to),
+) {
     var query by rememberSaveable { mutableStateOf("") }
     OtmSheet(onDismiss, modifier) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.forward_to), style = OtmType.BarTitle.copy(fontSize = 20.sp), color = Otm.Ink, modifier = Modifier.weight(1f))
+            Text(title, style = OtmType.BarTitle.copy(fontSize = 20.sp), color = Otm.Ink, modifier = Modifier.weight(1f))
             IconBtn(OtmIcons.Close, stringResource(R.string.close), onDismiss, tint = Otm.InkSoft)
         }
         PillField(
@@ -90,62 +96,6 @@ fun ForwardSheet(targets: List<ForwardTarget>, onForward: (ForwardTarget) -> Uni
                 ) {
                     ChatAvatar(target.chatId, target.title, target.photoFileId, target.minithumbnail, size = 44.dp, savedMessages = target.isSavedMessages)
                     Text(target.title, style = OtmType.Name, color = Otm.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-        }
-    }
-}
-
-/** The account's Telegram contacts, to share one; null while they load. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ContactSheet(contacts: List<ShareableContact>?, onShare: (ShareableContact) -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
-    var query by rememberSaveable { mutableStateOf("") }
-    OtmSheet(onDismiss, modifier) {
-        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.contacts_title), style = OtmType.BarTitle.copy(fontSize = 20.sp), color = Otm.Ink, modifier = Modifier.weight(1f))
-            IconBtn(OtmIcons.Close, stringResource(R.string.close), onDismiss, tint = Otm.InkSoft)
-        }
-        PillField(
-            value = query,
-            onValueChange = { query = it },
-            placeholder = stringResource(R.string.contacts_find),
-            background = Otm.Field,
-            leading = { Icon(OtmIcons.Search, null, tint = Otm.InkSoft, modifier = Modifier.size(20.dp)) },
-            modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp).testTag("findContact"),
-        )
-        when {
-            contacts == null -> Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(Modifier.size(22.dp), color = Otm.Slate, strokeWidth = 2.dp)
-            }
-            contacts.isEmpty() -> Text(
-                stringResource(R.string.contacts_none),
-                style = OtmType.Secondary,
-                color = Otm.InkSoft,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-            )
-            else -> {
-                val words = query.trim()
-                val shown = contacts.filter { words.isEmpty() || it.name.contains(words, ignoreCase = true) || it.phone.filter(Char::isDigit).contains(words.filter(Char::isDigit).ifEmpty { "\u0000" }) }
-                LazyColumn(Modifier.fillMaxWidth().heightIn(max = 480.dp).padding(horizontal = 8.dp)) {
-                    items(shown, key = { it.userId }) { contact ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(16.dp))
-                                .clickable(role = Role.Button) { onShare(contact) }
-                                .testTag("contact-${contact.userId}")
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        ) {
-                            ChatAvatar(contact.userId, contact.name, contact.photoFileId, contact.minithumbnail, size = 44.dp)
-                            Column(Modifier.weight(1f)) {
-                                Text(contact.name, style = OtmType.Name, color = Otm.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(contact.phone, style = OtmType.Secondary, color = Otm.InkSoft)
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -198,17 +148,15 @@ fun AttachSheet(
     onFile: () -> Unit,
     onLocation: () -> Unit,
     onVoice: () -> Unit,
-    onContact: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     OtmSheet(onDismiss, modifier) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
             AttachOption(OtmIcons.Gallery, stringResource(R.string.attach_gallery), "attachMedia", onGallery)
             AttachOption(OtmIcons.File, stringResource(R.string.attach_file), "attachFile", onFile)
             AttachOption(OtmIcons.Pin, stringResource(R.string.attach_location), "attachLocation", onLocation)
             AttachOption(OtmIcons.Mic, stringResource(R.string.attach_voice), "record", onVoice)
-            AttachOption(OtmIcons.Contact, stringResource(R.string.attach_contact), "attachContact", onContact)
         }
     }
 }

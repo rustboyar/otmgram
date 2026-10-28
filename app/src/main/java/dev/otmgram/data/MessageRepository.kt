@@ -40,11 +40,16 @@ class MessageRepository @Inject constructor(
     suspend fun searchEverywhere(query: String, offset: String): TdApi.FoundMessages =
         td.send(TdApi.SearchMessages(null, query, offset, SEARCH_PAGE, null, null, 0, 0))
 
-    /** The account's Telegram contacts who have a phone number to share, by name. */
-    suspend fun contacts(): List<TdApi.User> =
-        td.send(TdApi.GetContacts()).userIds.map { td.send(TdApi.GetUser(it)) }
-            .filter { it.phoneNumber.isNotEmpty() }
-            .sortedBy { it.fullName().lowercase() }
+    /** Sends [text] to [chatId], from outside the chat. */
+    suspend fun sendText(chatId: Long, text: String) {
+        td.send(TdApi.SendMessage(chatId, null, null, null, null, TdApi.InputMessageText(TdApi.FormattedText(text, emptyArray()), null, false)))
+    }
+
+    /** Sends [user] as a contact card to [chatId]. */
+    suspend fun sendContact(chatId: Long, user: TdApi.User) {
+        val contact = TdApi.Contact(user.phoneNumber, user.firstName, user.lastName, "", user.id)
+        td.send(TdApi.SendMessage(chatId, null, null, null, null, TdApi.InputMessageContact(contact)))
+    }
 
     /** Opens [chatId] for as long as [scope] lives; see [ChatSession]. */
     fun openChat(chatId: Long, scope: CoroutineScope): ChatSession = ChatSession(td, chatId, scope)
@@ -230,11 +235,6 @@ class ChatSession internal constructor(
     suspend fun sendSticker(sticker: Sticker) {
         val input = TdApi.InputSticker(TdApi.InputFileId(sticker.fileId), null, sticker.width, sticker.height)
         send(TdApi.InputMessageSticker(input, sticker.emoji))
-    }
-
-    /** Sends [user] as a contact card. */
-    suspend fun sendContact(user: TdApi.User) {
-        send(TdApi.InputMessageContact(TdApi.Contact(user.phoneNumber, user.firstName, user.lastName, "", user.id)))
     }
 
     suspend fun sendLocation(latitude: Double, longitude: Double, accuracy: Double) {

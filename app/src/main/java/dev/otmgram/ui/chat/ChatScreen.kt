@@ -542,15 +542,8 @@ fun ChatScreen(
                 val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
                 if (granted) viewModel.startVoice() else requestMicrophone.launch(Manifest.permission.RECORD_AUDIO)
             },
-            onContact = {
-                attaching = false
-                viewModel.chooseContact()
-            },
             onDismiss = { attaching = false },
         )
-    }
-    if (viewModel.choosingContact) {
-        ContactSheet(viewModel.contacts, onShare = viewModel::shareContact, onDismiss = viewModel::cancelContact)
     }
     if (choosingLocation) {
         LaunchedEffect(Unit) { if (hasLocationPermission(context)) viewModel.location.locate() }

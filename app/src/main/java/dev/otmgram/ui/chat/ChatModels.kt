@@ -32,9 +32,6 @@ data class ReactionChip(
     val reactors: List<MessageSender> = emptyList(),
 )
 
-/** One of the account's contacts, to share. */
-data class ShareableContact(val userId: Long, val name: String, val phone: String, val photoFileId: Int?, val minithumbnail: ByteArray?)
-
 /** Someone who reacted to a message, and with what. */
 data class Reactor(val sender: MessageSender, val emoji: String)
 
@@ -123,6 +120,4 @@ data class ForwardTarget(
     val photoFileId: Int?,
     val minithumbnail: ByteArray?,
     val isSavedMessages: Boolean,
-    /** The person's or group's profile, opened from the title; null for Saved Messages. */
-    val profile: ProfileRoute? = null,
 )
