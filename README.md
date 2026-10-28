@@ -19,7 +19,7 @@ Telegram.
 - Message text in notifications is off unless you turn it on, and never on the lock screen
 
 Not there, on purpose: other chats, channels, calls, stories, secret chats, several
-accounts, contacts, starting new chats. Changes are listed in [CHANGELOG.md](CHANGELOG.md).
+accounts, managing contacts, starting new chats. Changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
 ## Install
 

@@ -40,6 +40,12 @@ class MessageRepository @Inject constructor(
     suspend fun searchEverywhere(query: String, offset: String): TdApi.FoundMessages =
         td.send(TdApi.SearchMessages(null, query, offset, SEARCH_PAGE, null, null, 0, 0))
 
+    /** The account's Telegram contacts who have a phone number to share, by name. */
+    suspend fun contacts(): List<TdApi.User> =
+        td.send(TdApi.GetContacts()).userIds.map { td.send(TdApi.GetUser(it)) }
+            .filter { it.phoneNumber.isNotEmpty() }
+            .sortedBy { it.fullName().lowercase() }
+
     /** Opens [chatId] for as long as [scope] lives; see [ChatSession]. */
     fun openChat(chatId: Long, scope: CoroutineScope): ChatSession = ChatSession(td, chatId, scope)
 }
@@ -224,6 +230,11 @@ class ChatSession internal constructor(
     suspend fun sendSticker(sticker: Sticker) {
         val input = TdApi.InputSticker(TdApi.InputFileId(sticker.fileId), null, sticker.width, sticker.height)
         send(TdApi.InputMessageSticker(input, sticker.emoji))
+    }
+
+    /** Sends [user] as a contact card. */
+    suspend fun sendContact(user: TdApi.User) {
+        send(TdApi.InputMessageContact(TdApi.Contact(user.phoneNumber, user.firstName, user.lastName, "", user.id)))
     }
 
     suspend fun sendLocation(latitude: Double, longitude: Double, accuracy: Double) {
@@ -491,6 +502,7 @@ class ChatSession internal constructor(
             when (val content = message.content) {
                 is TdApi.MessageChatAddMembers -> content.memberUserIds.forEach { resolveUserName(it) }
                 is TdApi.MessageChatDeleteMember -> resolveUserName(content.userId)
+                is TdApi.MessageContact -> if (content.contact.userId != 0L) resolveUserName(content.contact.userId)
             }
             when (val origin = message.forwardInfo?.origin) {
                 is TdApi.MessageOriginUser -> resolveUserName(origin.senderUserId)

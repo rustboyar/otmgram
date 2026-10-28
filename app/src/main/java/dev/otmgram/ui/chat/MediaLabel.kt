@@ -17,4 +17,5 @@ fun MessageMedia.label(): String = when (this) {
     is MessageMedia.Sticker -> stringResource(R.string.summary_sticker)
     is MessageMedia.Document -> name
     is MessageMedia.Location -> stringResource(if (live != null) R.string.summary_live_location else R.string.summary_location)
+    is MessageMedia.Contact -> name.ifEmpty { stringResource(R.string.summary_contact) }
 }

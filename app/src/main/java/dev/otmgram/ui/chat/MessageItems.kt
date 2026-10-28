@@ -20,7 +20,10 @@ internal val MessageItem.hasEditableText: Boolean
 internal fun ChatHistory.toItems(isGroup: Boolean, strings: Strings): List<MessageItem> {
     val byId = messages.associateBy { it.id }
     return messages.mapIndexed { index, message ->
-        val media = message.toMedia()
+        val media = message.toMedia().let { media ->
+            // A contact's face, if they're on Telegram and it's loaded.
+            if (media is MessageMedia.Contact) senderPhotos[media.userId]?.let { media.copy(photoFileId = it.fileId, minithumbnail = it.minithumbnail) } ?: media else media
+        }
         val older = messages.getOrNull(index + 1)
         val newer = messages.getOrNull(index - 1)
         val fromOthers = isGroup && !message.isOutgoing && !message.isService

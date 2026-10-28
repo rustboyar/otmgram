@@ -7,7 +7,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.aspectRatio
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
@@ -42,6 +45,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.otmgram.R
 import dev.otmgram.core.media.AudioState
@@ -53,6 +57,7 @@ import dev.otmgram.ui.media.TdImage
 import dev.otmgram.ui.media.rememberDownloadedPath
 import dev.otmgram.ui.media.rememberFileState
 import dev.otmgram.ui.media.rememberOnDemandFile
+import dev.otmgram.ui.theme.ChatAvatar
 import dev.otmgram.ui.theme.Otm
 import dev.otmgram.ui.theme.OtmIcons
 import dev.otmgram.ui.theme.OtmType
@@ -108,6 +113,29 @@ fun MediaContent(
             is MessageMedia.Sticker -> StickerView(media, Modifier.size(STICKER_SIZE).semantics { contentDescription = description }.testTag("sticker-${media.kind}"))
             is MessageMedia.Location -> LocationPreview(media, outgoing, onOpen, onLongClick)
             is MessageMedia.Document -> DocumentContent(media, onLongClick, onCancelUpload)
+            is MessageMedia.Contact -> ContactCard(media, outgoing, onOpen, onLongClick)
+        }
+    }
+}
+
+/** A contact: their face, name and phone; a tap opens their profile if they're on Telegram. */
+@Composable
+private fun ContactCard(media: MessageMedia.Contact, outgoing: Boolean, onOpen: () -> Unit, onLongClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .widthIn(min = 200.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (outgoing) Otm.ApricotQuote else Otm.Paper)
+            .combinedClickable(enabled = true, onClick = { if (media.userId != 0L) onOpen() }, onLongClick = onLongClick)
+            .testTag("contact")
+            .padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        ChatAvatar(media.userId, media.name, media.photoFileId, media.minithumbnail, size = 44.dp)
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(media.name.ifEmpty { stringResource(R.string.summary_contact) }, style = OtmType.Name, color = Otm.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (media.phone.isNotEmpty()) Text(media.phone, style = OtmType.Secondary, color = Otm.InkSoft)
         }
     }
 }

@@ -36,6 +36,7 @@ import dev.otmgram.data.SendQuality
 import dev.otmgram.data.SenderPhoto
 import dev.otmgram.data.Sticker
 import dev.otmgram.data.StickerRepository
+import dev.otmgram.data.fullName
 import dev.otmgram.data.isGroup
 import dev.otmgram.data.isSavedMessages
 import dev.otmgram.data.isService
@@ -71,7 +72,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val savedState: SavedStateHandle,
-    messageRepository: MessageRepository,
+    private val messageRepository: MessageRepository,
     private val chats: ChatRepository,
     private val folders: FolderRepository,
     private val stickerRepository: StickerRepository,
@@ -466,6 +467,37 @@ class ChatViewModel @Inject constructor(
     fun jumpTo(messageId: Long) {
         flashOnArrival = messageId
         show(messageId)
+    }
+
+    /** The contacts to share one of, while choosing; empty list if none, null while loading. */
+    var contacts by mutableStateOf<List<ShareableContact>?>(null)
+        private set
+
+    var choosingContact by mutableStateOf(false)
+        private set
+
+    private var contactUsers = emptyMap<Long, TdApi.User>()
+
+    fun chooseContact() {
+        choosingContact = true
+        contacts = null
+        action(onFailure = { choosingContact = false }) {
+            val users = messageRepository.contacts()
+            contactUsers = users.associateBy { it.id }
+            contacts = users.map { user ->
+                ShareableContact(user.id, user.fullName(), "+${user.phoneNumber}", user.profilePhoto?.small?.id, user.profilePhoto?.minithumbnail?.data)
+            }
+        }
+    }
+
+    fun cancelContact() {
+        choosingContact = false
+    }
+
+    fun shareContact(contact: ShareableContact) {
+        choosingContact = false
+        val user = contactUsers[contact.userId] ?: return
+        lasting.launchLogged(TAG, onError = ::showError) { session.sendContact(user) }
     }
 
     /** Messages scheduled in this chat, the soonest first. */

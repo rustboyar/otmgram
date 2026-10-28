@@ -64,6 +64,10 @@
     <string name="attach_file">File</string>
     <string name="attach_location">Location</string>
     <string name="attach_voice">Voice</string>
+    <string name="attach_contact">Contact</string>
+    <string name="contacts_title">Share a contact</string>
+    <string name="contacts_find">Find a contact</string>
+    <string name="contacts_none">No contacts to share. Contacts are added in Telegram\'s own apps.</string>
     <string name="location_send_current">Send my current location</string>
     <string name="location_accuracy">Accurate to %1$d m</string>
     <string name="location_once">Once, as it is now</string>

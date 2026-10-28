@@ -35,6 +35,7 @@ fun TdApi.MessageContent.summary(strings: Strings): String {
         is TdApi.MessageLocation -> kind(R.string.summary_location)
         is TdApi.MessageLiveLocation -> kind(R.string.summary_live_location)
         is TdApi.MessageCall -> kind(R.string.summary_call)
+        is TdApi.MessageContact -> listOf(contact.firstName, contact.lastName).filter { it.isNotEmpty() }.joinToString(" ").ifEmpty { kind(R.string.summary_contact) }
         is TdApi.MessageBasicGroupChatCreate, is TdApi.MessageSupergroupChatCreate -> kind(R.string.summary_group_created)
         is TdApi.MessageChatAddMembers, is TdApi.MessageChatJoinByLink -> kind(R.string.summary_joined_group)
         is TdApi.MessageChatDeleteMember -> kind(R.string.summary_left_group)

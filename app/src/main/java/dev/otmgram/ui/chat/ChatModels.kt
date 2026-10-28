@@ -32,6 +32,9 @@ data class ReactionChip(
     val reactors: List<MessageSender> = emptyList(),
 )
 
+/** One of the account's contacts, to share. */
+data class ShareableContact(val userId: Long, val name: String, val phone: String, val photoFileId: Int?, val minithumbnail: ByteArray?)
+
 /** Someone who reacted to a message, and with what. */
 data class Reactor(val sender: MessageSender, val emoji: String)
 

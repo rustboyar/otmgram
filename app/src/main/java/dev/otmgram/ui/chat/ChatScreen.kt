@@ -344,10 +344,10 @@ fun ChatScreen(
                                         },
                                         onReactionClick = { viewModel.toggleReaction(message, it) },
                                         onOpenMedia = {
-                                            if (message.media is MessageMedia.Location) {
-                                                onOpenMap(viewModel.chatId, message.id)
-                                            } else {
-                                                onOpenMedia(viewModel.chatId, message.id)
+                                            when (val media = message.media) {
+                                                is MessageMedia.Location -> onOpenMap(viewModel.chatId, message.id)
+                                                is MessageMedia.Contact -> onOpenProfile(ProfileRoute(userId = media.userId))
+                                                else -> onOpenMedia(viewModel.chatId, message.id)
                                             }
                                         },
                                         onPlayVoice = { fileId, path -> viewModel.playVoice(message, fileId, path) },
@@ -542,8 +542,15 @@ fun ChatScreen(
                 val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
                 if (granted) viewModel.startVoice() else requestMicrophone.launch(Manifest.permission.RECORD_AUDIO)
             },
+            onContact = {
+                attaching = false
+                viewModel.chooseContact()
+            },
             onDismiss = { attaching = false },
         )
+    }
+    if (viewModel.choosingContact) {
+        ContactSheet(viewModel.contacts, onShare = viewModel::shareContact, onDismiss = viewModel::cancelContact)
     }
     if (choosingLocation) {
         LaunchedEffect(Unit) { if (hasLocationPermission(context)) viewModel.location.locate() }

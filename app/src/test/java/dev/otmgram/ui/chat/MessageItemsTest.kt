@@ -1,6 +1,7 @@
 package dev.otmgram.ui.chat
 
 import dev.otmgram.data.ChatHistory
+import dev.otmgram.data.SenderPhoto
 import dev.otmgram.testing.NOON_2026_10_23
 import dev.otmgram.testing.TestStrings
 import dev.otmgram.testing.message
@@ -149,6 +150,17 @@ class MessageItemsTest {
         val chips = history(message(1, reactions = reactions)).toItems(isGroup = true, TestStrings).single().reactions
         assertEquals(listOf("Anna", "Lea"), chips[0].reactors.map { it.name })
         assertTrue(chips[1].reactors.isEmpty())
+    }
+
+    @Test
+    fun `a contact shows its name, phone and, on Telegram, face`() {
+        val contact = TdApi.MessageContact(TdApi.Contact("491512345678", "Anna", "Smith", "", 2))
+        val history = ChatHistory(
+            messages = listOf(message(1, content = contact)),
+            senderNames = mapOf(2L to "Anna Smith"),
+            senderPhotos = mapOf(2L to SenderPhoto(7, null)),
+        )
+        assertEquals(MessageMedia.Contact(2, "Anna Smith", "+491512345678", photoFileId = 7), history.toItems(isGroup = false, TestStrings).single().media)
     }
 
     @Test

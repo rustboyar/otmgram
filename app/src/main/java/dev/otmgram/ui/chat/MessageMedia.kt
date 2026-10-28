@@ -63,6 +63,9 @@ sealed interface MessageMedia {
     /** A point; [live] is set for live locations. */
     data class Location(val latitude: Double, val longitude: Double, val live: LiveInfo?) : MessageMedia
 
+    /** A person's card: their name and phone; [userId] 0 if they aren't on Telegram. */
+    data class Contact(val userId: Long, val name: String, val phone: String, val photoFileId: Int? = null, val minithumbnail: ByteArray? = null) : MessageMedia
+
     /** Unix times; [expiresAt] is [Int.MAX_VALUE] for locations shared until stopped. */
     data class LiveInfo(val updatedAt: Int, val expiresAt: Int)
 }
@@ -110,6 +113,11 @@ fun TdApi.MessageContent.toMedia(): MessageMedia? = when (this) {
     )
     is TdApi.MessageSticker -> sticker.toSticker().toMedia()
     is TdApi.MessageLocation -> MessageMedia.Location(location.latitude, location.longitude, live = null)
+    is TdApi.MessageContact -> MessageMedia.Contact(
+        contact.userId,
+        listOf(contact.firstName, contact.lastName).filter { it.isNotEmpty() }.joinToString(" "),
+        contact.phoneNumber.let { if (it.isEmpty() || it.startsWith("+")) it else "+$it" },
+    )
     is TdApi.MessageDocument -> MessageMedia.Document(
         document.document.id, document.fileName.ifEmpty { "File" }, document.document.size, document.mimeType,
     )

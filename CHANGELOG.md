@@ -8,6 +8,7 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 ### Added
 - Who reacted: up to three show by face on the reaction, and the message's menu lists everyone who reacted, with their reaction
 - While scrolling a chat, the day of the messages at the top floats above them
+- Share a contact: 📎 → Contact lists your Telegram contacts to pick from; a contact received shows as a card, opening their profile
 
 ### Changed
 - A tap on a message opens its menu, and a long press selects it
