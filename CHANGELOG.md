@@ -8,6 +8,9 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 ### Added
 - Profiles show what was shared in the chat with the person, or in the group: Media, Files, Links and Voice (voice messages and round videos), a tab each with how many; a group's members are a tab too. Photos and videos open full screen, files download and open, links open (YouTube, Instagram and TikTok in the app), voice messages play in place; a long press shows it in the chat
 
+### Changed
+- A tap anywhere along a message's row, beside the bubble too, opens its menu, and a long press there selects it: easier with photos and short messages
+
 ## 0.6.3 - 2026-10-28
 
 ### Changed

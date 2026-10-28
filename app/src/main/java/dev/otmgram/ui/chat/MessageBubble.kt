@@ -157,7 +157,15 @@ fun MessageBubble(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(if (selected || selectedBand.alpha > 0f) selectedBand else flash)
-                .then(if (selecting) Modifier.toggleable(value = selected, onValueChange = { onToggleSelected() }, role = Role.Checkbox) else Modifier)
+                // The whole row, beside the bubble too, is the message: easier to hit than a small
+                // bubble. What's inside (the bubble, a sender's picture) handles its own taps first.
+                .then(
+                    if (selecting) {
+                        Modifier.toggleable(value = selected, onValueChange = { onToggleSelected() }, role = Role.Checkbox)
+                    } else {
+                        Modifier.combinedClickable(interactionSource = null, indication = null, onLongClick = onLongClick, onClick = onClick)
+                    },
+                )
                 .padding(horizontal = 12.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
