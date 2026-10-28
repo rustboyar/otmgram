@@ -5,6 +5,8 @@ MAJOR.MINOR.PATCH; while the first number is 0, anything may still change.
 
 ## Unreleased
 
+## 0.5.0 - 2026-10-28
+
 ### Added
 - Who reacted: up to three show by face on the reaction, and the message's menu lists everyone who reacted, with their reaction
 - While scrolling a chat, the day of the messages at the top floats above them
